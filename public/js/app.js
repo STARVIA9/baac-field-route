@@ -160,7 +160,16 @@ const App = {
     // Default to BAAC Wang Tha Chang or prefilled
     const lat = prefillLat || 13.7563;
     const lng = prefillLng || 100.5018;
-    this._miniMap = L.map('mini-map', { zoomControl: true }).setView([lat, lng], 14);
+    this._miniMap = L.map('mini-map', {
+      zoomControl: true,
+      // Mobile fix: explicit touch gestures
+      tap: true,
+      bounceAtZoomLimits: false,
+      // iOS Safari sometimes needs this
+      worldCopyJump: false,
+      // Use CSS-driven sizing (important for invalidateSize)
+      preferCanvas: false,
+    }).setView([lat, lng], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OSM',
       maxZoom: 19,
@@ -171,8 +180,12 @@ const App = {
       this.setMiniMapLocation(e.latlng.lat, e.latlng.lng);
     });
 
+    // Mobile: disable text selection while dragging
+    this._miniMap.getContainer().style.webkitUserSelect = 'none';
+    this._miniMap.getContainer().style.userSelect = 'none';
+
     // If prefilled, add marker immediately
-    if (prefillLat !== undefined) {
+    if (prefillLat !== undefined && prefillLng !== undefined) {
       this.setMiniMapLocation(prefillLat, prefillLng);
     }
 

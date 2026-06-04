@@ -623,6 +623,8 @@ body {
   justify-content: center;
   padding: 0;
   animation: fadeIn 0.2s ease;
+  /* Allow modal-card scroll to drive its own scroll, not body */
+  overscroll-behavior: contain;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal-card {
@@ -632,9 +634,17 @@ body {
   max-height: 90vh;
   border-radius: 20px 20px 0 0;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  /* Fix Leaflet drag/scroll on mobile:
+     -webkit-overflow-scrolling: touch → smooth inertia scroll
+     overflow-scrolling: touch         → Firefox
+     touch-action: pan-y               → let user pan modal vertically
+     The mini-map will have touch-action: none to override for itself */
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
+  touch-action: pan-y;
+  /* NOTE: Removed animation: slideUp — translateY(100%) breaks Leaflet
+     coordinate calculations on iOS. Use simple opacity fade on .modal only. */
 }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .modal-header {
   display: flex;
   align-items: center;
@@ -690,11 +700,26 @@ form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
   overflow: hidden;
   border: 2px solid var(--baac-green);
   background: var(--bg);
+  /* Mobile Leaflet fix: don't let modal touch-action override map gestures */
+  touch-action: none;
 }
 #mini-map {
   width: 100%;
   height: 220px;
   cursor: crosshair;
+  /* Re-assert: this element gets all touch events for pan/zoom */
+  touch-action: none;
+}
+/* Leaflet internally needs these too */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg,
+.leaflet-pane > canvas {
+  touch-action: none;
 }
 .mini-map-hint {
   position: absolute;
