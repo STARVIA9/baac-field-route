@@ -24,6 +24,7 @@ async function authCheck(request, env) {
 }
 
 // Merge two arrays by id, keeping the newer updatedAt
+// Supports soft delete: if either side has deleted=true, honor the newer one
 function mergeById(existing, incoming) {
   const byId = new Map();
   for (const c of existing) {
@@ -31,10 +32,21 @@ function mergeById(existing, incoming) {
   }
   for (const c of incoming) {
     if (!c.id) continue;
+    if (c.deleted) {
+      // Incoming says deleted — always accept (propagate delete)
+      byId.set(c.id, c);
+      continue;
+    }
     const old = byId.get(c.id);
     if (!old) {
-      byId.set(c.id, c);
+      byId.set(c.id, c);  // new from incoming
+    } else if (old.deleted) {
+      // Existing is deleted but incoming isn't — keep deleted if existing is newer
+      const oldTime = new Date(old.updatedAt || 0).getTime();
+      const newTime = new Date(c.updatedAt || 0).getTime();
+      byId.set(c.id, newTime >= oldTime ? c : old);
     } else {
+      // Normal merge by updatedAt
       const oldTime = new Date(old.updatedAt || old.createdAt || 0).getTime();
       const newTime = new Date(c.updatedAt || c.createdAt || 0).getTime();
       byId.set(c.id, newTime >= oldTime ? c : old);
