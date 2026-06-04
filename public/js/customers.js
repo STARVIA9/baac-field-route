@@ -17,6 +17,18 @@ const Customers = {
 
     // Map click to add customer
     this.map.on('click', (e) => {
+      // Pick mode: re-open modal with prefilled lat/lng
+      if (window._pickMode) {
+        window._pickMode = false;
+        // Pre-fill draft if any
+        const draft = sessionStorage.getItem('add-customer-draft');
+        const draftData = draft ? JSON.parse(draft) : {};
+        draftData.lat = e.latlng.lat.toFixed(6);
+        draftData.lng = e.latlng.lng.toFixed(6);
+        sessionStorage.setItem('add-customer-draft', JSON.stringify(draftData));
+        App.restoreAddCustomerModal();
+        return;
+      }
       document.getElementById('new-lat').value = e.latlng.lat.toFixed(6);
       document.getElementById('new-lng').value = e.latlng.lng.toFixed(6);
       App.openAddCustomerModal();
@@ -24,7 +36,7 @@ const Customers = {
   },
 
   // Render all markers on map
-  renderMarkers() {
+  renderMarkers(routeOrder) {
     if (!this.map) return;
     // Clear existing
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
@@ -32,11 +44,17 @@ const Customers = {
 
     const customers = Storage.getCustomers();
     const visits = Storage.getVisits();
+    // Build order map: id -> order number (1-based)
+    const orderMap = {};
+    if (routeOrder && routeOrder.length) {
+      routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
+    }
     customers.forEach((c, idx) => {
       const visited = !!visits[c.id];
+      const orderNum = orderMap[c.id] || (idx + 1);
       const icon = L.divIcon({
         className: '',
-        html: `<div class="customer-marker ${visited ? 'visited' : ''}">${idx + 1}</div>`,
+        html: `<div class="customer-marker ${visited ? 'visited' : ''}">${orderNum}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       });
@@ -167,8 +185,8 @@ const Customers = {
   },
 
   // Render everything
-  renderAll() {
-    this.renderMarkers();
+  renderAll(routeOrder) {
+    this.renderMarkers(routeOrder);
     this.renderList();
   },
 

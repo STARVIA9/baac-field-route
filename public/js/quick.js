@@ -110,19 +110,64 @@ const Quick = {
       return;
     }
 
-    el.innerHTML = this.selected.map(id => {
+    el.innerHTML = this.selected.map((id, idx) => {
       const c = customers.find(x => x.id === id);
       if (!c) return '';
+      const isFirst = idx === 0;
+      const isLast = idx === this.selected.length - 1;
       return `
-        <span class="quick-chip">
+        <span class="quick-chip" draggable="true" data-id="${c.id}" data-idx="${idx}"
+              ondragstart="Quick.dragStart(event, ${idx})"
+              ondragover="Quick.dragOver(event)"
+              ondrop="Quick.drop(event, ${idx})"
+              ondragend="Quick.dragEnd(event)">
+          <span class="quick-chip-num">${idx + 1}</span>
           <span class="quick-chip-cif">${this.escapeHTML(c.cif || '-')}</span>
           ${this.escapeHTML(c.name)}
+          <span class="quick-chip-order">
+            <button onclick="Quick.move(${idx}, -1)" ${isFirst ? 'disabled' : ''} title="เลื่อนขึ้น">▲</button>
+            <button onclick="Quick.move(${idx}, 1)" ${isLast ? 'disabled' : ''} title="เลื่อนลง">▼</button>
+          </span>
           <button class="quick-chip-remove" onclick="Quick.toggle('${c.id}')" title="เอาออก">×</button>
         </span>
       `;
     }).join('');
 
     document.getElementById('btn-quick-route').disabled = false;
+  },
+
+  // Move item up/down
+  move(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= this.selected.length) return;
+    [this.selected[idx], this.selected[newIdx]] = [this.selected[newIdx], this.selected[idx]];
+    this.renderSelected();
+    // Re-search to refresh button states
+    const search = document.getElementById('quick-search');
+    if (search.value) this.search(search.value);
+  },
+
+  // Drag & drop reordering
+  dragStart(e, idx) {
+    e.dataTransfer.setData('text/plain', idx.toString());
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.classList.add('dragging');
+  },
+  dragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  },
+  drop(e, targetIdx) {
+    e.preventDefault();
+    const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (fromIdx === targetIdx) return;
+    [this.selected[fromIdx], this.selected[targetIdx]] = [this.selected[targetIdx], this.selected[fromIdx]];
+    this.renderSelected();
+    const search = document.getElementById('quick-search');
+    if (search.value) this.search(search.value);
+  },
+  dragEnd(e) {
+    e.target.classList.remove('dragging');
   },
 
   // Calculate route from selected

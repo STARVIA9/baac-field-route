@@ -133,7 +133,12 @@ const Route = {
         weight: 5,
         opacity: 0.8,
       }).addTo(Customers.map);
+      // Re-render markers with route order numbers
+      Customers.renderMarkers(result.order);
       Customers.map.fitBounds(this.routeLine.getBounds(), { padding: [50, 50] });
+    } else {
+      // Fallback: still show order numbers
+      Customers.renderMarkers(result.order);
     }
   },
 

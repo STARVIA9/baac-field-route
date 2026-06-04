@@ -237,14 +237,21 @@
           <label>ที่อยู่</label>
           <textarea name="address" rows="2" placeholder="เลขที่ หมู่ ตำบล อำเภอ จังหวัด"></textarea>
         </div>
+        <div class="form-row">
+          <label>📍 ตำแหน่งบนแผนที่ * <span class="label-hint">(จิ้ม/คลิกที่แผนที่ด้านล่าง)</span></label>
+          <div class="mini-map-container">
+            <div id="mini-map"></div>
+            <div class="mini-map-hint">👆 จิ้มที่แผนที่เพื่อเลือกตำแหน่ง</div>
+          </div>
+        </div>
         <div class="form-row form-row-2">
           <div>
-            <label>Latitude *</label>
-            <input type="text" name="lat" id="new-lat" required inputmode="decimal" placeholder="13.7563">
+            <label>Latitude</label>
+            <input type="text" name="lat" id="new-lat" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
           </div>
           <div>
-            <label>Longitude *</label>
-            <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="100.5018">
+            <label>Longitude</label>
+            <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
           </div>
         </div>
         <div class="form-row">
@@ -252,7 +259,8 @@
           <input type="text" name="note" placeholder="เช่น ลูกค้าเก่า/ใหม่, ต้องติดตาม">
         </div>
         <div class="form-actions">
-          <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ตำแหน่งปัจจุบัน</button>
+          <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ GPS ปัจจุบัน</button>
+          <button type="button" class="btn-secondary" id="btn-pick-on-main-map">🗺️ ไปเลือกบนแผนที่หลัก</button>
           <button type="submit" class="btn-primary">💾 บันทึก</button>
         </div>
       </form>

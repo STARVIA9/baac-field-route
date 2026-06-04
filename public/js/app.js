@@ -90,6 +90,10 @@ const App = {
     // GPS button
     document.getElementById('btn-use-gps').addEventListener('click', () => this.useGPS(true));
 
+    // Pick on main map
+    const pickBtn = document.getElementById('btn-pick-on-main-map');
+    if (pickBtn) pickBtn.addEventListener('click', () => this.pickOnMainMap());
+
     // Add customer form
     document.getElementById('add-customer-form').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -139,6 +143,100 @@ const App = {
     document.getElementById('add-customer-modal').classList.remove('hidden');
     document.getElementById('add-customer-form').dataset.editId = '';
     document.getElementById('add-customer-form').reset();
+    // Init mini-map after modal visible
+    setTimeout(() => this.initMiniMap(), 100);
+  },
+
+  // Init mini-map in add customer modal
+  initMiniMap(prefillLat, prefillLng) {
+    const container = document.getElementById('mini-map');
+    if (!container) return;
+    // Remove existing if any
+    if (this._miniMap) {
+      this._miniMap.remove();
+      this._miniMap = null;
+      this._miniMarker = null;
+    }
+    // Default to BAAC Wang Tha Chang or prefilled
+    const lat = prefillLat || 13.7563;
+    const lng = prefillLng || 100.5018;
+    this._miniMap = L.map('mini-map', { zoomControl: true }).setView([lat, lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM',
+      maxZoom: 19,
+    }).addTo(this._miniMap);
+
+    // Click to set location
+    this._miniMap.on('click', (e) => {
+      this.setMiniMapLocation(e.latlng.lat, e.latlng.lng);
+    });
+
+    // If prefilled, add marker immediately
+    if (prefillLat !== undefined) {
+      this.setMiniMapLocation(prefillLat, prefillLng);
+    }
+
+    // Force size recalc (modal may have just shown)
+    setTimeout(() => this._miniMap.invalidateSize(), 200);
+  },
+
+  // Set location on mini-map (add/move marker)
+  setMiniMapLocation(lat, lng) {
+    document.getElementById('new-lat').value = lat.toFixed(6);
+    document.getElementById('new-lng').value = lng.toFixed(6);
+    if (this._miniMarker) {
+      this._miniMarker.setLatLng([lat, lng]);
+    } else {
+      this._miniMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="mini-map-pin">📍</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+        }),
+      }).addTo(this._miniMap);
+    }
+    this._miniMap.panTo([lat, lng]);
+  },
+
+  // Pick location on main map (close modal temporarily)
+  pickOnMainMap() {
+    // Save form data
+    const form = document.getElementById('add-customer-form');
+    const draft = Object.fromEntries(new FormData(form));
+    sessionStorage.setItem('add-customer-draft', JSON.stringify(draft));
+    this.closeAddCustomerModal();
+    // Switch to map tab
+    this.switchTab('map');
+    Utils.toast('🗺️ คลิกบนแผนที่หลักเพื่อเลือกตำแหน่ง → กด "กลับมาเพิ่มลูกค้า"');
+    // Set flag to re-open modal on next map click
+    window._pickMode = true;
+  },
+
+  // Restore draft and re-open modal
+  restoreAddCustomerModal() {
+    const draft = sessionStorage.getItem('add-customer-draft');
+    if (!draft) {
+      this.openAddCustomerModal();
+      return;
+    }
+    const data = JSON.parse(draft);
+    const form = document.getElementById('add-customer-form');
+    Object.entries(data).forEach(([k, v]) => {
+      const el = form.elements[k];
+      if (el) el.value = v;
+    });
+    document.getElementById('add-customer-modal').classList.remove('hidden');
+    sessionStorage.removeItem('add-customer-draft');
+    setTimeout(() => {
+      const lat = parseFloat(data.lat);
+      const lng = parseFloat(data.lng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        this.initMiniMap(lat, lng);
+      } else {
+        this.initMiniMap();
+      }
+    }, 100);
   },
 
   closeAddCustomerModal() {
