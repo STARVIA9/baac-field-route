@@ -1,0 +1,12 @@
+name = "baac-field-route"
+compatibility_date = "2024-11-01"
+
+[build]
+command = ""
+
+[[kv_namespaces]]
+binding = "BFR_KV"
+id = "REPLACE_WITH_REAL_KV_ID"
+
+# JWT secret — set in Cloudflare Pages dashboard (BFR_JWT_SECRET)
+# Use a long random string (≥32 chars)

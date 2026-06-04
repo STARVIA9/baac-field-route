@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a8f3c">
+  <title>BAAC Field Route · วางแผนเส้นทางอัจฉริยะ</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/app.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">🗺️</div>
+      <h1>BAAC Field Route</h1>
+      <p class="login-sub">วางแผนเส้นทางอัจฉริยะสำหรับพนักงานสินเชื่อ</p>
+      <form id="login-form" autocomplete="off">
+        <label for="pin-input">กรอก PIN 4 หลัก</label>
+        <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
+        <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
+        <p class="login-error" id="login-error"></p>
+      </form>
+      <div class="login-hint">PIN เริ่มต้น: <code>0000</code> (Admin) หรือ <code>1001-1004</code> (ทีม)</div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="app hidden">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-logo">
+        <span class="logo-icon">🗺️</span>
+        <span class="logo-text">BAAC Field Route</span>
+      </div>
+      <div class="app-user">
+        <span id="user-name">กำลังโหลด...</span>
+        <button class="btn-icon" id="logout-btn" title="ออกจากระบบ">⎋</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="app-tabs">
+      <button class="tab active" data-tab="map">🗺️ แผนที่</button>
+      <button class="tab" data-tab="customers">👥 ลูกค้า</button>
+      <button class="tab" data-tab="route">🧭 เส้นทาง</button>
+      <button class="tab" data-tab="visit">📋 เข้าพบ</button>
+    </nav>
+
+    <!-- Map Tab -->
+    <section class="tab-pane active" id="tab-map">
+      <div id="map"></div>
+      <div class="map-fab">
+        <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
+        <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน">📍</button>
+      </div>
+    </section>
+
+    <!-- Customers Tab -->
+    <section class="tab-pane" id="tab-customers">
+      <div class="customers-header">
+        <h2>👥 รายชื่อลูกค้า</h2>
+        <div class="customers-stats">
+          <span id="customer-count">0</span> คน
+        </div>
+      </div>
+      <div class="customers-filters">
+        <button class="filter active" data-filter="all">ทั้งหมด</button>
+        <button class="filter" data-filter="today">วันนี้</button>
+        <button class="filter" data-filter="pending">รอเยี่ยม</button>
+        <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
+      </div>
+      <div class="customers-list" id="customers-list">
+        <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
+      </div>
+    </section>
+
+    <!-- Route Tab -->
+    <section class="tab-pane" id="tab-route">
+      <div class="route-header">
+        <h2>🧭 วางแผนเส้นทาง</h2>
+        <p class="route-desc">เลือกลูกค้าที่ต้องการไปเยี่ยมวันนี้ → กด <strong>"คำนวณเส้นทาง"</strong></p>
+      </div>
+
+      <div class="route-start">
+        <label>📍 จุดเริ่มต้น</label>
+        <select id="route-start-mode">
+          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+          <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
+          <option value="custom">✏️ กรอกเอง</option>
+        </select>
+        <div class="custom-start hidden" id="custom-start">
+          <input type="text" id="start-lat" placeholder="Latitude" inputmode="decimal">
+          <input type="text" id="start-lng" placeholder="Longitude" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="route-customers" id="route-customers">
+        <p class="empty-state">เลือกลูกค้าจากแท็บ "ลูกค้า" → กด "เพิ่มในเส้นทางวันนี้"</p>
+      </div>
+
+      <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
+        🧮 คำนวณเส้นทาง
+      </button>
+
+      <div class="route-result hidden" id="route-result">
+        <div class="result-card">
+          <h3>📊 สรุปเส้นทาง</h3>
+          <div class="result-stats">
+            <div class="stat">
+              <span class="stat-value" id="result-distance">0</span>
+              <span class="stat-label">กิโลเมตร</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="result-duration">0</span>
+              <span class="stat-label">นาที</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="result-stops">0</span>
+              <span class="stat-label">จุดแวะ</span>
+            </div>
+          </div>
+        </div>
+
+        <ol class="route-order" id="route-order"></ol>
+
+        <div class="route-actions">
+          <button class="btn-primary btn-large" id="btn-open-gmaps">
+            📤 เปิด Google Maps นำทาง
+          </button>
+          <button class="btn-secondary" id="btn-save-route">
+            💾 บันทึกเส้นทางนี้
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visit Tab -->
+    <section class="tab-pane" id="tab-visit">
+      <div class="visit-header">
+        <h2>📋 บันทึกการเข้าพบ</h2>
+        <p class="visit-desc">บันทึกผลการเยี่ยมลูกค้าวันนี้</p>
+      </div>
+      <div class="visit-stats">
+        <div class="visit-stat visit-stat-pending">
+          <span class="visit-stat-num" id="visit-pending">0</span>
+          <span class="visit-stat-label">รอเยี่ยม</span>
+        </div>
+        <div class="visit-stat visit-stat-visited">
+          <span class="visit-stat-num" id="visit-completed">0</span>
+          <span class="visit-stat-label">เยี่ยมแล้ว</span>
+        </div>
+        <div class="visit-stat visit-stat-skipped">
+          <span class="visit-stat-num" id="visit-skipped">0</span>
+          <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
+        </div>
+      </div>
+      <div class="visit-list" id="visit-list">
+        <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Add Customer Modal -->
+  <div class="modal hidden" id="add-customer-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>➕ เพิ่มลูกค้าใหม่</h3>
+        <button class="btn-close" id="close-add-modal">×</button>
+      </div>
+      <form id="add-customer-form">
+        <div class="form-row">
+          <label>ชื่อ-นามสกุล *</label>
+          <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
+        </div>
+        <div class="form-row">
+          <label>เบอร์โทรศัพท์</label>
+          <input type="tel" name="phone" placeholder="0812345678">
+        </div>
+        <div class="form-row">
+          <label>ที่อยู่</label>
+          <textarea name="address" rows="2" placeholder="เลขที่ หมู่ ตำบล อำเภอ จังหวัด"></textarea>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label>Latitude *</label>
+            <input type="text" name="lat" id="new-lat" required inputmode="decimal" placeholder="13.7563">
+          </div>
+          <div>
+            <label>Longitude *</label>
+            <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="100.5018">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>หมายเหตุ</label>
+          <input type="text" name="note" placeholder="เช่น ลูกค้าเก่า/ใหม่, ต้องติดตาม">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ตำแหน่งปัจจุบัน</button>
+          <button type="submit" class="btn-primary">💾 บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Visit Log Modal -->
+  <div class="modal hidden" id="visit-log-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="visit-modal-title">📋 บันทึกการเข้าพบ</h3>
+        <button class="btn-close" id="close-visit-modal">×</button>
+      </div>
+      <form id="visit-log-form">
+        <div class="form-row">
+          <label>ผลการเข้าพบ *</label>
+          <select name="status" required>
+            <option value="visited">✅ เยี่ยมสำเร็จ - พบลูกค้า</option>
+            <option value="no_answer">❌ ไม่พบลูกค้า</option>
+            <option value="not_home">🚪 ไม่อยู่บ้าน</option>
+            <option value="reschedule">📅 นัดใหม่</option>
+            <option value="interested">💚 ลูกค้าสนใจ</option>
+            <option value="not_interested">🚫 ไม่สนใจ</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>หมายเหตุ</label>
+          <textarea name="note" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-cancel-visit">ยกเลิก</button>
+          <button type="submit" class="btn-primary">💾 บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/customers.js"></script>
+  <script src="js/tsp.js"></script>
+  <script src="js/route.js"></script>
+  <script src="js/visit.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

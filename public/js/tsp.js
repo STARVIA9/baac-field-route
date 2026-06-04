@@ -1,0 +1,94 @@
+// ===== TSP (Travelling Salesman) — nearest-neighbor algorithm =====
+
+const TSP = {
+  // Nearest-neighbor TSP heuristic
+  // Returns: ordered list of customer IDs (best route from start)
+  nearestNeighbor(start, customers) {
+    if (customers.length === 0) return [];
+    if (customers.length === 1) return [customers[0].id];
+
+    const remaining = [...customers];
+    const order = [];
+    let current = { lat: start.lat, lng: start.lng, id: 'start' };
+
+    while (remaining.length > 0) {
+      let nearestIdx = 0;
+      let nearestDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const d = Utils.haversine(current.lat, current.lng, remaining[i].lat, remaining[i].lng);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestIdx = i;
+        }
+      }
+      const next = remaining.splice(nearestIdx, 1)[0];
+      order.push({ id: next.id, dist: nearestDist });
+      current = next;
+    }
+
+    return order.map(o => o.id);
+  },
+
+  // 2-opt improvement (swap to reduce total distance)
+  twoOpt(route, start) {
+    if (route.length < 3) return route;
+    const customers = Storage.getCustomers();
+    const custMap = new Map(customers.map(c => [c.id, c]));
+
+    function totalDistance(order) {
+      let total = 0;
+      let prev = { lat: start.lat, lng: start.lng };
+      for (const id of order) {
+        const c = custMap.get(id);
+        if (!c) continue;
+        total += Utils.haversine(prev.lat, prev.lng, c.lat, c.lng);
+        prev = c;
+      }
+      return total;
+    }
+
+    let best = [...route];
+    let bestDist = totalDistance(best);
+    let improved = true;
+    let iter = 0;
+    const maxIter = 50;
+
+    while (improved && iter < maxIter) {
+      improved = false;
+      iter++;
+      for (let i = 0; i < best.length - 1; i++) {
+        for (let j = i + 1; j < best.length; j++) {
+          const newRoute = [
+            ...best.slice(0, i),
+            ...best.slice(i, j + 1).reverse(),
+            ...best.slice(j + 1),
+          ];
+          const newDist = totalDistance(newRoute);
+          if (newDist < bestDist * 0.999) {
+            best = newRoute;
+            bestDist = newDist;
+            improved = true;
+          }
+        }
+      }
+    }
+    return best;
+  },
+
+  // Plan route: nearest-neighbor + 2-opt
+  plan(start, customerIds) {
+    const allCustomers = Storage.getCustomers();
+    const selectedCustomers = customerIds
+      .map(id => allCustomers.find(c => c.id === id))
+      .filter(Boolean);
+    if (selectedCustomers.length === 0) return [];
+
+    // Step 1: nearest-neighbor
+    const nnOrder = this.nearestNeighbor(start, selectedCustomers);
+    // Step 2: improve with 2-opt
+    const optimized = this.twoOpt(nnOrder, start);
+    return optimized;
+  },
+};
+
+window.TSP = TSP;
