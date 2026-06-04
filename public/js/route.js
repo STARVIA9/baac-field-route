@@ -161,11 +161,9 @@ const Route = {
       savedAt: new Date().toISOString(),
       savedBy: Auth.getUser()?.name,
     };
-    const key = `bfr_saved_routes`;
-    const saved = JSON.parse(localStorage.getItem(key) || '[]');
-    saved.push(route);
-    localStorage.setItem(key, JSON.stringify(saved));
-    Utils.toast('💾 บันทึกเส้นทางแล้ว');
+    // Save to cloud via Storage (auto-sync)
+    Storage.saveSavedRoute(route);
+    Utils.toast('💾 บันทึกเส้นทางแล้ว — sync ทุกเครื่อง');
   },
 
   escapeHTML(str) {

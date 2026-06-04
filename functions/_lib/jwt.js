@@ -11,14 +11,28 @@ async function getKey(secret) {
   );
 }
 
-function base64UrlEncode(str) {
-  return btoa(str).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+// UTF-8 safe base64url encode (works in both browser + Node + Workers)
+// Uses TextEncoder to convert string → UTF-8 bytes first, then base64
+function base64UrlEncode(input) {
+  // Convert string to UTF-8 bytes
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  // Convert bytes to binary string for btoa
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 function base64UrlDecode(str) {
   str = str.replace(/-/g, '+').replace(/_/g, '/');
   while (str.length % 4) str += '=';
-  return atob(str);
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 export async function signHS256(payload, secret) {

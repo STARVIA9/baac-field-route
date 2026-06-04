@@ -21,13 +21,63 @@ const App = {
     Quick.renderSelected();
     this.updateRouteUI();
 
-    // Sync with cloud
+    // Initial sync (push local + pull remote)
     const sync = await Storage.sync();
-    if (sync.success) {
-      console.log(`Synced ${sync.count} customers`);
+    if (sync && sync.success) {
+      const c = sync.counts || {};
+      Utils.toast(`☁️ Sync: ${c.customers ?? 0} ลูกค้า, ${c.visits ?? 0} visits, ${c.savedRoutes ?? 0} เส้นทาง`);
       Customers.renderAll();
       this.updateRouteUI();
+    } else if (sync && sync.error) {
+      Utils.toast('⚠️ Sync ไม่สำเร็จ — ใช้ข้อมูล local', 'warn');
     }
+
+    // Start real-time polling
+    this._wireSyncEvents();
+    Storage.startPolling(3000);
+  },
+
+  // Listen for sync events to update UI badge
+  _wireSyncEvents() {
+    this._unsubSync = Storage.onSyncEvent((evt) => {
+      this._updateSyncBadge(evt);
+      if (evt.status === 'synced' && evt.counts) {
+        // Re-render to show new data
+        Customers.renderAll();
+        if (typeof Visit !== 'undefined') Visit.render();
+        this.updateRouteUI();
+        if (typeof Quick !== 'undefined' && Quick.renderSelected) Quick.renderSelected();
+      }
+    });
+  },
+
+  _updateSyncBadge(evt) {
+    let badge = document.getElementById('sync-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'sync-badge';
+      badge.style.cssText = 'position:fixed;bottom:8px;right:8px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999;background:#4caf50;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:opacity 0.3s;';
+      document.body.appendChild(badge);
+    }
+    if (evt.status === 'syncing') {
+      badge.textContent = '🔄 Syncing...';
+      badge.style.background = '#ff9800';
+    } else if (evt.status === 'synced') {
+      const time = evt.serverTime ? new Date(evt.serverTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+      badge.textContent = `☁️ Synced ${time}`;
+      badge.style.background = '#4caf50';
+    } else if (evt.status === 'error') {
+      badge.textContent = '⚠️ Sync error';
+      badge.style.background = '#f44336';
+    }
+  },
+
+  // Called by Storage when remote data changes — re-render
+  _onRemoteUpdate(remote) {
+    Customers.renderAll();
+    if (typeof Visit !== 'undefined') Visit.render();
+    this.updateRouteUI();
+    if (typeof Quick !== 'undefined' && Quick.renderSelected) Quick.renderSelected();
   },
 
   // Attach all event handlers

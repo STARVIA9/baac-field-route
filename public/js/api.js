@@ -78,7 +78,18 @@ const API = {
     return await res.json();
   },
 
-  // Sync customers (push local changes to server)
+  // ===== Unified sync =====
+  // Push local state to cloud
+  async syncAll(payload) {
+    return this.post('/api/sync', payload);
+  },
+
+  // Pull full state from cloud
+  async getAll() {
+    return this.get('/api/sync');
+  },
+
+  // Legacy single-customer sync (kept for back-compat)
   async syncCustomers(local) {
     return this.post('/api/customers/sync', { customers: local });
   },
