@@ -149,6 +149,15 @@ body {
 }
 .btn-icon:hover { background: rgba(255, 255, 255, 0.25); }
 
+/* ===== Refresh button spin animation ===== */
+.btn-icon.spinning { animation: btnSpin 0.8s linear; }
+@keyframes btnSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#refresh-btn.has-update { animation: btnPulse 1.5s ease-in-out infinite; }
+@keyframes btnPulse {
+  0%, 100% { background: rgba(255, 255, 255, 0.15); }
+  50% { background: rgba(255, 200, 50, 0.7); }
+}
+
 /* ===== Tabs ===== */
 .app-tabs {
   display: flex;

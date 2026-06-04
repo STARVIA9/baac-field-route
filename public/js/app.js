@@ -1,6 +1,10 @@
 // ===== Main App — orchestration + event handlers =====
 
 const App = {
+  // Known server version (updated on every fetch from version.json)
+  _knownVersion: null,
+  _versionCheckTimer: null,
+
   // Init
   async init() {
     if (Auth.isLoggedIn()) {
@@ -10,6 +14,56 @@ const App = {
       Auth.showLogin();
     }
     this.attachEvents();
+    this.startVersionWatcher();
+  },
+
+  // ===== Version watcher (auto-detect new deploys) =====
+  async fetchServerVersion() {
+    try {
+      const res = await fetch('/version.json?_=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.version || null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async checkForUpdate() {
+    const serverVer = await this.fetchServerVersion();
+    if (!serverVer) return false;
+    const stored = localStorage.getItem('app_version') || '0';
+    const btn = document.getElementById('refresh-btn');
+    if (serverVer !== stored && this._knownVersion !== null) {
+      // New version detected (don't show on first load)
+      if (btn) {
+        btn.classList.add('has-update');
+        btn.title = `เวอร์ชันใหม่พร้อมใช้งาน! (กดเพื่ออัพเดท)`;
+      }
+      return true;
+    }
+    if (btn) {
+      btn.classList.remove('has-update');
+      btn.title = 'รีเฟรชข้อมูล + เคลียร์ cache';
+    }
+    return false;
+  },
+
+  startVersionWatcher() {
+    // Set known version on first load
+    this.fetchServerVersion().then(v => {
+      if (v) {
+        this._knownVersion = v;
+        localStorage.setItem('app_version', v);
+      }
+    });
+    // Check every 5 minutes
+    if (this._versionCheckTimer) clearInterval(this._versionCheckTimer);
+    this._versionCheckTimer = setInterval(() => this.checkForUpdate(), 5 * 60 * 1000);
+    // Also re-check when tab regains focus
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.checkForUpdate();
+    });
   },
 
   // After login — load data
@@ -455,6 +509,63 @@ const App = {
     div.textContent = str || '';
     return div.innerHTML;
   },
+
+  // ===== Hard refresh — bypass HTTP cache + unregister SW + clear caches =====
+  async hardRefresh() {
+    const btn = document.getElementById('refresh-btn');
+    if (btn) {
+      btn.classList.add('spinning');
+      btn.disabled = true;
+    }
+
+    try {
+      // 1) Unregister service worker (PWA) so next load fetches fresh
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) {
+          try { await r.unregister(); } catch (e) {}
+        }
+      }
+
+      // 2) Clear all Cache Storage entries
+      if ('caches' in window) {
+        const names = await caches.keys();
+        for (const n of names) {
+          try { await caches.delete(n); } catch (e) {}
+        }
+      }
+
+      // 3) Pull fresh server version before reload
+      const newVer = await this.fetchServerVersion();
+      if (newVer) localStorage.setItem('app_version', newVer);
+
+      // 4) Show toast + reload bypassing HTTP cache
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('🔄 กำลังรีเฟรช...');
+      }
+      setTimeout(() => {
+        // Bypass HTTP cache with query string + reload
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', Date.now());
+        window.location.replace(url.toString());
+      }, 400);
+    } catch (e) {
+      console.error('Hard refresh failed:', e);
+      // Fallback: simple reload with cache buster
+      window.location.reload();
+    }
+  },
+
+  // ===== Update available — prompt user =====
+  async applyUpdate() {
+    const newVer = await this.fetchServerVersion();
+    if (newVer) {
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('✨ อัพเดทเป็นเวอร์ชัน ' + newVer);
+      }
+    }
+    this.hardRefresh();
+  },
 };
 
 // ===== Service Worker registration (PWA) =====
@@ -466,5 +577,28 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Boot
+// ===== Boot =====
 document.addEventListener('DOMContentLoaded', () => App.init());
+
+// ===== Refresh button binding (early, before login too) =====
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('refresh-btn');
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (btn.classList.contains('has-update')) {
+        App.applyUpdate();
+      } else {
+        App.hardRefresh();
+      }
+    });
+  }
+  // Keyboard shortcut: Ctrl/Cmd + Shift + R also works, but add Ctrl+R safety net
+  document.addEventListener('keydown', (e) => {
+    // F5 or Ctrl+R triggers hard refresh
+    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+      e.preventDefault();
+      App.hardRefresh();
+    }
+  });
+});
