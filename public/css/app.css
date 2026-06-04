@@ -1579,3 +1579,137 @@ body:has(#map.map-fs-fake) .map-fab {
   font-size: 11px;
   margin-top: 2px;
 }
+
+/* ===== Help modal (Phase 2) ===== */
+.help-content {
+  padding: 20px 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.help-content section {
+  margin-bottom: 24px;
+}
+.help-content h4 {
+  font-size: 16px;
+  color: var(--baac-green-dark);
+  margin: 0 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--baac-gold);
+  display: inline-block;
+}
+.help-content p, .help-content li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+.help-content small {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Quick Start steps */
+.help-steps {
+  padding-left: 20px;
+  margin: 0;
+}
+.help-steps li {
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+.help-steps li b {
+  color: var(--baac-green-dark);
+}
+
+/* Marker color dots */
+.marker-dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #999;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.marker-dot.good { background: var(--risk-good); }
+.marker-dot.warning { background: var(--risk-warning); }
+.marker-dot.bad { background: var(--risk-bad); }
+.marker-dot.unclassified {
+  background: white;
+  color: #666;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+.marker-dot.unclassified::before {
+  content: "?";
+}
+
+/* Status table */
+.status-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+.status-row {
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.status-row b.counts {
+  color: var(--baac-green-dark);
+  font-size: 12px;
+}
+.status-row:nth-child(3) b.counts,
+.status-row:nth-child(4) b.counts,
+.status-row:nth-child(5) b.counts,
+.status-row:nth-child(6) b.counts {
+  color: #999;
+}
+
+/* Allowance box */
+.allowance-box {
+  background: linear-gradient(135deg, #f0f8f0 0%, #e8f5e9 100%);
+  border-left: 4px solid var(--baac-green);
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+.allowance-box ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+/* Help list */
+.help-list, .help-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.help-list li, .help-tips-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed #eee;
+}
+.help-tips-list li {
+  padding: 8px 0;
+}
+.help-list li:last-child, .help-tips-list li:last-child {
+  border-bottom: none;
+}
+
+/* Help footer */
+.help-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+}

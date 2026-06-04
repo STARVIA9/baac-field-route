@@ -38,6 +38,7 @@
       </div>
       <div class="app-user">
         <span id="user-name">กำลังโหลด...</span>
+        <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help">❓</button>
         <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
         <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
         <button class="btn-icon" id="logout-btn" title="ออกจากระบบ">⎋</button>
@@ -446,6 +447,122 @@
         <button type="button" class="btn-secondary" id="btn-export-html">📄 HTML (พิมพ์)</button>
         <button type="button" class="btn-secondary" id="btn-export-csv">📊 CSV (Excel)</button>
         <button type="button" class="btn-secondary" id="btn-export-share">📱 Share / Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal — คำอธิบายการใช้งาน -->
+  <div class="modal hidden" id="help-modal">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h3>❓ วิธีใช้งาน BAAC Field Route</h3>
+        <button class="btn-close" id="close-help-modal">×</button>
+      </div>
+      <div class="modal-body help-content">
+
+        <section class="help-intro">
+          <h4>🎯 เว็บนี้คืออะไร?</h4>
+          <p>เครื่องมือช่วย <b>วางแผนเยี่ยมลูกค้าติดตามหนี้</b> + <b>คำนวณเบี้ยเลี้ยง 160฿/วัน</b> อัตโนมัติ + <b>ออกรายงานส่งหัวหน้า</b></p>
+        </section>
+
+        <section class="help-quickstart">
+          <h4>⚡ Quick Start — 5 ขั้นตอนหลัก</h4>
+          <ol class="help-steps">
+            <li>
+              <b>เพิ่มลูกค้า</b> แท็บ 👥 ลูกค้า → กด ➕ → กรอกชื่อ + ที่อยู่ + <b>จิ้มแผนที่</b>เพื่อเลือกตำแหน่ง → บันทึก
+              <small>💡 ตั้งระดับความเสี่ยง (เขียว/เหลือง/แดง) + ประเภทหนี้ (ถึงกำหนด/ค้าง) ด้วย</small>
+            </li>
+            <li>
+              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → กด <b>🧮 คำนวณเส้นทาง</b> → เลือกรถ → กด 💾 บันทึก
+              <small>💡 หรือใช้ ⚡ เร็ว ถ้ามีไม่เกิน 10 ราย</small>
+            </li>
+            <li>
+              <b>ออกเยี่ยม</b> แท็บ 📋 เข้าพบ → กดที่ลูกค้า → เลือกผล → กด <b>📍 บันทึกพิกัด</b> → 💾 บันทึก
+            </li>
+            <li>
+              <b>Sync อัตโนมัติ</b> ข้อมูลจะซิงก์ขึ้น ☁️ Cloud ทุก 3 วินาที — หัวหน้าดูเรียลไทม์ได้
+            </li>
+            <li>
+              <b>สร้างรายงาน</b> กด 📊 (header) → เลือกช่วงวันที่ + รถ → Export HTML/CSV/Share → <b>ส่งหัวหน้า</b>
+            </li>
+          </ol>
+        </section>
+
+        <section class="help-markers">
+          <h4>🎨 สีหมุด = ระดับความเสี่ยง</h4>
+          <ul class="help-list">
+            <li><span class="marker-dot good"></span> <b>เขียว</b> = ลูกค้าดี ติดตามง่าย</li>
+            <li><span class="marker-dot warning"></span> <b>เหลือง</b> = เริ่มมีปัญหา ยังติดต่อได้</li>
+            <li><span class="marker-dot bad"></span> <b>แดง</b> = มีปัญหามาก ติดต่อยาก/ไม่ได้</li>
+            <li><span class="marker-dot unclassified"></span> <b>❓ ไม่มีสี</b> = ยังไม่ได้จัดระดับ (เข้าไปแก้ไขลูกค้า)</li>
+          </ul>
+        </section>
+
+        <section class="help-status">
+          <h4>📋 สถานะการเข้าพบ (เลือกตอนบันทึก)</h4>
+          <div class="status-table">
+            <div class="status-row"><b>✅ visited</b><span>เยี่ยมสำเร็จ · พบลูกค้า</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>💚 interested</b><span>ลูกค้าสนใจ</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>❌ no_answer</b><span>ไม่พบลูกค้า</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>🚪 not_home</b><span>ไม่อยู่บ้าน</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>📅 reschedule</b><span>นัดใหม่</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>🚫 not_interested</b><span>ไม่สนใจ</span><b class="counts">ไม่นับ</b></div>
+          </div>
+          <small>💡 ต้องเลือก <b>visited</b> หรือ <b>interested</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
+        </section>
+
+        <section class="help-allowance">
+          <h4>💰 เบี้ยเลี้ยง 160฿/วัน — นับยังไง?</h4>
+          <div class="allowance-box">
+            <p>ใน 1 วัน เจ้าหน้าที่ต้องเยี่ยมลูกค้า:</p>
+            <ul>
+              <li>✅ <b>≥ 10 ราย</b> หนี้ถึงกำหนด → ได้ <b>160฿</b></li>
+              <li>✅ <b>≥ 5 ราย</b> หนี้ค้าง → ได้ <b>160฿</b></li>
+            </ul>
+            <p><small>(ถึงเกณฑ์ใดเกณฑ์หนึ่งก็ได้ ไม่บวกกัน)</small></p>
+            <p><b>📌 ตัวอย่าง:</b></p>
+            <ul>
+              <li>จันทร์: เยี่ยม upcoming 12 + overdue 3 → ได้ 160฿ (ถึงเกณฑ์แรก)</li>
+              <li>อังคาร: เยี่ยม upcoming 7 + overdue 6 → ได้ 160฿ (ถึงเกณฑ์สอง)</li>
+              <li>พุธ: เยี่ยม upcoming 5 + overdue 2 → ได้ 0฿ (ไม่ถึง)</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="help-vehicle">
+          <h4>🚗 รถ + น้ำมัน</h4>
+          <ul class="help-list">
+            <li>🏍️ <b>มอเตอร์ไซด์</b> — 35 กม./ลิตร · แก๊สโซฮอล์ 95</li>
+            <li>🚗 <b>รถเก๋ง</b> — 12 กม./ลิตร · แก๊สโซฮอล์ 95</li>
+            <li>🛻 <b>รถกระบะ</b> — 10 กม./ลิตร · <b>ดีเซล</b></li>
+          </ul>
+          <small>💡 เลือกตอนสร้างรายงาน — ระบบคำนวณค่าน้ำมันอัตโนมัติ</small>
+        </section>
+
+        <section class="help-report">
+          <h4>📊 รายงาน — 3 ทางเลือกส่งหัวหน้า</h4>
+          <ul class="help-list">
+            <li>🖨️ <b>HTML</b> — เปิดพิมพ์ → Save PDF → ส่ง LINE/Email</li>
+            <li>📊 <b>CSV</b> — เปิด Excel → แก้ไขได้ → ส่ง Email</li>
+            <li>📱 <b>Share</b> — Copy text → Paste ใน Messenger/LINE</li>
+          </ul>
+          <small>💡 รายงานแสดงพิกัด GPS (กดลิงก์เปิด Google Maps ตรวจสอบได้) + ชื่อผู้บันทึก + เวลา</small>
+        </section>
+
+        <section class="help-tips">
+          <h4>💡 Tips ใช้งานจริง</h4>
+          <ul class="help-tips-list">
+            <li>📌 <b>ก่อนออก</b>: วางแผนเส้นทาง + เช็คลูกค้า debtType ที่ต้องเยี่ยม</li>
+            <li>📍 <b>หน้างาน</b>: กดบันทึก GPS ทุกครั้ง (ยืนยันว่าไปถึง)</li>
+            <li>🌐 <b>Offline ได้</b>: แอพทำงานแม้ไม่มีเน็ต — sync อัตโนมัติเมื่อกลับมา</li>
+            <li>👥 <b>ทำงานเป็นทีม</b>: ข้อมูลซิงก์ทุกเครื่อง — หัวหน้าดู realtime ได้</li>
+            <li>📷 <b>ถ่ายรูป</b>: เก็บรูปลูกค้าไว้ช่วยจำ — ย่ออัตโนมัติไม่เปลืองเน็ต</li>
+          </ul>
+        </section>
+
+        <div class="help-footer">
+          <button class="btn-primary" id="btn-close-help">เข้าใจแล้ว ✓</button>
+        </div>
       </div>
     </div>
   </div>

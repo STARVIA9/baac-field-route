@@ -242,6 +242,10 @@ const App = {
 
     // Phase 7-9: Report modal
     document.getElementById('report-btn').addEventListener('click', () => Report.open());
+    // Help modal — show user how to use the app
+    document.getElementById('help-btn').addEventListener('click', () => App.openHelp());
+    document.getElementById('close-help-modal').addEventListener('click', () => App.closeHelp());
+    document.getElementById('btn-close-help').addEventListener('click', () => App.closeHelp());
     document.getElementById('close-report-modal').addEventListener('click', () => Report.close());
     document.getElementById('report-modal').addEventListener('click', (e) => {
       if (e.target.id === 'report-modal') Report.close();
@@ -355,6 +359,14 @@ const App = {
     const fileInput = document.getElementById('photo-input');
     if (fileInput) fileInput.value = '';
     Utils.toast('🗑️ ลบรูปแล้ว');
+  },
+
+  // ===== Help modal — explain how to use the app =====
+  openHelp() {
+    document.getElementById('help-modal').classList.remove('hidden');
+  },
+  closeHelp() {
+    document.getElementById('help-modal').classList.add('hidden');
   },
 
   // Init mini-map in add customer modal
