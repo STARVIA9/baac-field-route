@@ -1,5 +1,5 @@
 {
-  "version": "20260604.213500",
+  "version": "20260604.215500",
   "deployed": "2026-06-04T21:35:00+07:00",
-  "changelog": "Add \ud83d\uddd1\ufe0f Delete customer button + custom confirm modal"
+  "changelog": "Fix: const\u2192var for onclick + delete customer now works"
 }
