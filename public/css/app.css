@@ -1037,3 +1037,40 @@ form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
   color: var(--text-muted);
 }
 .quick-help strong { color: var(--baac-green-dark); }
+
+/* ===== Layer toggle (roadmap ↔ satellite) ===== */
+.layer-toggle {
+  display: flex !important;
+  flex-direction: row;
+  background: white;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  padding: 2px;
+  border: none !important;
+}
+.layer-toggle .layer-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.layer-toggle .layer-btn:hover {
+  background: #f0f0f0;
+}
+.layer-toggle .layer-btn.active {
+  background: var(--baac-green);
+  color: white;
+}
+.layer-toggle-mini .layer-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}

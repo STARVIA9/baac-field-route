@@ -4,16 +4,31 @@ const Customers = {
   map: null,
   markers: {},
   currentFilter: 'all',
+  _baseLayers: {},
+  _currentBaseLayer: 'roadmap',
 
   // Init map
   initMap() {
     if (this.map) return;
     // Default: BAAC Wang Tha Chang (approx)
     this.map = L.map('map').setView([13.7563, 100.5018], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19,
-    }).addTo(this.map);
+
+    // Define 2 base layers: roadmap + satellite
+    this._baseLayers = {
+      roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+      }),
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri World Imagery',
+        maxZoom: 19,
+      }),
+    };
+    this._baseLayers.roadmap.addTo(this.map);
+    this._currentBaseLayer = 'roadmap';
+
+    // Add layer toggle control (top-right)
+    this._addLayerControl();
 
     // Map click to add customer
     this.map.on('click', (e) => {
@@ -182,6 +197,43 @@ const Customers = {
     }
     this.renderList();
     App.updateRouteUI();
+  },
+
+  // ===== Base layer toggle (roadmap ↔ satellite) =====
+  _addLayerControl() {
+    // Custom control as a DOM element (Leaflet way)
+    const LayerToggle = L.Control.extend({
+      onAdd: () => {
+        const div = L.DomUtil.create('div', 'layer-toggle leaflet-bar');
+        div.innerHTML = `
+          <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
+          <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+        `;
+        L.DomEvent.disableClickPropagation(div);
+        div.querySelectorAll('.layer-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            L.DomEvent.stop(e);
+            Customers.switchBaseLayer(btn.dataset.layer);
+          });
+        });
+        return div;
+      },
+    });
+    new LayerToggle({ position: 'topright' }).addTo(this.map);
+  },
+
+  switchBaseLayer(layerName) {
+    if (!this._baseLayers[layerName] || layerName === this._currentBaseLayer) return;
+    // Remove current
+    this.map.removeLayer(this._baseLayers[this._currentBaseLayer]);
+    // Add new
+    this._baseLayers[layerName].addTo(this.map);
+    this._currentBaseLayer = layerName;
+    // Update button states
+    const buttons = document.querySelectorAll('.layer-toggle .layer-btn');
+    buttons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.layer === layerName);
+    });
   },
 
   // Render everything

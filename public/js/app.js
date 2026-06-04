@@ -220,10 +220,21 @@ const App = {
       // Use CSS-driven sizing (important for invalidateSize)
       preferCanvas: false,
     }).setView([lat, lng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OSM',
-      maxZoom: 19,
-    }).addTo(this._miniMap);
+
+    // 2 base layers: roadmap (default) + satellite
+    this._miniBaseLayers = {
+      roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OSM',
+        maxZoom: 19,
+      }),
+      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri',
+        maxZoom: 19,
+      }),
+    };
+    this._miniBaseLayers.roadmap.addTo(this._miniMap);
+    this._miniCurrentLayer = 'roadmap';
+    this._addMiniLayerToggle();
 
     // Click to set location
     this._miniMap.on('click', (e) => {
@@ -241,6 +252,40 @@ const App = {
 
     // Force size recalc (modal may have just shown)
     setTimeout(() => this._miniMap.invalidateSize(), 200);
+  },
+
+  // ===== Mini-map layer toggle (roadmap ↔ satellite) =====
+  _addMiniLayerToggle() {
+    const LayerToggle = L.Control.extend({
+      onAdd: () => {
+        const div = L.DomUtil.create('div', 'layer-toggle layer-toggle-mini leaflet-bar');
+        div.innerHTML = `
+          <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
+          <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+        `;
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        div.querySelectorAll('.layer-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            L.DomEvent.stop(e);
+            App.switchMiniBaseLayer(btn.dataset.layer);
+          });
+        });
+        return div;
+      },
+    });
+    new LayerToggle({ position: 'topright' }).addTo(this._miniMap);
+  },
+
+  switchMiniBaseLayer(layerName) {
+    if (!this._miniBaseLayers[layerName] || layerName === this._miniCurrentLayer) return;
+    this._miniMap.removeLayer(this._miniBaseLayers[this._miniCurrentLayer]);
+    this._miniBaseLayers[layerName].addTo(this._miniMap);
+    this._miniCurrentLayer = layerName;
+    const buttons = document.querySelectorAll('.layer-toggle-mini .layer-btn');
+    buttons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.layer === layerName);
+    });
   },
 
   // Set location on mini-map (add/move marker)
