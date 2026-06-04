@@ -491,16 +491,18 @@ const App = {
     const route = Storage.getRoute();
     if (route.length === 0) return;
     const start = Route.getStartCoords();
+    const end = Route.getEndCoords();
 
-    // Plan optimal order
-    const ordered = TSP.plan(start, route);
+    // Plan optimal order (TSP with optional end)
+    const ordered = TSP.plan(start, route, end);
 
     // Get real route from OSRM
-    const result = await Route.calculate(start, ordered);
+    const result = await Route.calculate(start, ordered, end);
     if (result) {
       Route.showResult(result);
       this.switchTab('map'); // show route on map
-      Utils.toast(`✅ เส้นทางพร้อม: ${Utils.formatKm(result.distance)} กม.`);
+      const routeType = result.isOpenPath ? ' (เปิด)' : '';
+      Utils.toast(`✅ เส้นทาง${routeType}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
     }
   },
 
@@ -582,6 +584,47 @@ document.addEventListener('DOMContentLoaded', () => App.init());
 
 // ===== Refresh button binding (early, before login too) =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore saved vehicle
+  const savedVehicle = Utils.getVehicle();
+  const routeVehicle = document.getElementById('route-vehicle');
+  const quickVehicle = document.getElementById('quick-vehicle');
+  if (routeVehicle) routeVehicle.value = savedVehicle;
+  if (quickVehicle) quickVehicle.value = savedVehicle;
+  // Sync vehicle selectors + persist
+  [routeVehicle, quickVehicle].forEach(sel => {
+    if (!sel) return;
+    sel.addEventListener('change', () => {
+      Utils.setVehicle(sel.value);
+      // Sync the other one
+      if (sel === routeVehicle && quickVehicle) quickVehicle.value = sel.value;
+      if (sel === quickVehicle && routeVehicle) routeVehicle.value = sel.value;
+    });
+  });
+
+  // End mode → show customer dropdown if 'customer' selected
+  const endMode = document.getElementById('route-end-mode');
+  const endCustomer = document.getElementById('route-end-customer');
+  if (endMode && endCustomer) {
+    // Populate customer dropdown
+    const populateEndCustomers = () => {
+      const customers = Storage.getCustomers();
+      endCustomer.innerHTML = '<option value="">-- เลือกลูกค้า --</option>' +
+        customers.map(c => `<option value="${c.id}">${this.escapeHTML(c.name)} (${this.escapeHTML(c.cif || '-')})</option>`).join('');
+    };
+    populateEndCustomers();
+    // Refresh list when customers change
+    document.addEventListener('customersUpdated', populateEndCustomers);
+
+    endMode.addEventListener('change', () => {
+      if (endMode.value === 'customer') {
+        endCustomer.classList.remove('hidden');
+      } else {
+        endCustomer.classList.add('hidden');
+      }
+    });
+  }
+
+  // ===== Refresh button binding =====
   const btn = document.getElementById('refresh-btn');
   if (btn) {
     btn.addEventListener('click', (e) => {
@@ -593,9 +636,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  // Keyboard shortcut: Ctrl/Cmd + Shift + R also works, but add Ctrl+R safety net
+  // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
   document.addEventListener('keydown', (e) => {
-    // F5 or Ctrl+R triggers hard refresh
     if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
       e.preventDefault();
       App.hardRefresh();

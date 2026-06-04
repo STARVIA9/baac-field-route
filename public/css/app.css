@@ -1145,3 +1145,116 @@ form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 body:has(#map.map-fs-fake) .map-fab {
   display: none;
 }
+
+/* ===== End point pin ===== */
+.end-marker { background: transparent; border: none; }
+.end-pin {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  animation: endBounce 1.5s ease-in-out infinite;
+}
+@keyframes endBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ===== Route type badge (open vs round) ===== */
+.result-route-type {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+.route-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.route-type-badge.open {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.route-type-badge.round {
+  background: #f5f5f5;
+  color: #666;
+}
+
+/* ===== Fuel card (in result) ===== */
+.fuel-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+.fuel-card .fuel-icon { font-size: 36px; }
+.fuel-card .fuel-info { flex: 1; }
+.fuel-card .fuel-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e65100;
+}
+.fuel-card .fuel-cost {
+  font-size: 16px;
+  font-weight: 600;
+  color: #bf360c;
+  margin-top: 2px;
+}
+.fuel-card .fuel-meta {
+  font-size: 12px;
+  color: #6d4c00;
+  margin-top: 2px;
+}
+
+/* ===== Quick fuel display ===== */
+.quick-fuel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%);
+  border-radius: 10px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.quick-fuel-icon { font-size: 22px; }
+.quick-fuel-amount { font-weight: 700; color: #e65100; }
+.quick-fuel-cost { font-weight: 600; color: #bf360c; }
+.quick-fuel-meta { color: #6d4c00; font-size: 12px; margin-left: auto; }
+
+/* ===== Vehicle selector ===== */
+.route-vehicle, .quick-vehicle {
+  margin: 12px 16px;
+}
+.route-vehicle label, .quick-vehicle label, .route-end label, .quick-end label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--baac-green-dark);
+  margin-bottom: 6px;
+}
+.route-vehicle .hint, .quick-vehicle .hint, .route-end .hint, .quick-end .hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.route-vehicle select, .quick-vehicle select, .route-end select, .quick-end select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  font-family: inherit;
+}
+.route-end select + select, .route-end #route-end-customer {
+  margin-top: 6px;
+}

@@ -69,6 +69,43 @@ const Utils = {
   formatNum(n) {
     return new Intl.NumberFormat('th-TH').format(n);
   },
+
+  // ===== Vehicle fuel profiles =====
+  // Realistic Thai market rates (km/liter) for common BAAC field vehicles
+  VEHICLE_PROFILES: {
+    motorcycle: { name: '🏍️ มอเตอร์ไซค์', kmPerLiter: 35, fuelPrice: 35 },  // ~35 baht/L gasohol 95
+    car:        { name: '🚗 รถยนต์',       kmPerLiter: 12, fuelPrice: 35 },
+    pickup:     { name: '🛻 กระบะ',        kmPerLiter: 10, fuelPrice: 35 },
+    eco_car:    { name: '🚙 รถ Eco',       kmPerLiter: 18, fuelPrice: 35 },
+  },
+  // Default vehicle: motorcycle (most common for BAAC field officers)
+  getVehicle() {
+    const saved = localStorage.getItem('vehicle_profile');
+    return saved && this.VEHICLE_PROFILES[saved]
+      ? saved
+      : 'motorcycle';
+  },
+  setVehicle(profile) {
+    if (this.VEHICLE_PROFILES[profile]) {
+      localStorage.setItem('vehicle_profile', profile);
+    }
+  },
+  // Calculate fuel cost for a distance (meters)
+  // Returns {liters, baht, km}
+  calcFuel(distanceMeters, vehicleProfile) {
+    const v = this.VEHICLE_PROFILES[vehicleProfile || this.getVehicle()] || this.VEHICLE_PROFILES.motorcycle;
+    const km = distanceMeters / 1000;
+    const liters = km / v.kmPerLiter;
+    const baht = liters * v.fuelPrice;
+    return { km, liters, baht, vehicle: v, profile: vehicleProfile || this.getVehicle() };
+  },
+  // Format Baht (Thai currency)
+  formatBaht(amount) {
+    return new Intl.NumberFormat('th-TH', {
+      minimumFractionDigits: amount < 100 ? 2 : 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  },
 };
 
 window.Utils = Utils;

@@ -1,9 +1,12 @@
-// ===== TSP (Travelling Salesman) — nearest-neighbor algorithm =====
+// ===== TSP (Travelling Salesman) — open path with start + optional end =====
+// Algorithm: Nearest-Neighbor heuristic + 2-opt improvement
+// Supports: round trip (start == end) OR open path (different end)
 
 const TSP = {
   // Nearest-neighbor TSP heuristic
-  // Returns: ordered list of customer IDs (best route from start)
-  nearestNeighbor(start, customers) {
+  // If end is provided: open path (start → ... → end, don't return)
+  // If end is null: round trip (return to start)
+  nearestNeighbor(start, customers, end) {
     if (customers.length === 0) return [];
     if (customers.length === 1) return [customers[0].id];
 
@@ -30,7 +33,8 @@ const TSP = {
   },
 
   // 2-opt improvement (swap to reduce total distance)
-  twoOpt(route, start) {
+  // end: optional endpoint to consider
+  twoOpt(route, start, end) {
     if (route.length < 3) return route;
     const customers = Storage.getCustomers();
     const custMap = new Map(customers.map(c => [c.id, c]));
@@ -44,6 +48,9 @@ const TSP = {
         total += Utils.haversine(prev.lat, prev.lng, c.lat, c.lng);
         prev = c;
       }
+      // Add distance to endpoint
+      const finalPoint = end || start;
+      total += Utils.haversine(prev.lat, prev.lng, finalPoint.lat, finalPoint.lng);
       return total;
     }
 
@@ -76,7 +83,10 @@ const TSP = {
   },
 
   // Plan route: nearest-neighbor + 2-opt
-  plan(start, customerIds) {
+  // start: {lat, lng} — required
+  // customerIds: array of customer IDs to visit
+  // end: {lat, lng} — optional endpoint (default: return to start = round trip)
+  plan(start, customerIds, end) {
     const allCustomers = Storage.getCustomers();
     const selectedCustomers = customerIds
       .map(id => allCustomers.find(c => c.id === id))
@@ -84,9 +94,9 @@ const TSP = {
     if (selectedCustomers.length === 0) return [];
 
     // Step 1: nearest-neighbor
-    const nnOrder = this.nearestNeighbor(start, selectedCustomers);
+    const nnOrder = this.nearestNeighbor(start, selectedCustomers, end);
     // Step 2: improve with 2-opt
-    const optimized = this.twoOpt(nnOrder, start);
+    const optimized = this.twoOpt(nnOrder, start, end);
     return optimized;
   },
 };

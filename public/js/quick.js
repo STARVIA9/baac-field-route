@@ -171,11 +171,15 @@ const Quick = {
   },
 
   // Calculate route from selected
+  // Supports open path: start → ... → end (instead of round trip)
   async calculate() {
     if (this.selected.length === 0) return;
     const start = this.getStartCoords();
-    const ordered = TSP.plan(start, this.selected);
-    const result = await Route.calculate(start, ordered);
+    const end = this.getEndCoords();
+    // TSP: nearest-neighbor + 2-opt
+    const ordered = TSP.plan(start, this.selected, end);
+    // OSRM: real road routing
+    const result = await Route.calculate(start, ordered, end);
     if (result) this.showResult(result);
   },
 
@@ -188,14 +192,45 @@ const Quick = {
     return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
   },
 
+  // Get end coords (for open path)
+  getEndCoords() {
+    const mode = document.getElementById('quick-end-mode')?.value || 'none';
+    if (mode === 'none') return null;
+    if (mode === 'current') {
+      return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
+    }
+    if (mode === 'office') {
+      return { lat: 13.7563, lng: 100.5018 };
+    }
+    return null;
+  },
+
+  // Get vehicle profile (synced with Route tab)
+  getVehicle() {
+    return Utils.getVehicle();
+  },
+
   // Show result inline (different from Route.showResult which targets #route-result)
   showResult(result) {
     const resultEl = document.getElementById('quick-route-result');
     resultEl.classList.remove('hidden');
 
+    const routeTypeBadge = result.isOpenPath
+      ? '<span class="route-type-badge open">🔀 เปิด (มีจุดสิ้นสุด)</span>'
+      : '<span class="route-type-badge round">🔄 ไป-กลับ</span>';
+
+    const fuelHtml = result.fuel ? `
+      <div class="quick-fuel">
+        <span class="quick-fuel-icon">⛽</span>
+        <span class="quick-fuel-amount">~${result.fuel.liters.toFixed(2)} ลิตร</span>
+        <span class="quick-fuel-cost">~${Utils.formatBaht(result.fuel.baht)} บาท</span>
+        <span class="quick-fuel-meta">${result.fuel.vehicle.name}</span>
+      </div>
+    ` : '';
+
     resultEl.innerHTML = `
       <div class="result-card">
-        <h3>📊 สรุปเส้นทาง</h3>
+        <h3>📊 สรุปเส้นทาง ${routeTypeBadge}</h3>
         <div class="result-stats">
           <div class="stat">
             <span class="stat-value">${Utils.formatKm(result.distance)}</span>
@@ -210,6 +245,7 @@ const Quick = {
             <span class="stat-label">จุดแวะ</span>
           </div>
         </div>
+        ${fuelHtml}
       </div>
       <ol class="route-order">
         ${result.stops.map((c, idx) => {
@@ -235,11 +271,12 @@ const Quick = {
       </div>
     `;
 
-    // Draw on map
+    // Draw on map (now includes end marker if open path)
     Route.drawOnMap(result);
     // Scroll to result
     resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    Utils.toast(`✅ เส้นทางพร้อม: ${Utils.formatKm(result.distance)} กม. / ${Math.round(result.duration / 60)} นาที`);
+    const routeType = result.isOpenPath ? ' (เปิด)' : '';
+    Utils.toast(`✅ เส้นทาง${routeType}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${Math.round(result.duration / 60)} นาที / ~${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
   },
 
   // Open Google Maps for current result
