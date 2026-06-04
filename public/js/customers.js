@@ -67,9 +67,16 @@ const Customers = {
     customers.forEach((c, idx) => {
       const visited = !!visits[c.id];
       const orderNum = orderMap[c.id] || (idx + 1);
+      // ===== Phase 3: First letter of name + risk-based class =====
+      const firstChar = (c.name || '?').trim().charAt(0).toUpperCase() || '?';
+      const riskClass = c.riskLevel || 'unclassified';
+      // Show "?" for unclassified, else first letter; add order badge for route
+      const showOrder = orderNum && orderMap[c.id];
+      const letterHTML = riskClass === 'unclassified' ? '?' : firstChar;
+      const orderHTML = showOrder ? `<span class="marker-order">${orderNum}</span>` : '';
       const icon = L.divIcon({
         className: '',
-        html: `<div class="customer-marker ${visited ? 'visited' : ''}">${orderNum}</div>`,
+        html: `<div class="customer-marker ${riskClass}${visited ? ' visited' : ''}">${letterHTML}${orderHTML}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       });
@@ -114,6 +121,9 @@ const Customers = {
     document.querySelector('#add-customer-form [name=lat]').value = c.lat;
     document.querySelector('#add-customer-form [name=lng]').value = c.lng;
     document.querySelector('#add-customer-form [name=note]').value = c.note || '';
+    // Phase 4: pre-fill risk + debt dropdowns
+    document.querySelector('#add-customer-form [name=riskLevel]').value = c.riskLevel || 'unclassified';
+    document.querySelector('#add-customer-form [name=debtType]').value = c.debtType || '';
     document.getElementById('add-customer-form').dataset.editId = id;
     App.openAddCustomerModal();
   },

@@ -24,6 +24,15 @@ const Storage = {
     customer.createdAt = customer.createdAt || new Date().toISOString();
     customer.updatedAt = new Date().toISOString();
     customer.createdBy = Auth.getUser()?.name || 'unknown';
+    // ===== Phase 1: Risk classification (BAAC debt follow-up) =====
+    // riskLevel: 'unclassified' | 'good' | 'warning' | 'bad'
+    //   - unclassified: ยังไม่จัดระดับ (default สำหรับลูกค้าเก่าที่ migrate)
+    //   - good: ดี ติดตามง่าย
+    //   - warning: เริ่มมีปัญหา ยังติดต่อได้
+    //   - bad: มีปัญหามาก ติดต่อยาก/ไม่ได้
+    customer.riskLevel = customer.riskLevel || 'unclassified';
+    // debtType: 'current' (หนี้ถึงกำหนด ยังไม่เกินกำหนด) | 'overdue' (หนี้ค้าง เลยกำหนดแล้ว) | null
+    customer.debtType = customer.debtType || null;
     list.push(customer);
     this.saveCustomers(list);
     this.push(); // auto-sync
@@ -38,6 +47,30 @@ const Storage = {
       this.saveCustomers(list);
       this.push();
     }
+  },
+
+  // ===== Phase 1: Migrate old customers to new schema =====
+  // ลูกค้าเดิมที่ไม่มี riskLevel → 'unclassified' (marker แสดง "?" ไม่มีสี)
+  // ลูกค้าเดิมที่ไม่มี debtType → null
+  migrateCustomers() {
+    const list = this.getCustomers();
+    let changed = false;
+    list.forEach(c => {
+      if (!c.riskLevel) {
+        c.riskLevel = 'unclassified';
+        c.updatedAt = new Date().toISOString();
+        changed = true;
+      }
+      if (c.debtType === undefined) {
+        c.debtType = null;
+        changed = true;
+      }
+    });
+    if (changed) {
+      this.saveCustomers(list);
+      console.log('[Storage] Migrated', list.length, 'customers to new schema');
+    }
+    return list;
   },
 
   deleteCustomer(id) {

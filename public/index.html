@@ -38,6 +38,7 @@
       </div>
       <div class="app-user">
         <span id="user-name">กำลังโหลด...</span>
+        <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
         <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
         <button class="btn-icon" id="logout-btn" title="ออกจากระบบ">⎋</button>
       </div>
@@ -302,6 +303,25 @@
           <label>หมายเหตุ</label>
           <input type="text" name="note" placeholder="เช่น ลูกค้าเก่า/ใหม่, ต้องติดตาม">
         </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label>🎯 ระดับความเสี่ยง (หนี้)</label>
+            <select name="riskLevel">
+              <option value="unclassified">❓ ยังไม่จัดระดับ</option>
+              <option value="good">🟢 ดี · ติดตามง่าย</option>
+              <option value="warning">🟡 เริ่มมีปัญหา · ยังติดต่อได้</option>
+              <option value="bad">🔴 มีปัญหามาก · ติดต่อยาก</option>
+            </select>
+          </div>
+          <div>
+            <label>💰 ประเภทหนี้</label>
+            <select name="debtType">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="current">📅 หนี้ถึงกำหนด (ยังไม่เกิน)</option>
+              <option value="overdue">⚠️ หนี้ค้าง (เลยกำหนด)</option>
+            </select>
+          </div>
+        </div>
         <div class="form-actions">
           <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ GPS ปัจจุบัน</button>
           <button type="button" class="btn-secondary" id="btn-pick-on-main-map">🗺️ ไปเลือกบนแผนที่หลัก</button>
@@ -334,11 +354,82 @@
           <label>หมายเหตุ</label>
           <textarea name="note" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
         </div>
+        <div class="form-row">
+          <label>📍 พิกัด GPS <span class="label-hint">(กดปุ่มเพื่อบันทึก)</span></label>
+          <div class="gps-capture">
+            <button type="button" class="btn-secondary" id="btn-capture-gps">📍 บันทึกพิกัดปัจจุบัน</button>
+            <div class="gps-display" id="gps-display">
+              <span class="gps-empty">ยังไม่ได้บันทึก</span>
+            </div>
+          </div>
+          <input type="hidden" name="lat" id="visit-lat">
+          <input type="hidden" name="lng" id="visit-lng">
+          <input type="hidden" name="accuracy" id="visit-accuracy">
+        </div>
         <div class="form-actions">
           <button type="button" class="btn-secondary" id="btn-cancel-visit">ยกเลิก</button>
           <button type="submit" class="btn-primary">💾 บันทึก</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Report Modal — Phase 7-9 -->
+  <div class="modal hidden" id="report-modal">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h3>📊 รายงานการติดตามหนี้</h3>
+        <button class="btn-close" id="close-report-modal">×</button>
+      </div>
+      <div class="report-controls">
+        <div class="form-row form-row-3">
+          <div>
+            <label>📅 ช่วงวันที่</label>
+            <select id="report-range">
+              <option value="today">วันนี้</option>
+              <option value="week" selected>สัปดาห์นี้</option>
+              <option value="month">เดือนนี้</option>
+              <option value="custom">กำหนดเอง</option>
+            </select>
+          </div>
+          <div>
+            <label>🚗 ยานพาหนะ</label>
+            <select id="report-vehicle">
+              <option value="motorcycle">🏍️ มอเตอร์ไซด์ (35 กม./ลิตร)</option>
+              <option value="car" selected>🚗 รถเก๋ง (12 กม./ลิตร)</option>
+              <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
+            </select>
+          </div>
+          <div class="report-range-label-wrap">
+            <label>&nbsp;</label>
+            <span id="report-range-label" class="report-range-label">-</span>
+          </div>
+        </div>
+        <div class="form-row form-row-2 hidden" id="custom-range">
+          <div>
+            <label>ตั้งแต่</label>
+            <input type="date" id="report-from">
+          </div>
+          <div>
+            <label>ถึง</label>
+            <input type="date" id="report-to">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="btn-generate-report">📊 สร้างรายงาน</button>
+        </div>
+        <div class="report-allowance-note">
+          💡 <strong>เกณฑ์เบี้ยเลี้ยง:</strong> 160฿/วัน เมื่อติดตามหนี้ถึงกำหนด ≥ 10 ราย หรือ หนี้ค้าง ≥ 5 ราย
+        </div>
+      </div>
+      <div class="report-preview" id="report-preview">
+        <p class="empty-state">กด "สร้างรายงาน" เพื่อดูข้อมูล</p>
+      </div>
+      <div class="export-buttons hidden" id="export-buttons">
+        <button type="button" class="btn-secondary" id="btn-export-html">📄 HTML (พิมพ์)</button>
+        <button type="button" class="btn-secondary" id="btn-export-csv">📊 CSV (Excel)</button>
+        <button type="button" class="btn-secondary" id="btn-export-share">📱 Share / Copy</button>
+      </div>
     </div>
   </div>
 
@@ -349,11 +440,13 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/fuel.js"></script>
   <script src="js/customers.js"></script>
   <script src="js/tsp.js"></script>
   <script src="js/route.js"></script>
   <script src="js/visit.js"></script>
   <script src="js/quick.js"></script>
+  <script src="js/report.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

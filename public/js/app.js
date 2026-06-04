@@ -68,6 +68,9 @@ const App = {
 
   // After login — load data
   async afterLogin() {
+    // Phase 1: Migrate old customers to new schema (riskLevel + debtType)
+    Storage.migrateCustomers();
+
     Customers.initMap();
     Customers.renderAll();
     Visit.render();
@@ -214,6 +217,9 @@ const App = {
     document.getElementById('visit-log-modal').addEventListener('click', (e) => {
       if (e.target.id === 'visit-log-modal') Visit.closeLog();
     });
+    // Phase 5: GPS capture button
+    const gpsBtn = document.getElementById('btn-capture-gps');
+    if (gpsBtn) gpsBtn.addEventListener('click', () => Visit.captureGPS());
 
     // Route: start mode
     document.getElementById('route-start-mode').addEventListener('change', (e) => {
@@ -228,6 +234,18 @@ const App = {
 
     // Save route
     document.getElementById('btn-save-route').addEventListener('click', () => Route.saveRoute());
+
+    // Phase 7-9: Report modal
+    document.getElementById('report-btn').addEventListener('click', () => Report.open());
+    document.getElementById('close-report-modal').addEventListener('click', () => Report.close());
+    document.getElementById('report-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'report-modal') Report.close();
+    });
+    document.getElementById('report-range').addEventListener('change', () => Report.setRange(document.getElementById('report-range').value));
+    document.getElementById('btn-generate-report').addEventListener('click', () => Report.generate());
+    document.getElementById('btn-export-html').addEventListener('click', () => Report.exportHTML());
+    document.getElementById('btn-export-csv').addEventListener('click', () => Report.exportCSV());
+    document.getElementById('btn-export-share').addEventListener('click', () => Report.shareText());
   },
 
   // Switch tab

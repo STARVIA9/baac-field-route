@@ -85,7 +85,58 @@ const Visit = {
     const form = document.getElementById('visit-log-form');
     form.elements.status.value = existing?.status || 'visited';
     form.elements.note.value = existing?.note || '';
+    // Phase 5: pre-fill GPS if previously recorded
+    form.elements.lat.value = existing?.lat || '';
+    form.elements.lng.value = existing?.lng || '';
+    form.elements.accuracy.value = existing?.accuracy || '';
+    this._renderGpsDisplay(existing?.lat, existing?.lng, existing?.accuracy);
     document.getElementById('visit-log-modal').classList.remove('hidden');
+  },
+
+  // Phase 5: Render GPS display in visit modal
+  _renderGpsDisplay(lat, lng, accuracy) {
+    const el = document.getElementById('gps-display');
+    if (!el) return;
+    if (lat && lng) {
+      const accText = accuracy ? `±${Math.round(accuracy)} ม.` : '';
+      el.innerHTML = `
+        <div class="gps-captured">
+          <span class="gps-coord">📍 ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span>
+          <span class="gps-accuracy">${accText}</span>
+        </div>
+      `;
+    } else {
+      el.innerHTML = '<span class="gps-empty">ยังไม่ได้บันทึก</span>';
+    }
+  },
+
+  // Phase 5: Capture current GPS
+  captureGPS() {
+    if (!navigator.geolocation) {
+      Utils.toast('เบราว์เซอร์ไม่รองรับ GPS', 'error');
+      return;
+    }
+    Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
+    const btn = document.getElementById('btn-capture-gps');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังค้นหา...'; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        document.getElementById('visit-lat').value = lat.toFixed(6);
+        document.getElementById('visit-lng').value = lng.toFixed(6);
+        document.getElementById('visit-accuracy').value = Math.round(acc);
+        this._renderGpsDisplay(lat, lng, acc);
+        Utils.toast('📍 บันทึกพิกัดแล้ว');
+        if (btn) { btn.disabled = false; btn.textContent = '📍 บันทึกพิกัดปัจจุบัน'; }
+      },
+      (err) => {
+        Utils.toast('ไม่สามารถเข้าถึง GPS: ' + err.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '📍 บันทึกพิกัดปัจจุบัน'; }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   },
 
   closeLog() {
@@ -99,6 +150,15 @@ const Visit = {
       status: form.elements.status.value,
       note: form.elements.note.value,
     };
+    // Phase 5: GPS coordinates (if captured)
+    const lat = form.elements.lat.value;
+    const lng = form.elements.lng.value;
+    const accuracy = form.elements.accuracy.value;
+    if (lat && lng) {
+      data.lat = parseFloat(lat);
+      data.lng = parseFloat(lng);
+      if (accuracy) data.accuracy = parseFloat(accuracy);
+    }
     Storage.saveVisit(this.currentCustomerId, data);
     this.closeLog();
     this.render();
