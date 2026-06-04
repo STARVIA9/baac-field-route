@@ -299,9 +299,15 @@
             <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
           </div>
         </div>
-        <div class="form-row">
-          <label>หมายเหตุ</label>
-          <input type="text" name="note" placeholder="เช่น ลูกค้าเก่า/ใหม่, ต้องติดตาม">
+        <div class="form-row form-row-2">
+          <div>
+            <label>ชื่อ-นามสกุล *</label>
+            <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
+          </div>
+          <div>
+            <label>ชื่อเล่น <span class="label-hint">(ไม่บังคับ)</span></label>
+            <input type="text" name="nickname" placeholder="เช่น ชาย, เจ, ตั้ม">
+          </div>
         </div>
         <div class="form-row form-row-2">
           <div>
@@ -320,6 +326,21 @@
               <option value="current">📅 หนี้ถึงกำหนด (ยังไม่เกิน)</option>
               <option value="overdue">⚠️ หนี้ค้าง (เลยกำหนด)</option>
             </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>📷 รูปถ่าย <span class="label-hint">(ไม่บังคับ · ใช้ช่วยจำลูกค้า)</span></label>
+          <div class="photo-upload">
+            <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+            <div class="photo-preview" id="photo-preview" onclick="document.getElementById('photo-input').click()">
+              <div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>
+            </div>
+            <div class="photo-actions">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('photo-input').click()">📷 ถ่ายรูป/เลือกไฟล์</button>
+              <button type="button" class="btn-secondary hidden" id="btn-remove-photo" onclick="App.removePhoto()">🗑️ ลบรูป</button>
+            </div>
+            <input type="hidden" name="photo" id="photo-data">
+            <small class="photo-size-hint">รูปจะถูกย่ออัตโนมัติ (สูงสุด 800px) เพื่อ sync เร็ว</small>
           </div>
         </div>
         <div class="form-actions">

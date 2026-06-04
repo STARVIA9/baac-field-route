@@ -115,17 +115,26 @@ const Customers = {
   edit(id) {
     const c = Storage.getCustomers().find(x => x.id === id);
     if (!c) return;
-    document.querySelector('#add-customer-form [name=name]').value = c.name;
-    document.querySelector('#add-customer-form [name=phone]').value = c.phone || '';
-    document.querySelector('#add-customer-form [name=address]').value = c.address || '';
-    document.querySelector('#add-customer-form [name=lat]').value = c.lat;
-    document.querySelector('#add-customer-form [name=lng]').value = c.lng;
-    document.querySelector('#add-customer-form [name=note]').value = c.note || '';
-    // Phase 4: pre-fill risk + debt dropdowns
-    document.querySelector('#add-customer-form [name=riskLevel]').value = c.riskLevel || 'unclassified';
-    document.querySelector('#add-customer-form [name=debtType]').value = c.debtType || '';
     document.getElementById('add-customer-form').dataset.editId = id;
     App.openAddCustomerModal();
+    // Set values AFTER modal reset (openAddCustomerModal calls form.reset())
+    const form = document.getElementById('add-customer-form');
+    form.elements.name.value = c.name;
+    form.elements.nickname.value = c.nickname || '';
+    form.elements.phone.value = c.phone || '';
+    form.elements.address.value = c.address || '';
+    form.elements.lat.value = c.lat;
+    form.elements.lng.value = c.lng;
+    form.elements.note.value = c.note || '';
+    // Phase 4: pre-fill risk + debt dropdowns
+    form.elements.riskLevel.value = c.riskLevel || 'unclassified';
+    form.elements.debtType.value = c.debtType || '';
+    // Phase 2: pre-fill photo
+    if (c.photo) {
+      App._showPhotoPreview(c.photo);
+    }
+    // Re-init mini-map with customer location
+    setTimeout(() => App.initMiniMap(c.lat, c.lng), 150);
   },
 
   // Delete customer

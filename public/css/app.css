@@ -1531,3 +1531,51 @@ body:has(#map.map-fs-fake) .map-fab {
 .route-end select + select, .route-end #route-end-customer {
   margin-top: 6px;
 }
+
+/* ===== Photo upload in customer form (Phase 2) ===== */
+.photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.photo-preview {
+  width: 100%;
+  min-height: 120px;
+  max-height: 280px;
+  border: 2px dashed var(--baac-gold);
+  border-radius: 10px;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+.photo-preview:hover {
+  border-color: var(--baac-green);
+  background: #f0f8f0;
+}
+.photo-preview .photo-empty {
+  color: #888;
+  font-size: 14px;
+  text-align: center;
+  padding: 16px;
+}
+.photo-preview .photo-img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+}
+.photo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.photo-size-hint {
+  color: #888;
+  font-size: 11px;
+  margin-top: 2px;
+}

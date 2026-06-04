@@ -206,6 +206,11 @@ const App = {
       e.preventDefault();
       this.saveCustomer(e.target);
     });
+    // Photo upload (capture or file)
+    const photoInput = document.getElementById('photo-input');
+    if (photoInput) {
+      photoInput.addEventListener('change', (e) => this.handlePhotoUpload(e.target.files[0]));
+    }
 
     // Visit modal
     document.getElementById('close-visit-modal').addEventListener('click', () => Visit.closeLog());
@@ -265,8 +270,91 @@ const App = {
     document.getElementById('add-customer-modal').classList.remove('hidden');
     document.getElementById('add-customer-form').dataset.editId = '';
     document.getElementById('add-customer-form').reset();
+    this._resetPhotoPreview();
     // Init mini-map after modal visible
     setTimeout(() => this.initMiniMap(), 100);
+  },
+
+  // ===== Photo upload (capture/file → resize → base64) =====
+  _resetPhotoPreview() {
+    const preview = document.getElementById('photo-preview');
+    const dataInput = document.getElementById('photo-data');
+    const removeBtn = document.getElementById('btn-remove-photo');
+    if (preview) preview.innerHTML = '<div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>';
+    if (dataInput) dataInput.value = '';
+    if (removeBtn) removeBtn.classList.add('hidden');
+  },
+
+  _showPhotoPreview(dataUrl) {
+    const preview = document.getElementById('photo-preview');
+    const dataInput = document.getElementById('photo-data');
+    const removeBtn = document.getElementById('btn-remove-photo');
+    if (preview) {
+      preview.innerHTML = `<img src="${dataUrl}" alt="customer photo" class="photo-img">`;
+    }
+    if (dataInput) dataInput.value = dataUrl;
+    if (removeBtn) removeBtn.classList.remove('hidden');
+  },
+
+  // Resize image to max 800px, JPEG quality 0.7 → base64 dataURL
+  async _resizeImage(file, maxSize = 800, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round(height * (maxSize / width));
+              width = maxSize;
+            } else {
+              width = Math.round(width * (maxSize / height));
+              height = maxSize;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          // Always output JPEG to keep size small
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async handlePhotoUpload(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      Utils.toast('กรุณาเลือกไฟล์รูปภาพ', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      Utils.toast('รูปใหญ่เกิน 10MB — กรุณาเลือกรูปอื่น', 'error');
+      return;
+    }
+    Utils.toast('📷 กำลังย่อรูป...');
+    try {
+      const dataUrl = await this._resizeImage(file, 800, 0.7);
+      const sizeKB = Math.round(dataUrl.length * 0.75 / 1024);
+      this._showPhotoPreview(dataUrl);
+      Utils.toast(`✅ ย่อรูปเสร็จ (~${sizeKB} KB)`);
+    } catch (err) {
+      Utils.toast('ไม่สามารถประมวลผลรูปได้: ' + err.message, 'error');
+    }
+  },
+
+  removePhoto() {
+    this._resetPhotoPreview();
+    const fileInput = document.getElementById('photo-input');
+    if (fileInput) fileInput.value = '';
+    Utils.toast('🗑️ ลบรูปแล้ว');
   },
 
   // Init mini-map in add customer modal

@@ -49,9 +49,10 @@ const Storage = {
     }
   },
 
-  // ===== Phase 1: Migrate old customers to new schema =====
+  // ===== Phase 1 + Nickname/Photo: Migrate old customers to new schema =====
   // ลูกค้าเดิมที่ไม่มี riskLevel → 'unclassified' (marker แสดง "?" ไม่มีสี)
   // ลูกค้าเดิมที่ไม่มี debtType → null
+  // Phase 2: เพิ่ม nickname + photo (รูปถ่าย base64)
   migrateCustomers() {
     const list = this.getCustomers();
     let changed = false;
@@ -63,6 +64,14 @@ const Storage = {
       }
       if (c.debtType === undefined) {
         c.debtType = null;
+        changed = true;
+      }
+      if (c.nickname === undefined) {
+        c.nickname = '';
+        changed = true;
+      }
+      if (c.photo === undefined) {
+        c.photo = null;
         changed = true;
       }
     });

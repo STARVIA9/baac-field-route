@@ -1,1 +1,5 @@
-{"version":"20260604.194600","deployed":"2026-06-04T19:46:00+07:00","changelog":"Phase 1-9: Risk-based markers (4 states), GPS capture in visit, vehicle/fuel data, debt follow-up report with เบี้ยเลี้ยง 160฿/วัน"}
+{
+  "version": "20260604.205500",
+  "deployed": "2026-06-04T20:55:00+07:00",
+  "changelog": "Phase 2: Photo + Nickname in customer form"
+}
