@@ -39,7 +39,7 @@ const Quick = {
       return;
     }
 
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     // Match by CIF, name, phone, address
     const matches = customers.filter(c => {
       const haystack = `${c.cif || ''} ${c.name || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase();
@@ -99,7 +99,7 @@ const Quick = {
 
   // Render selected chips
   renderSelected() {
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const el = document.getElementById('quick-chips');
     const countEl = document.getElementById('quick-count');
     countEl.textContent = this.selected.length;

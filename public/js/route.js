@@ -10,7 +10,7 @@ const Route = {
   // orderedCustomerIds: array of customer IDs in visit order
   // end: {lat, lng} — optional endpoint (default: return to start)
   async calculate(start, orderedCustomerIds, end) {
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const stops = orderedCustomerIds
       .map(id => customers.find(c => c.id === id))
       .filter(Boolean);

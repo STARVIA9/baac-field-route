@@ -36,7 +36,7 @@ const TSP = {
   // end: optional endpoint to consider
   twoOpt(route, start, end) {
     if (route.length < 3) return route;
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const custMap = new Map(customers.map(c => [c.id, c]));
 
     function totalDistance(order) {
@@ -87,7 +87,7 @@ const TSP = {
   // customerIds: array of customer IDs to visit
   // end: {lat, lng} — optional endpoint (default: return to start = round trip)
   plan(start, customerIds, end) {
-    const allCustomers = Storage.getCustomers();
+    const allCustomers = Storage.getActiveCustomers();
     const selectedCustomers = customerIds
       .map(id => allCustomers.find(c => c.id === id))
       .filter(Boolean);

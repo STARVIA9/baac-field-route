@@ -7,7 +7,7 @@ const Visit = {
   render() {
     const list = document.getElementById('visit-list');
     const route = Storage.getRoute();
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
     const routeCustomers = route.map(id => customers.find(c => c.id === id)).filter(Boolean);
 

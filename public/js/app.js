@@ -631,7 +631,7 @@ const App = {
   // Update route tab UI
   updateRouteUI() {
     const route = Storage.getRoute();
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const routeCustomers = route.map(id => customers.find(c => c.id === id)).filter(Boolean);
     const el = document.getElementById('route-customers');
     const btn = document.getElementById('btn-calculate-route');
@@ -777,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (endMode && endCustomer) {
     // Populate customer dropdown
     const populateEndCustomers = () => {
-      const customers = Storage.getCustomers();
+      const customers = Storage.getActiveCustomers();
       endCustomer.innerHTML = '<option value="">-- เลือกลูกค้า --</option>' +
         customers.map(c => `<option value="${c.id}">${this.escapeHTML(c.name)} (${this.escapeHTML(c.cif || '-')})</option>`).join('');
     };

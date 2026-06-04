@@ -14,6 +14,11 @@ const Storage = {
     catch { return []; }
   },
 
+  // Returns only non-deleted customers (for UI display)
+  getActiveCustomers() {
+    return this.getCustomers().filter(c => !c.deleted);
+  },
+
   saveCustomers(list) {
     localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));
   },
@@ -83,9 +88,15 @@ const Storage = {
   },
 
   deleteCustomer(id) {
-    const list = this.getCustomers().filter(c => c.id !== id);
-    this.saveCustomers(list);
-    this.push();
+    // Soft delete: mark as deleted so mergeByUpdatedAt skips it on pull
+    const list = this.getCustomers();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx >= 0) {
+      list[idx].deleted = true;
+      list[idx].updatedAt = new Date().toISOString();
+      this.saveCustomers(list);
+      this.push();
+    }
   },
 
   getRoute() {
@@ -292,13 +303,26 @@ const Storage = {
 // ===== Merge helpers =====
 function mergeByUpdatedAt(local, remote) {
   const byId = new Map();
+  // Load local first
   for (const c of local) { if (c.id) byId.set(c.id, c); }
+  // Merge remote — skip remote items older than local, and honor deleted flag
   for (const c of remote) {
     if (!c.id) continue;
+    if (c.deleted) {
+      // Remote says deleted — always accept (propagate delete across devices)
+      byId.set(c.id, c);
+      continue;
+    }
     const old = byId.get(c.id);
     if (!old) {
-      byId.set(c.id, c);
+      byId.set(c.id, c);  // new from remote
+    } else if (old.deleted) {
+      // Local is deleted but remote isn't — keep deleted if local is newer
+      const oldTime = new Date(old.updatedAt || 0).getTime();
+      const newTime = new Date(c.updatedAt || 0).getTime();
+      byId.set(c.id, newTime >= oldTime ? c : old);
     } else {
+      // Normal merge by updatedAt
       const oldTime = new Date(old.updatedAt || old.createdAt || 0).getTime();
       const newTime = new Date(c.updatedAt || c.createdAt || 0).getTime();
       byId.set(c.id, newTime >= oldTime ? c : old);

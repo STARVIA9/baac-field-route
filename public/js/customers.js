@@ -57,7 +57,7 @@ const Customers = {
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
     this.markers = {};
 
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
     // Build order map: id -> order number (1-based)
     const orderMap = {};
@@ -153,7 +153,7 @@ const Customers = {
   // Render customer list (Customers tab)
   renderList() {
     const list = document.getElementById('customers-list');
-    let customers = Storage.getCustomers();
+    let customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
     const route = Storage.getRoute();
 

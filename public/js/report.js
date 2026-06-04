@@ -57,7 +57,7 @@ const Report = {
     const vehicleId = document.getElementById('report-vehicle').value;
     const from = range.from;
     const to = range.to;
-    const customers = Storage.getCustomers();
+    const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
 
     // Group visits by day (using timestamp)
