@@ -1074,3 +1074,66 @@ form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
   height: 26px;
   font-size: 14px;
 }
+
+/* ===== Fullscreen toggle button ===== */
+.fs-toggle {
+  background: white;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  margin-top: 6px !important;
+  border: none !important;
+}
+.fs-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  transition: background 0.15s;
+}
+.fs-btn:hover {
+  background: #f0f0f0;
+}
+.fs-btn.active {
+  background: var(--baac-green);
+  color: white;
+}
+
+/* ===== Fullscreen (real + fake fallback) ===== */
+#map:fullscreen,
+#map:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #e8f0e8;
+}
+#map:fullscreen .leaflet-container,
+#map:-webkit-full-screen .leaflet-container {
+  height: 100vh !important;
+  width: 100vw !important;
+}
+/* Fallback for browsers that block Fullscreen API (some iPad/iOS WebView) */
+#map.map-fs-fake {
+  position: fixed !important;
+  top: 0; left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important; /* dynamic viewport for mobile */
+  z-index: 99999;
+  background: #e8f0e8;
+}
+#map.map-fs-fake .leaflet-container {
+  height: 100vh !important;
+  height: 100dvh !important;
+  width: 100vw !important;
+}
+/* FAB hidden during fake fullscreen so it doesn't overlap */
+body:has(#map.map-fs-fake) .map-fab {
+  display: none;
+}

@@ -220,7 +220,93 @@ const Customers = {
       },
     });
     new LayerToggle({ position: 'topright' }).addTo(this.map);
+
+    // Fullscreen toggle button
+    const FsToggle = L.Control.extend({
+      onAdd: () => {
+        const div = L.DomUtil.create('div', 'fs-toggle leaflet-bar');
+        const btn = L.DomUtil.create('button', 'fs-btn', div);
+        btn.innerHTML = '⛶';
+        btn.title = 'ขยายเต็มจอ';
+        btn.setAttribute('aria-label', 'Toggle fullscreen');
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        btn.addEventListener('click', (e) => {
+          L.DomEvent.stop(e);
+          Customers.toggleFullscreen();
+        });
+        return div;
+      },
+    });
+    new FsToggle({ position: 'topright' }).addTo(this.map);
+
+    // Update icon when fullscreen state changes (handles ESC key + iOS quirks)
+    const updateFsIcon = () => {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement
+        || document.querySelector('#map.map-fs-fake'));
+      const btn = document.querySelector('.fs-btn');
+      if (btn) {
+        btn.innerHTML = isFs ? '✕' : '⛶';
+        btn.title = isFs ? 'ออกจากเต็มจอ' : 'ขยายเต็มจอ';
+        btn.classList.toggle('active', isFs);
+      }
+      // Trigger map resize after layout change
+      setTimeout(() => this.map && this.map.invalidateSize(), 200);
+    };
+    ['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(ev => {
+      document.addEventListener(ev, updateFsIcon);
+    });
   },
+
+  // ===== Fullscreen toggle =====
+  toggleFullscreen() {
+    const mapEl = document.getElementById('map');
+    if (!mapEl) return;
+    const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!isFs) {
+      // Enter fullscreen — try real API first, fallback to fake fullscreen
+      // Find first actually-defined function
+      const candidates = [
+        mapEl.requestFullscreen,
+        mapEl.webkitRequestFullscreen,
+        mapEl.msRequestFullscreen,
+      ];
+      const req = candidates.find(fn => typeof fn === 'function') || null;
+      if (req) {
+        let result;
+        try {
+          result = req.call(mapEl);
+        } catch (err) {
+          // Synchronous error (e.g. some iOS WebViews)
+          console.warn('Fullscreen call threw, using fallback:', err);
+          this._useFakeFullscreen(mapEl);
+          return;
+        }
+        // Some browsers return undefined (no promise); only chain .catch if it's a Promise
+        if (result && typeof result.then === 'function') {
+          result.catch(err => {
+            console.warn('Fullscreen API blocked, using fallback:', err);
+            this._useFakeFullscreen(mapEl);
+          });
+        }
+      } else {
+        // No Fullscreen API support at all
+        console.warn('No Fullscreen API, using CSS fallback');
+        this._useFakeFullscreen(mapEl);
+      }
+    } else {
+      // Exit fullscreen
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (exit) exit.call(document);
+      mapEl.classList.remove('map-fs-fake');
+    }
+    },
+    _useFakeFullscreen(mapEl) {
+    mapEl.classList.add('map-fs-fake');
+    const btn = document.querySelector('.fs-btn');
+    if (btn) { btn.innerHTML = '✕'; btn.classList.add('active'); btn.title = 'ออกจากเต็มจอ'; }
+    this.map.invalidateSize();
+    },
 
   switchBaseLayer(layerName) {
     if (!this._baseLayers[layerName] || layerName === this._currentBaseLayer) return;
