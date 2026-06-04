@@ -1,6 +1,6 @@
 // Auth handler — POST /api/auth/login
 
-import { signHS256 } from '../_lib/jwt.js';
+import { signHS256 } from '../../_lib/jwt.js';
 
 const PIN_TEAM = {
   '0000': { name: 'Admin', role: 'admin' },

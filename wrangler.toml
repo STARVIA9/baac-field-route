@@ -6,7 +6,7 @@ command = ""
 
 [[kv_namespaces]]
 binding = "BFR_KV"
-id = "REPLACE_WITH_REAL_KV_ID"
+id = "bc1b3d9b873045c88b43ebe0fd241706"
 
 # JWT secret — set in Cloudflare Pages dashboard (BFR_JWT_SECRET)
 # Use a long random string (≥32 chars)

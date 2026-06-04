@@ -2,7 +2,7 @@
 // Body: { customers: [...] }
 // Returns: { success, customers: [...all known...], count }
 
-import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
