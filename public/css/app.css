@@ -1713,3 +1713,90 @@ body:has(#map.map-fs-fake) .map-fab {
   border-top: 1px solid #eee;
   margin-top: 8px;
 }
+
+/* ===== Delete button (danger) + Confirm modal ===== */
+.btn-small.btn-danger {
+  color: var(--risk-bad);
+}
+.btn-small.btn-danger:hover {
+  background: var(--risk-bad);
+  color: white;
+  border-color: var(--risk-bad);
+}
+.btn-danger {
+  background: var(--risk-bad);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+.btn-danger:active {
+  transform: translateY(0);
+}
+.modal-header-danger {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-bottom: 2px solid var(--risk-bad);
+}
+.modal-header-danger h3 {
+  color: var(--risk-bad);
+}
+.modal-card-narrow {
+  max-width: 400px;
+}
+.confirm-del-body {
+  padding: 20px 24px;
+  text-align: center;
+}
+.confirm-del-photo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.confirm-del-photo-img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid var(--risk-bad);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+.confirm-del-question {
+  font-size: 14px;
+  color: #666;
+  margin: 8px 0 4px 0;
+}
+.confirm-del-name {
+  font-size: 20px;
+  color: #333;
+  margin: 4px 0 8px 0;
+  word-break: break-word;
+}
+.confirm-del-details {
+  font-size: 13px;
+  color: #888;
+  margin: 0 0 16px 0;
+}
+.confirm-del-warning {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-left: 4px solid var(--risk-bad);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #991b1b;
+  text-align: left;
+  line-height: 1.6;
+}
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 12px 24px 20px;
+  justify-content: flex-end;
+}

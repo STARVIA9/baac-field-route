@@ -451,6 +451,30 @@
     </div>
   </div>
 
+  <!-- Confirm Delete Modal — แสดงก่อนลบลูกค้า -->
+  <div class="modal hidden" id="confirm-delete-modal">
+    <div class="modal-card modal-card-narrow">
+      <div class="modal-header modal-header-danger">
+        <h3>🗑️ ยืนยันการลบลูกค้า</h3>
+        <button class="btn-close" id="close-confirm-del">×</button>
+      </div>
+      <div class="modal-body confirm-del-body">
+        <div class="confirm-del-photo" id="confirm-del-photo"></div>
+        <p class="confirm-del-question">คุณต้องการลบลูกค้า</p>
+        <h4 class="confirm-del-name" id="confirm-del-name"></h4>
+        <p class="confirm-del-details" id="confirm-del-details"></p>
+        <div class="confirm-del-warning">
+          ⚠️ <b>การลบจะลบข้อมูลทั้งหมด</b> รวมถึง visit records, GPS coordinates, รูปถ่าย และ visit history
+          <br>❌ ไม่สามารถกู้คืนได้
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-confirm-del-no">ยกเลิก</button>
+        <button class="btn-danger" id="btn-confirm-del-yes">🗑️ ลบเลย</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Help Modal — คำอธิบายการใช้งาน -->
   <div class="modal hidden" id="help-modal">
     <div class="modal-card modal-card-wide">
@@ -470,7 +494,8 @@
           <ol class="help-steps">
             <li>
               <b>เพิ่มลูกค้า</b> แท็บ 👥 ลูกค้า → กด ➕ → กรอกชื่อ + ที่อยู่ + <b>จิ้มแผนที่</b>เพื่อเลือกตำแหน่ง → บันทึก
-              <small>💡 ตั้งระดับความเสี่ยง (เขียว/เหลือง/แดง) + ประเภทหนี้ (ถึงกำหนด/ค้าง) ด้วย</small>
+              <small>💡 ตั้งระดับความเสี่ยง (เขียว/เหลือง/แดง) + ประเภทหนี้ (ถึงกำหนด/ค้าง) + ชื่อเล่น + รูปถ่าย ด้วย</small>
+              <small>🗑️ <b>ลบลูกค้า</b>: กดปุ่ม 🗑️ ที่รายการ → ยืนยัน → ลบถาวร</small>
             </li>
             <li>
               <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → กด <b>🧮 คำนวณเส้นทาง</b> → เลือกรถ → กด 💾 บันทึก

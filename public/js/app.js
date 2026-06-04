@@ -369,6 +369,58 @@ const App = {
     document.getElementById('help-modal').classList.add('hidden');
   },
 
+  // ===== Confirm Delete (custom modal with customer details) =====
+  confirmDelete(customer) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirm-delete-modal');
+      const nameEl = document.getElementById('confirm-del-name');
+      const detailsEl = document.getElementById('confirm-del-details');
+      const photoEl = document.getElementById('confirm-del-photo');
+      const btnYes = document.getElementById('btn-confirm-del-yes');
+      const btnNo = document.getElementById('btn-confirm-del-no');
+      const btnX = document.getElementById('close-confirm-del');
+
+      nameEl.textContent = customer.name || '(ไม่มีชื่อ)';
+
+      // Build details line
+      const details = [];
+      if (customer.cif) details.push('CIF: ' + customer.cif);
+      if (customer.phone) details.push('📞 ' + customer.phone);
+      if (customer.nickname) details.push('🏷️ ' + customer.nickname);
+      detailsEl.textContent = details.length ? details.join(' · ') : '—';
+
+      // Show photo if exists
+      if (customer.photo) {
+        photoEl.innerHTML = `<img src="${customer.photo}" alt="photo" class="confirm-del-photo-img">`;
+        photoEl.style.display = 'block';
+      } else {
+        photoEl.innerHTML = '';
+        photoEl.style.display = 'none';
+      }
+
+      // Show modal
+      modal.classList.remove('hidden');
+
+      // Cleanup function
+      const cleanup = (result) => {
+        modal.classList.add('hidden');
+        btnYes.removeEventListener('click', yesHandler);
+        btnNo.removeEventListener('click', noHandler);
+        btnX.removeEventListener('click', noHandler);
+        modal.removeEventListener('click', backdropHandler);
+        resolve(result);
+      };
+      const yesHandler = () => cleanup(true);
+      const noHandler = () => cleanup(false);
+      const backdropHandler = (e) => { if (e.target.id === 'confirm-delete-modal') cleanup(false); };
+
+      btnYes.addEventListener('click', yesHandler);
+      btnNo.addEventListener('click', noHandler);
+      btnX.addEventListener('click', noHandler);
+      modal.addEventListener('click', backdropHandler);
+    });
+  },
+
   // Init mini-map in add customer modal
   initMiniMap(prefillLat, prefillLng) {
     const container = document.getElementById('mini-map');

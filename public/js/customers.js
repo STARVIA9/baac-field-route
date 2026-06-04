@@ -139,11 +139,14 @@ const Customers = {
 
   // Delete customer
   async del(id) {
-    if (!confirm('ลบลูกค้าคนนี้?')) return;
+    const c = Storage.getCustomers().find(x => x.id === id);
+    if (!c) return;
+    const confirmed = await App.confirmDelete(c);
+    if (!confirmed) return;
     Storage.deleteCustomer(id);
     Storage.removeFromRoute(id);
     this.renderAll();
-    Utils.toast('ลบลูกค้าแล้ว');
+    Utils.toast('🗑️ ลบ "' + (c.name || 'ลูกค้า') + '" แล้ว');
     await Storage.sync();
   },
 
@@ -198,6 +201,7 @@ const Customers = {
               ${inRoute ? '✓' : '➕'}
             </button>
             <button class="btn-small" onclick="Customers.edit('${c.id}')" title="แก้ไข">✏️</button>
+            <button class="btn-small btn-danger" onclick="Customers.del('${c.id}')" title="ลบลูกค้า">🗑️</button>
           </div>
         </div>
       `;
