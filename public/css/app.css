@@ -112,12 +112,11 @@ body {
 /* ===== App Layout ===== */
 .app {
   min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport for mobile/tablet */
   display: flex;
   flex-direction: column;
-  max-width: 480px;
-  margin: 0 auto;
+  width: 100%;
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 .app-header {
   display: flex;
@@ -177,11 +176,11 @@ body {
   border-bottom-color: var(--baac-green);
   font-weight: 600;
 }
-.tab-pane { display: none; flex: 1; }
-.tab-pane.active { display: block; }
 
 /* ===== Map Tab ===== */
-#map { height: calc(100vh - 130px); width: 100%; }
+.tab-pane { display: none; flex: 1; min-height: 0; overflow: hidden; }
+.tab-pane.active { display: flex; flex-direction: column; }
+#map { flex: 1; width: 100%; min-height: 0; }
 .map-fab {
   position: fixed;
   bottom: 20px;
