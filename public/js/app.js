@@ -17,6 +17,8 @@ const App = {
     Customers.initMap();
     Customers.renderAll();
     Visit.render();
+    Quick.init();
+    Quick.renderSelected();
     this.updateRouteUI();
 
     // Sync with cloud
@@ -68,6 +70,12 @@ const App = {
         Customers.renderList();
       });
     });
+
+    // Customer search
+    const customerSearch = document.getElementById('customer-search');
+    if (customerSearch) {
+      customerSearch.addEventListener('input', Utils.debounce(() => Customers.renderList(), 150));
+    }
 
     // FAB buttons
     document.getElementById('fab-add-customer').addEventListener('click', () => this.openAddCustomerModal());

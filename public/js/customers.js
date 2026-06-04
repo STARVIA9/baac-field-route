@@ -111,10 +111,22 @@ const Customers = {
       // For now: same as all. Can be filtered by route later.
     }
 
+    // Search filter
+    const searchQuery = (document.getElementById('customer-search')?.value || '').trim().toLowerCase();
+    if (searchQuery) {
+      customers = customers.filter(c => {
+        const haystack = `${c.cif || ''} ${c.name || ''} ${c.phone || ''} ${c.address || ''} ${c.note || ''}`.toLowerCase();
+        return haystack.includes(searchQuery);
+      });
+    }
+
     document.getElementById('customer-count').textContent = customers.length;
 
     if (customers.length === 0) {
-      list.innerHTML = `<p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>`;
+      const msg = searchQuery
+        ? `ไม่พบลูกค้าที่ตรงกับ "${searchQuery}"`
+        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม';
+      list.innerHTML = `<p class="empty-state">${msg}</p>`;
       return;
     }
 
@@ -126,6 +138,7 @@ const Customers = {
           <div class="customer-avatar">${visited ? '✓' : '👤'}</div>
           <div class="customer-info">
             <div class="customer-name">${this.escapeHTML(c.name)}</div>
+            ${c.cif ? `<div class="customer-cif">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
             <div class="customer-address">${this.escapeHTML(c.address || 'ไม่มีที่อยู่')}</div>
           </div>
           <div class="customer-actions">

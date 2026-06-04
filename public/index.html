@@ -46,6 +46,7 @@
     <nav class="app-tabs">
       <button class="tab active" data-tab="map">🗺️ แผนที่</button>
       <button class="tab" data-tab="customers">👥 ลูกค้า</button>
+      <button class="tab" data-tab="quick">⚡ เร็ว</button>
       <button class="tab" data-tab="route">🧭 เส้นทาง</button>
       <button class="tab" data-tab="visit">📋 เข้าพบ</button>
     </nav>
@@ -67,6 +68,9 @@
           <span id="customer-count">0</span> คน
         </div>
       </div>
+      <div class="customers-search">
+        <input type="search" id="customer-search" placeholder="🔍 ค้นหาด้วยชื่อ, CIF, เบอร์โทร, ที่อยู่..." autocomplete="off">
+      </div>
       <div class="customers-filters">
         <button class="filter active" data-filter="all">ทั้งหมด</button>
         <button class="filter" data-filter="today">วันนี้</button>
@@ -75,6 +79,51 @@
       </div>
       <div class="customers-list" id="customers-list">
         <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
+      </div>
+    </section>
+
+    <!-- Quick Route Tab -->
+    <section class="tab-pane" id="tab-quick">
+      <div class="quick-header">
+        <h2>⚡ สร้างเส้นทางด่วน</h2>
+        <p class="quick-desc">พิมพ์รหัส CIF หรือชื่อลูกค้า → เลือกอัตโนมัติ → คำนวณเส้นทาง</p>
+      </div>
+
+      <div class="quick-search-box">
+        <input type="search" id="quick-search" placeholder="🔍 พิมพ์ CIF หรือชื่อลูกค้า..." autocomplete="off">
+        <div class="quick-results" id="quick-results"></div>
+      </div>
+
+      <div class="quick-selected">
+        <div class="quick-selected-header">
+          <h3>เลือกแล้ว (<span id="quick-count">0</span>/10)</h3>
+          <button class="btn-link" id="btn-clear-quick">ล้าง</button>
+        </div>
+        <div class="quick-chips" id="quick-chips"></div>
+      </div>
+
+      <div class="quick-start">
+        <label>📍 จุดเริ่มต้น</label>
+        <select id="quick-start-mode">
+          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+          <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
+        </select>
+      </div>
+
+      <button class="btn-primary btn-large" id="btn-quick-route" disabled>
+        🧮 คำนวณเส้นทางจากลูกค้าที่เลือก
+      </button>
+
+      <div class="route-result hidden" id="quick-route-result"></div>
+
+      <div class="quick-help">
+        <h4>💡 วิธีใช้</h4>
+        <ol>
+          <li>พิมพ์ CIF หรือชื่อ → เลือกจากรายการ (กดเพื่อเพิ่ม)</li>
+          <li>เลือกได้สูงสุด 10 คน</li>
+          <li>กด <strong>"คำนวณเส้นทาง"</strong> → เรียงอัตโนมัติ</li>
+          <li>กดปุ่ม <strong>"เปิด Google Maps"</strong> เพื่อนำทางจริง</li>
+        </ol>
       </div>
     </section>
 
@@ -173,6 +222,10 @@
       </div>
       <form id="add-customer-form">
         <div class="form-row">
+          <label>รหัสลูกค้า (CIF) *</label>
+          <input type="text" name="cif" required pattern="[0-9]{6,20}" placeholder="เช่น 1234567890123" inputmode="numeric">
+        </div>
+        <div class="form-row">
           <label>ชื่อ-นามสกุล *</label>
           <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
         </div>
@@ -248,6 +301,7 @@
   <script src="js/tsp.js"></script>
   <script src="js/route.js"></script>
   <script src="js/visit.js"></script>
+  <script src="js/quick.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
