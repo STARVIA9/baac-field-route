@@ -416,6 +416,7 @@ const App = {
               ${r.potential ? `<span class="badge ${r.potential === 'แดง' ? 'badge-red' : r.potential === 'เหลือง' ? 'badge-yellow' : 'badge-green'}">${r.potential}</span>` : ''}
               ${r.zone ? `<span class="badge badge-gray">เขต ${r.zone}</span>` : ''}
               ${r.tambon ? `<span>${r.tambon}</span>` : ''}
+              ${r.lat ? `<span class="badge badge-green">📍</span>` : ''}
             </div>
           </div>
         `).join('');
@@ -476,6 +477,14 @@ const App = {
     const addr = CustomerDB.fullAddress(rec);
     if (addr) form.elements.address.value = addr;
 
+    // Auto-fill coordinates from DB (Nominatim geocoded)
+    if (rec.lat && rec.lng) {
+      document.getElementById('new-lat').value = rec.lat;
+      document.getElementById('new-lng').value = rec.lng;
+      // Update mini-map with the location
+      setTimeout(() => this.initMiniMap(rec.lat, rec.lng), 150);
+    }
+
     // Close search results
     const results = document.getElementById('db-search-results');
     if (results) results.classList.remove('active');
@@ -488,6 +497,7 @@ const App = {
       if (rec.customer_class) badges.push(`ชั้น ${rec.customer_class}`);
       if (rec.potential) badges.push(`ศักยภาพ ${rec.potential}`);
       if (rec.dob) badges.push(`เกิด ${rec.dob}`);
+      if (rec.lat) badges.push(`📍 มีพิกัดแล้ว`);
       info.innerHTML = `✅ <strong>${this._esc(rec.name)}</strong> · CIF ${rec.cif}${badges.length ? ' · ' + badges.join(' · ') : ''}`;
       info.classList.add('active');
     }
@@ -496,7 +506,7 @@ const App = {
     const input = document.getElementById('db-search-input');
     if (input) input.value = `${rec.name} (CIF: ${rec.cif})`;
 
-    Utils.toast('📋 กรอกข้อมูลอัตโนมัติจากฐานข้อมูลแล้ว');
+    Utils.toast('📋 กรอกข้อมูลอัตโนมัติจากฐานข้อมูลแล้ว' + (rec.lat ? ' (มีพิกัด 📍)' : ''));
   },
 
   _esc(str) {
