@@ -267,6 +267,15 @@
         <button class="btn-close" id="close-add-modal">×</button>
       </div>
       <form id="add-customer-form">
+        <!-- DB Search: auto-fill from imported customer data -->
+        <div class="db-search-container">
+          <label>🔍 ค้นหาจากฐานข้อมูลลูกค้า (CIF / ชื่อ / เลขบัตร)</label>
+          <div class="db-search-row">
+            <input type="text" id="db-search-input" placeholder="พิมพ์ CIF หรือ ชื่อ-สกุล..." autocomplete="off">
+          </div>
+          <div class="db-search-results" id="db-search-results"></div>
+          <div class="db-filled-info" id="db-filled-info"></div>
+        </div>
         <div class="form-row">
           <label>รหัสลูกค้า (CIF) *</label>
           <input type="text" name="cif" required pattern="[0-9]{6,20}" placeholder="เช่น 1234567890123" inputmode="numeric">
@@ -601,6 +610,7 @@
   <script src="js/storage.js"></script>
   <script src="js/fuel.js"></script>
   <script src="js/customers.js"></script>
+  <script src="js/customer-db.js"></script>
   <script src="js/tsp.js"></script>
   <script src="js/route.js"></script>
   <script src="js/visit.js"></script>

@@ -1800,3 +1800,123 @@ body:has(#map.map-fs-fake) .map-fab {
   padding: 12px 24px 20px;
   justify-content: flex-end;
 }
+
+/* ===== Customer DB Search ===== */
+.db-search-container {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-radius: 10px;
+  border: 2px solid #0a8f3c;
+}
+.db-search-container label {
+  font-weight: 700;
+  color: #0a8f3c;
+  font-size: 14px;
+  margin-bottom: 6px;
+  display: block;
+}
+.db-search-row {
+  display: flex;
+  gap: 8px;
+}
+.db-search-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.db-search-row input:focus {
+  border-color: #0a8f3c;
+  box-shadow: 0 0 0 3px rgba(10,143,60,0.15);
+}
+.db-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1.5px solid #ddd;
+  border-radius: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 10001;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  display: none;
+}
+.db-search-results.active { display: block; }
+.db-search-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+.db-search-item:hover,
+.db-search-item.highlighted {
+  background: #f0fdf4;
+}
+.db-search-item:last-child { border-bottom: none; }
+.db-search-item .db-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+.db-search-item .db-meta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.db-search-item .db-meta .badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.db-search-item .db-meta .badge-green { background: #dcfce7; color: #166534; }
+.db-search-item .db-meta .badge-yellow { background: #fef9c3; color: #854d0e; }
+.db-search-item .db-meta .badge-red { background: #fee2e2; color: #991b1b; }
+.db-search-item .db-meta .badge-blue { background: #dbeafe; color: #1e40af; }
+.db-search-hint {
+  padding: 12px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+.db-filled-info {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+  display: none;
+}
+.db-filled-info.active { display: block; }
+
+/* Customer card — show extra fields */
+.customer-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.customer-meta .meta-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.meta-badge.green { background: #dcfce7; color: #166534; }
+.meta-badge.yellow { background: #fef9c3; color: #854d0e; }
+.meta-badge.red { background: #fee2e2; color: #991b1b; }
+.meta-badge.blue { background: #dbeafe; color: #1e40af; }
+.meta-badge.gray { background: #f3f4f6; color: #374151; }

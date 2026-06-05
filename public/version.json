@@ -1,5 +1,5 @@
 {
-  "version": "20260604.215500",
-  "deployed": "2026-06-04T21:35:00+07:00",
-  "changelog": "Fix: const\u2192var for onclick + delete customer now works"
+  "version": "20260605.003000",
+  "deployed": "2026-06-05T00:30:00+07:00",
+  "changelog": "Feature: Customer DB search — import CSV data, auto-fill from CIF/name search, show zone/class/potential badges"
 }

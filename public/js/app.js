@@ -78,6 +78,9 @@ const App = {
     Quick.renderSelected();
     this.updateRouteUI();
 
+    // Load customer database (async, non-blocking)
+    CustomerDB.load();
+
     // Initial sync (push local + pull remote)
     const sync = await Storage.sync();
     if (sync && sync.success) {
@@ -212,6 +215,9 @@ const App = {
       photoInput.addEventListener('change', (e) => this.handlePhotoUpload(e.target.files[0]));
     }
 
+    // Customer DB search
+    this._initDBSearch();
+
     // Visit modal
     document.getElementById('close-visit-modal').addEventListener('click', () => Visit.closeLog());
     document.getElementById('btn-cancel-visit').addEventListener('click', () => Visit.closeLog());
@@ -275,6 +281,13 @@ const App = {
     document.getElementById('add-customer-form').dataset.editId = '';
     document.getElementById('add-customer-form').reset();
     this._resetPhotoPreview();
+    // Reset DB search
+    const dbInput = document.getElementById('db-search-input');
+    const dbResults = document.getElementById('db-search-results');
+    const dbInfo = document.getElementById('db-filled-info');
+    if (dbInput) dbInput.value = '';
+    if (dbResults) { dbResults.innerHTML = ''; dbResults.classList.remove('active'); }
+    if (dbInfo) { dbInfo.innerHTML = ''; dbInfo.classList.remove('active'); }
     // Init mini-map after modal visible
     setTimeout(() => this.initMiniMap(), 100);
   },
@@ -367,6 +380,129 @@ const App = {
   },
   closeHelp() {
     document.getElementById('help-modal').classList.add('hidden');
+  },
+
+  // ===== Customer DB Search (auto-fill from imported data) =====
+  _initDBSearch() {
+    const input = document.getElementById('db-search-input');
+    const results = document.getElementById('db-search-results');
+    if (!input || !results) return;
+
+    let debounceTimer = null;
+    let highlightIdx = -1;
+
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const q = input.value.trim();
+        if (q.length < 2) {
+          results.classList.remove('active');
+          results.innerHTML = '';
+          return;
+        }
+        const matches = CustomerDB.search(q, 15);
+        if (matches.length === 0) {
+          results.innerHTML = '<div class="db-search-hint">❌ ไม่พบข้อมูล</div>';
+          results.classList.add('active');
+          return;
+        }
+        highlightIdx = -1;
+        results.innerHTML = matches.map((r, i) => `
+          <div class="db-search-item" data-idx="${i}" data-cif="${r.cif}">
+            <div class="db-name">${this._esc(r.name)}</div>
+            <div class="db-meta">
+              <span>CIF: ${r.cif}</span>
+              ${r.customer_class ? `<span class="badge badge-blue">${r.customer_class}</span>` : ''}
+              ${r.potential ? `<span class="badge ${r.potential === 'แดง' ? 'badge-red' : r.potential === 'เหลือง' ? 'badge-yellow' : 'badge-green'}">${r.potential}</span>` : ''}
+              ${r.zone ? `<span class="badge badge-gray">เขต ${r.zone}</span>` : ''}
+              ${r.tambon ? `<span>${r.tambon}</span>` : ''}
+            </div>
+          </div>
+        `).join('');
+        results.classList.add('active');
+
+        // Click handlers
+        results.querySelectorAll('.db-search-item').forEach(el => {
+          el.addEventListener('click', () => {
+            const cif = el.dataset.cif;
+            const rec = CustomerDB.getByCif(cif);
+            if (rec) this._fillFromDB(rec);
+          });
+        });
+      }, 200);
+    });
+
+    // Keyboard navigation
+    input.addEventListener('keydown', (e) => {
+      const items = results.querySelectorAll('.db-search-item');
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightIdx = Math.min(highlightIdx + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
+        items[highlightIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightIdx = Math.max(highlightIdx - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
+        items[highlightIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && highlightIdx >= 0) {
+        e.preventDefault();
+        const cif = items[highlightIdx]?.dataset.cif;
+        const rec = cif && CustomerDB.getByCif(cif);
+        if (rec) this._fillFromDB(rec);
+      } else if (e.key === 'Escape') {
+        results.classList.remove('active');
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.db-search-container')) {
+        results.classList.remove('active');
+      }
+    });
+  },
+
+  _fillFromDB(rec) {
+    const form = document.getElementById('add-customer-form');
+    if (!form) return;
+
+    // Auto-fill form fields
+    if (rec.cif) form.elements.cif.value = rec.cif;
+    if (rec.name) form.elements.name.value = rec.name;
+    if (rec.phone) form.elements.phone.value = rec.phone.replace(/\s/g, '');
+    // Build full address
+    const addr = CustomerDB.fullAddress(rec);
+    if (addr) form.elements.address.value = addr;
+
+    // Close search results
+    const results = document.getElementById('db-search-results');
+    if (results) results.classList.remove('active');
+
+    // Show filled info
+    const info = document.getElementById('db-filled-info');
+    if (info) {
+      const badges = [];
+      if (rec.zone) badges.push(`เขต ${rec.zone}`);
+      if (rec.customer_class) badges.push(`ชั้น ${rec.customer_class}`);
+      if (rec.potential) badges.push(`ศักยภาพ ${rec.potential}`);
+      if (rec.dob) badges.push(`เกิด ${rec.dob}`);
+      info.innerHTML = `✅ <strong>${this._esc(rec.name)}</strong> · CIF ${rec.cif}${badges.length ? ' · ' + badges.join(' · ') : ''}`;
+      info.classList.add('active');
+    }
+
+    // Update search input
+    const input = document.getElementById('db-search-input');
+    if (input) input.value = `${rec.name} (CIF: ${rec.cif})`;
+
+    Utils.toast('📋 กรอกข้อมูลอัตโนมัติจากฐานข้อมูลแล้ว');
+  },
+
+  _esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
   },
 
   // ===== Confirm Delete (custom modal with customer details) =====

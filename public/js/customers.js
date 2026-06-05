@@ -94,8 +94,19 @@ const Customers = {
 
   // Popup HTML
   popupHTML(c) {
+    const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+    let metaHTML = '';
+    if (db) {
+      const parts = [];
+      if (db.zone) parts.push(`เขต ${db.zone}`);
+      if (db.customer_class) parts.push(`ชั้น ${db.customer_class}`);
+      if (db.potential) parts.push(`ศักยภาพ ${db.potential}`);
+      if (parts.length) metaHTML = `<div class="popup-addr" style="font-size:11px;color:#0a8f3c;">${this.escapeHTML(parts.join(' · '))}</div>`;
+    }
     return `
       <div class="popup-name">${this.escapeHTML(c.name)}</div>
+      ${c.cif ? `<div class="popup-addr" style="font-size:11px;">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
+      ${metaHTML}
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
       ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
       <div class="popup-actions">
@@ -188,6 +199,17 @@ const Customers = {
     list.innerHTML = customers.map(c => {
       const visited = !!visits[c.id];
       const inRoute = route.includes(c.id);
+      // Look up DB data for additional fields
+      const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      const metaBadges = [];
+      if (db) {
+        if (db.zone) metaBadges.push(`<span class="meta-badge gray">เขต ${this.escapeHTML(db.zone)}</span>`);
+        if (db.customer_class) metaBadges.push(`<span class="meta-badge blue">${this.escapeHTML(db.customer_class)}</span>`);
+        if (db.potential) {
+          const pClass = db.potential === 'แดง' ? 'red' : db.potential === 'เหลือง' ? 'yellow' : 'green';
+          metaBadges.push(`<span class="meta-badge ${pClass}">${this.escapeHTML(db.potential)}</span>`);
+        }
+      }
       return `
         <div class="customer-card ${visited ? 'visited' : ''}">
           <div class="customer-avatar">${visited ? '✓' : '👤'}</div>
@@ -195,6 +217,7 @@ const Customers = {
             <div class="customer-name">${this.escapeHTML(c.name)}</div>
             ${c.cif ? `<div class="customer-cif">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
             <div class="customer-address">${this.escapeHTML(c.address || 'ไม่มีที่อยู่')}</div>
+            ${metaBadges.length ? `<div class="customer-meta">${metaBadges.join('')}</div>` : ''}
           </div>
           <div class="customer-actions">
             <button class="btn-small ${inRoute ? 'btn-route-active' : ''}" onclick="Customers.toggleRoute('${c.id}')" title="เพิ่มในเส้นทาง">
