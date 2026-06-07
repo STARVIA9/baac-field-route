@@ -67,16 +67,17 @@ const Customers = {
     customers.forEach((c, idx) => {
       const visited = !!visits[c.id];
       const orderNum = orderMap[c.id] || (idx + 1);
-      // ===== Phase 3: First letter of name + risk-based class =====
-      const firstChar = (c.name || '?').trim().charAt(0).toUpperCase() || '?';
+      // Risk-based class drives the color
       const riskClass = c.riskLevel || 'unclassified';
-      // Show "?" for unclassified, else first letter; add order badge for route
-      const showOrder = orderNum && orderMap[c.id];
-      const letterHTML = riskClass === 'unclassified' ? '?' : firstChar;
-      const orderHTML = showOrder ? `<span class="marker-order">${orderNum}</span>` : '';
+      // ===== Center content = route order number when in today's route.
+      // Off-route customers get an empty colored circle (no letter).
+      // Cleaner than the old "first letter of name" which didn't help
+      // field officers identify customers any faster than the color did.
+      const inRoute = orderMap[c.id] != null;
+      const centerHTML = inRoute ? orderNum : '';
       const icon = L.divIcon({
         className: '',
-        html: `<div class="customer-marker ${riskClass}${visited ? ' visited' : ''}">${letterHTML}${orderHTML}</div>`,
+        html: `<div class="customer-marker ${riskClass}${visited ? ' visited' : ''}">${centerHTML}</div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       });
