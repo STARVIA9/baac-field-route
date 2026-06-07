@@ -818,7 +818,10 @@ const App = {
       this._gpsMarker = L.marker([lat, lng], {
         icon: L.divIcon({
           className: '',
-          html: '<div class="gps-dot"><div class="gps-dot-inner"></div></div>',
+          html: '<div class="gps-dot">'
+              + '<div class="gps-arrow-wrap"><div class="gps-arrow"></div></div>'
+              + '<div class="gps-dot-inner"></div>'
+              + '</div>',
           iconSize: [22, 22],
           iconAnchor: [11, 11],
         }),
@@ -838,6 +841,23 @@ const App = {
       this._gpsMarker.setLatLng([lat, lng]);
       this._gpsCircle.setLatLng([lat, lng]);
       if (acc > 0) this._gpsCircle.setRadius(acc);
+    }
+
+    // Heading arrow (Google-Maps style). Only visible when device reports
+    // a real heading (mobile w/ compass). On desktop coords.heading is null.
+    const el = this._gpsMarker.getElement();
+    if (el) {
+      const wrap = el.querySelector('.gps-arrow-wrap');
+      const hasHeading = coords.heading !== null && coords.heading !== undefined
+                         && !isNaN(coords.heading);
+      if (wrap) {
+        if (hasHeading) {
+          wrap.style.transform = `rotate(${coords.heading}deg)`;
+          el.classList.add('has-heading');
+        } else {
+          el.classList.remove('has-heading');
+        }
+      }
     }
 
     // First-fix only: zoom in. Don't auto-pan on every watch tick —
