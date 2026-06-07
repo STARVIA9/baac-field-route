@@ -126,10 +126,11 @@ const Customers = {
   edit(id) {
     const c = Storage.getCustomers().find(x => x.id === id);
     if (!c) return;
-    document.getElementById('add-customer-form').dataset.editId = id;
+    // Open modal FIRST (it clears form + reset editId)
     App.openAddCustomerModal();
-    // Set values AFTER modal reset (openAddCustomerModal calls form.reset())
+    // Then set editId AFTER, so the modal reset doesn't wipe it
     const form = document.getElementById('add-customer-form');
+    form.dataset.editId = id;
     form.elements.name.value = c.name;
     form.elements.nickname.value = c.nickname || '';
     form.elements.phone.value = c.phone || '';
