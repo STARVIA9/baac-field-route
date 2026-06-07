@@ -743,35 +743,125 @@ const App = {
       Utils.toast('เบราว์เซอร์ไม่รองรับ GPS', 'error');
       return;
     }
-    Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        window._lastGPS = { lat, lng };
-        if (forForm) {
+
+    // ===== Form mode: just set lat/lng inputs (no map pin needed) =====
+    if (forForm) {
+      Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          window._lastGPS = { lat, lng };
           document.getElementById('new-lat').value = lat.toFixed(6);
           document.getElementById('new-lng').value = lng.toFixed(6);
           Utils.toast('📍 ใช้ตำแหน่งปัจจุบันแล้ว');
-        } else {
-          if (Customers.map) {
-            Customers.map.setView([lat, lng], 15);
-            L.marker([lat, lng], {
-              icon: L.divIcon({
-                className: '',
-                html: '<div class="customer-marker current">📍</div>',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16],
-              }),
-            }).addTo(Customers.map).bindPopup('📍 ตำแหน่งปัจจุบัน');
-          }
-        }
+        },
+        (err) => {
+          Utils.toast('ไม่สามารถเข้าถึง GPS: ' + err.message, 'error');
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+      return;
+    }
+
+    // ===== Main-map mode: Google-Maps style "My Location" =====
+    // Toggle: first click starts tracking, click again stops it
+    if (this._gpsWatchId !== null) {
+      this._stopGPS();
+      return;
+    }
+
+    if (!Customers.map) {
+      Utils.toast('แผนที่ยังไม่พร้อม', 'error');
+      return;
+    }
+
+    Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
+
+    // Initial fix to position the camera quickly
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this._updateGPSMarker(pos.coords);
+        Customers.map.setView([pos.coords.latitude, pos.coords.longitude], 16);
       },
       (err) => {
-        Utils.toast('ไม่สามารถเข้าถึง GPS: ' + err.message, 'error');
+        // ignore — watchPosition will keep trying
+        console.warn('GPS initial fix failed:', err.message);
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
+
+    // Live tracking — pin follows user like Google Maps
+    this._gpsWatchId = navigator.geolocation.watchPosition(
+      (pos) => this._updateGPSMarker(pos.coords),
+      (err) => Utils.toast('GPS ผิดพลาด: ' + err.message, 'error'),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
+    );
+
+    // Visual feedback: pulse the FAB while tracking
+    const fab = document.getElementById('fab-my-location');
+    if (fab) fab.classList.add('tracking');
+  },
+
+  // Update or create the single GPS pin + accuracy circle (Google-Maps style)
+  _updateGPSMarker(coords) {
+    const lat = coords.latitude;
+    const lng = coords.longitude;
+    const acc = coords.accuracy || 0; // meters
+
+    window._lastGPS = { lat, lng, accuracy: acc };
+
+    if (!Customers.map) return;
+
+    if (!this._gpsMarker) {
+      // First time — create pin + circle
+      this._gpsMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="gps-dot"><div class="gps-dot-inner"></div></div>',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        }),
+        zIndexOffset: 1000,
+        interactive: false,
+      }).addTo(Customers.map);
+      this._gpsCircle = L.circle([lat, lng], {
+        radius: acc,
+        color: '#4285F4',
+        fillColor: '#4285F4',
+        fillOpacity: 0.15,
+        weight: 1,
+        interactive: false,
+      }).addTo(Customers.map);
+    } else {
+      // Subsequent updates — move pin + resize circle
+      this._gpsMarker.setLatLng([lat, lng]);
+      this._gpsCircle.setLatLng([lat, lng]);
+      if (acc > 0) this._gpsCircle.setRadius(acc);
+    }
+
+    // First-fix only: zoom in. Don't auto-pan on every watch tick —
+    // that would yank the map while the user is exploring.
+    if (this._gpsFirstFix === undefined) {
+      this._gpsFirstFix = false;
+      Customers.map.setView([lat, lng], 16);
+    }
+  },
+
+  // Stop tracking + clean up pin + circle
+  _stopGPS() {
+    if (this._gpsWatchId !== null && this._gpsWatchId !== undefined) {
+      navigator.geolocation.clearWatch(this._gpsWatchId);
+    }
+    this._gpsWatchId = null;
+    this._gpsFirstFix = undefined;
+
+    if (this._gpsMarker) { Customers.map.removeLayer(this._gpsMarker); this._gpsMarker = null; }
+    if (this._gpsCircle) { Customers.map.removeLayer(this._gpsCircle); this._gpsCircle = null; }
+
+    const fab = document.getElementById('fab-my-location');
+    if (fab) fab.classList.remove('tracking');
+    Utils.toast('ปิดติดตาม GPS แล้ว');
   },
 
   // Update route tab UI
