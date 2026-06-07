@@ -131,13 +131,13 @@ const Customers = {
     // Then set editId AFTER, so the modal reset doesn't wipe it
     const form = document.getElementById('add-customer-form');
     form.dataset.editId = id;
+    form.elements.cif.value = c.cif || '';
     form.elements.name.value = c.name;
     form.elements.nickname.value = c.nickname || '';
     form.elements.phone.value = c.phone || '';
     form.elements.address.value = c.address || '';
     form.elements.lat.value = c.lat;
     form.elements.lng.value = c.lng;
-    form.elements.note.value = c.note || '';
     // Phase 4: pre-fill risk + debt dropdowns
     form.elements.riskLevel.value = c.riskLevel || 'unclassified';
     form.elements.debtType.value = c.debtType || '';
@@ -147,6 +147,22 @@ const Customers = {
     }
     // Re-init mini-map with customer location
     setTimeout(() => App.initMiniMap(c.lat, c.lng), 150);
+
+    // Show DB info badge (matches popup HTML for the same customer)
+    const dbInfo = document.getElementById('db-filled-info');
+    if (dbInfo) {
+      const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      if (db) {
+        const badges = [];
+        if (db.zone) badges.push(`เขต ${db.zone}`);
+        if (db.customer_class) badges.push(`ชั้น ${db.customer_class}`);
+        if (db.potential) badges.push(`ศักยภาพ ${db.potential}`);
+        if (db.dob) badges.push(`เกิด ${db.dob}`);
+        if (db.lat) badges.push(`📍 มีพิกัดแล้ว`);
+        dbInfo.innerHTML = `✅ <strong>${this.escapeHTML(c.name)}</strong> · CIF ${this.escapeHTML(c.cif)}${badges.length ? ' · ' + badges.map(b => this.escapeHTML(b)).join(' · ') : ''}`;
+        dbInfo.classList.add('active');
+      }
+    }
   },
 
   // Delete customer
