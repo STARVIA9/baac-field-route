@@ -51,7 +51,7 @@ const Customers = {
   },
 
   // Render all markers on map
-  renderMarkers(routeOrder) {
+  renderMarkers(routeOrder, opts = {}) {
     if (!this.map) return;
     // Clear existing
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
@@ -85,8 +85,10 @@ const Customers = {
       this.markers[c.id] = marker;
     });
 
-    // Fit bounds if any customers
-    if (customers.length > 0) {
+    // Fit bounds only when caller explicitly requests it (e.g. initial load).
+    // Auto-fitting on every re-render would yank the map away from wherever
+    // the user has panned/zoomed to.
+    if (opts.fitBounds && customers.length > 0) {
       const bounds = L.latLngBounds(customers.map(c => [c.lat, c.lng]));
       this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
     }
@@ -386,8 +388,8 @@ const Customers = {
   },
 
   // Render everything
-  renderAll(routeOrder) {
-    this.renderMarkers(routeOrder);
+  renderAll(routeOrder, opts) {
+    this.renderMarkers(routeOrder, opts);
     this.renderList();
   },
 

@@ -72,7 +72,8 @@ const App = {
     Storage.migrateCustomers();
 
     Customers.initMap();
-    Customers.renderAll();
+    // Initial load: fit bounds to all customers so the user sees the full picture
+    Customers.renderAll(undefined, { fitBounds: true });
     Visit.render();
     Quick.init();
     Quick.renderSelected();
@@ -725,15 +726,30 @@ const App = {
   async saveCustomer(form) {
     const data = Object.fromEntries(new FormData(form));
     const editId = form.dataset.editId;
+    let savedCustomer;
     if (editId) {
       Storage.updateCustomer(editId, data);
+      savedCustomer = Storage.getCustomers().find(c => c.id === editId);
       Utils.toast('แก้ไขลูกค้าแล้ว');
     } else {
-      Storage.addCustomer(data);
+      savedCustomer = Storage.addCustomer(data);
       Utils.toast('เพิ่มลูกค้าแล้ว ✓');
     }
     this.closeAddCustomerModal();
+    // Re-render markers WITHOUT fitBounds — preserve whatever view the user
+    // was on. This stops the map from yanking away after every save.
     Customers.renderAll();
+    // Gentle flyTo the saved customer so the user can see where it landed
+    // without a jarring full-bounds reset.
+    if (savedCustomer && savedCustomer.lat && savedCustomer.lng && Customers.map) {
+      const newLatLng = L.latLng(parseFloat(savedCustomer.lat), parseFloat(savedCustomer.lng));
+      const currentCenter = Customers.map.getCenter();
+      // Only fly if the new pin is off-screen or way off-center
+      const isVisible = Customers.map.getBounds().contains(newLatLng);
+      if (!isVisible || currentCenter.distanceTo(newLatLng) > 500) {
+        Customers.map.flyTo(newLatLng, Math.max(Customers.map.getZoom(), 15), { duration: 0.6 });
+      }
+    }
     await Storage.sync();
   },
 
