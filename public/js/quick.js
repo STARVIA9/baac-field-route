@@ -187,9 +187,9 @@ const Quick = {
   getStartCoords() {
     const mode = document.getElementById('quick-start-mode')?.value || 'current';
     if (mode === 'office') {
-      return { lat: 13.7563, lng: 100.5018 }; // BAAC Wang Tha Chang
+      return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng }; // BAAC สาขาวังท่าช้าง
     }
-    return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
+    return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
   },
 
   // Get end coords (for open path)
@@ -197,10 +197,10 @@ const Quick = {
     const mode = document.getElementById('quick-end-mode')?.value || 'none';
     if (mode === 'none') return null;
     if (mode === 'current') {
-      return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
+      return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
     if (mode === 'office') {
-      return { lat: 13.7563, lng: 100.5018 };
+      return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
     return null;
   },

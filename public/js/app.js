@@ -1,5 +1,19 @@
 // ===== Main App — orchestration + event handlers =====
 
+// ===== Office location (single source of truth) =====
+// Used as: initial map view, mini-map default, quick-route / route-planner
+// start point. Update here and every screen picks it up automatically.
+// Was previously hardcoded as Bangkok coords [13.7563, 100.5018] in 7 places
+// — that's why the map kept centering on Bangkok even though the comment
+// said "BAAC Wang Tha Chang".
+const OFFICE_LOCATION = {
+  lat: 13.7760801,
+  lng: 101.8907475,
+  name: 'BAAC สาขาวังท่าช้าง',
+  accuracy: 50, // meters — used for the GPS pin accuracy circle
+};
+window.OFFICE_LOCATION = OFFICE_LOCATION;
+
 const App = {
   // Known server version (updated on every fetch from version.json)
   _knownVersion: null,
@@ -578,9 +592,9 @@ const App = {
       this._miniMap = null;
       this._miniMarker = null;
     }
-    // Default to BAAC Wang Tha Chang or prefilled
-    const lat = prefillLat || 13.7563;
-    const lng = prefillLng || 100.5018;
+    // Default to office location if no prefilled coords
+    const lat = prefillLat ?? OFFICE_LOCATION.lat;
+    const lng = prefillLng ?? OFFICE_LOCATION.lng;
     this._miniMap = L.map('mini-map', {
       zoomControl: true,
       // Mobile fix: explicit touch gestures

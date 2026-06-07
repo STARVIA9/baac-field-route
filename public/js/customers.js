@@ -10,8 +10,9 @@ const Customers = {
   // Init map
   initMap() {
     if (this.map) return;
-    // Default: BAAC Wang Tha Chang (approx)
-    this.map = L.map('map').setView([13.7563, 100.5018], 11);
+    // Default: BAAC สาขาวังท่าช้าง (single source of truth in app.js)
+    const office = window.OFFICE_LOCATION || { lat: 13.7563, lng: 100.5018 };
+    this.map = L.map('map').setView([office.lat, office.lng], 12);
 
     // Define 2 base layers: roadmap + satellite
     this._baseLayers = {

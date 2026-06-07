@@ -159,14 +159,14 @@ const Route = {
         lng: parseFloat(document.getElementById('start-lng').value),
       };
     } else if (mode === 'office') {
-      // BAAC Wang Tha Chang (approx)
-      return { lat: 13.7563, lng: 100.5018 };
+      // BAAC สาขาวังท่าช้าง (single source of truth in app.js)
+      return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     } else if (mode === 'last-stop') {
       // End of last leg — use the last customer in the route
-      return window._routeEnd || { lat: 13.7563, lng: 100.5018 };
+      return window._routeEnd || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
     // current — use last known GPS
-    return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
+    return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
   },
 
   // Get end coordinates (for open-path route)
@@ -174,10 +174,10 @@ const Route = {
     const mode = document.getElementById('route-end-mode')?.value || 'none';
     if (mode === 'none') return null; // round trip
     if (mode === 'current') {
-      return window._lastGPS || { lat: 13.7563, lng: 100.5018 };
+      return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
     if (mode === 'office') {
-      return { lat: 13.7563, lng: 100.5018 };
+      return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
     if (mode === 'customer') {
       const sel = document.getElementById('route-end-customer');
