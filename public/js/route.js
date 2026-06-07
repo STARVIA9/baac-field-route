@@ -1,13 +1,161 @@
-// ===== Route planning + OSRM routing =====
+// ===== Route planning — merged with Quick (search + chips + drag/drop) =====
+//
+// Single source of truth for the "เส้นทาง" tab. Replaces the old Quick tab.
+// Flow:
+//   1. Customer tab → click "+เพิ่มในเส้นทางวันนี้" → Storage.addToRoute(id)
+//   2. Route tab search → click + button → Route.toggle(id) → Storage.addToRoute(id)
+//   3. App.updateRouteUI() re-renders chips (drag&drop + ▲▼ + ×)
+//   4. "Calculate" = uses manual order (default), "Optimize" = TSP opt-in
+//
+// All state lives in Storage.getRoute() — no separate Quick state.
 
 const Route = {
+  MAX_SELECT: 10,
   routeLine: null,
-  endMarker: null,  // marker for endpoint (if different from start)
+  endMarker: null,
   currentResult: null,
+  eventsAttached: false,
 
-  // Calculate route using OSRM
+  // ===== Event attachment (called once) =====
+  attachEvents() {
+    if (this.eventsAttached) return;
+    this.eventsAttached = true;
+
+    const search = document.getElementById('route-search');
+    if (search) {
+      search.addEventListener('input', () => this.search(search.value));
+      search.addEventListener('focus', () => {
+        if (search.value.trim()) this.search(search.value);
+      });
+      // Close dropdown on outside click
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.route-search-box')) {
+          const el = document.getElementById('route-search-results');
+          if (el) el.classList.remove('active');
+        }
+      });
+    }
+    const btnClear = document.getElementById('btn-clear-route');
+    if (btnClear) btnClear.addEventListener('click', () => this.clear());
+    const btnOptimize = document.getElementById('btn-optimize-route');
+    if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true));
+  },
+
+  // ===== Search customers by CIF, name, phone, address =====
+  search(query) {
+    const q = (query || '').trim().toLowerCase();
+    const resultsEl = document.getElementById('route-search-results');
+    if (!resultsEl) return;
+
+    if (q.length < 1) {
+      resultsEl.classList.remove('active');
+      resultsEl.innerHTML = '';
+      return;
+    }
+
+    const customers = Storage.getActiveCustomers();
+    const route = Storage.getRoute();
+    const matches = customers.filter(c => {
+      const haystack = `${c.cif || ''} ${c.name || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase();
+      return haystack.includes(q);
+    }).slice(0, 10); // limit results
+
+    if (matches.length === 0) {
+      resultsEl.innerHTML = `<div style="padding:16px;text-align:center;color:#5a655a;font-size:13px">ไม่พบลูกค้าที่ตรงกับ "${this.escapeHTML(query)}"</div>`;
+      resultsEl.classList.add('active');
+      return;
+    }
+
+    resultsEl.innerHTML = matches.map(c => {
+      const isSelected = route.includes(c.id);
+      const disabled = isSelected ? 'disabled' : '';
+      return `
+        <div class="route-search-result-item">
+          <div class="route-search-result-info">
+            <div class="route-search-result-name">${this.escapeHTML(c.name)}</div>
+            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}</div>
+          </div>
+          <span class="route-search-result-cif">${this.escapeHTML(c.cif || '-')}</span>
+          <button class="route-search-result-add" ${disabled} onclick="Route.toggle('${c.id}')" title="${isSelected ? 'เลือกแล้ว' : 'เพิ่ม'}">
+            ${isSelected ? '✓' : '+'}
+          </button>
+        </div>
+      `;
+    }).join('');
+    resultsEl.classList.add('active');
+  },
+
+  // ===== Toggle customer in route (add or remove) =====
+  toggle(id) {
+    const route = Storage.getRoute();
+    const idx = route.indexOf(id);
+    if (idx >= 0) {
+      Storage.removeFromRoute(id);
+    } else {
+      if (route.length >= this.MAX_SELECT) {
+        Utils.toast(`เลือกได้สูงสุด ${this.MAX_SELECT} คน`, 'error');
+        return;
+      }
+      Storage.addToRoute(id);
+    }
+    // Re-search to update + button states (✓/disabled)
+    const search = document.getElementById('route-search');
+    if (search && search.value) this.search(search.value);
+    // Re-render chips
+    App.updateRouteUI();
+  },
+
+  // ===== Clear all selected customers =====
+  clear() {
+    Storage.saveRoute([]);
+    App.updateRouteUI();
+    const resultEl = document.getElementById('route-result');
+    if (resultEl) resultEl.classList.add('hidden');
+    Utils.toast('ล้างรายการแล้ว');
+  },
+
+  // ===== Move chip up/down (▲▼ buttons) =====
+  move(idx, dir) {
+    const route = Storage.getRoute();
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= route.length) return;
+    [route[idx], route[newIdx]] = [route[newIdx], route[idx]];
+    Storage.saveRoute(route);
+    App.updateRouteUI();
+    // Re-search to refresh + button states
+    const search = document.getElementById('route-search');
+    if (search && search.value) this.search(search.value);
+  },
+
+  // ===== Drag & drop reordering =====
+  dragStart(e, idx) {
+    e.dataTransfer.setData('text/plain', idx.toString());
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.classList.add('dragging');
+  },
+  dragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  },
+  drop(e, targetIdx) {
+    e.preventDefault();
+    const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (fromIdx === targetIdx) return;
+    const route = Storage.getRoute();
+    if (fromIdx < 0 || fromIdx >= route.length) return;
+    [route[fromIdx], route[targetIdx]] = [route[targetIdx], route[fromIdx]];
+    Storage.saveRoute(route);
+    App.updateRouteUI();
+    const search = document.getElementById('route-search');
+    if (search && search.value) this.search(search.value);
+  },
+  dragEnd(e) {
+    e.target.classList.remove('dragging');
+  },
+
+  // ===== Calculate route using OSRM =====
   // start: {lat, lng} — required start point
-  // orderedCustomerIds: array of customer IDs in visit order
+  // orderedCustomerIds: array of customer IDs in visit order (already sorted)
   // end: {lat, lng} — optional endpoint (default: return to start)
   async calculate(start, orderedCustomerIds, end) {
     const customers = Storage.getActiveCustomers();
@@ -92,7 +240,7 @@ const Route = {
     }
   },
 
-  // Show result on UI
+  // ===== Show result on UI =====
   showResult(result) {
     const resultEl = document.getElementById('route-result');
     resultEl.classList.remove('hidden');
@@ -150,7 +298,7 @@ const Route = {
     this.drawOnMap(result);
   },
 
-  // Get start coordinates
+  // ===== Get start coordinates =====
   getStartCoords() {
     const mode = document.getElementById('route-start-mode').value;
     if (mode === 'custom') {
@@ -169,7 +317,7 @@ const Route = {
     return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
   },
 
-  // Get end coordinates (for open-path route)
+  // ===== Get end coordinates (for open-path route) =====
   getEndCoords() {
     const mode = document.getElementById('route-end-mode')?.value || 'none';
     if (mode === 'none') return null; // round trip
@@ -189,7 +337,7 @@ const Route = {
     return null;
   },
 
-  // Draw route on map
+  // ===== Draw route on map =====
   drawOnMap(result) {
     if (this.routeLine && Customers.map) {
       Customers.map.removeLayer(this.routeLine);
@@ -230,7 +378,7 @@ const Route = {
     }
   },
 
-  // Open in Google Maps
+  // ===== Open in Google Maps =====
   openGoogleMaps() {
     if (!this.currentResult) return;
     const start = this.getStartCoords();
@@ -245,7 +393,7 @@ const Route = {
     window.open(url, '_blank');
   },
 
-  // Save route snapshot
+  // ===== Save route snapshot =====
   saveRoute() {
     if (!this.currentResult) return;
     const route = {
@@ -264,5 +412,3 @@ const Route = {
     return div.innerHTML;
   },
 };
-
-window.Route = Route;

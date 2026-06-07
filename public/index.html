@@ -49,7 +49,6 @@
     <nav class="app-tabs">
       <button class="tab active" data-tab="map">🗺️ แผนที่</button>
       <button class="tab" data-tab="customers">👥 ลูกค้า</button>
-      <button class="tab" data-tab="quick">⚡ เร็ว</button>
       <button class="tab" data-tab="route">🧭 เส้นทาง</button>
       <button class="tab" data-tab="visit">📋 เข้าพบ</button>
     </nav>
@@ -85,75 +84,28 @@
       </div>
     </section>
 
-    <!-- Quick Route Tab -->
-    <section class="tab-pane" id="tab-quick">
-      <div class="quick-header">
-        <h2>⚡ สร้างเส้นทางด่วน</h2>
-        <p class="quick-desc">พิมพ์รหัส CIF หรือชื่อลูกค้า → เลือกอัตโนมัติ → คำนวณเส้นทาง</p>
-      </div>
-
-      <div class="quick-search-box">
-        <input type="search" id="quick-search" placeholder="🔍 พิมพ์ CIF หรือชื่อลูกค้า..." autocomplete="off">
-        <div class="quick-results" id="quick-results"></div>
-      </div>
-
-      <div class="quick-selected">
-        <div class="quick-selected-header">
-          <h3>เลือกแล้ว (<span id="quick-count">0</span>/10)</h3>
-          <button class="btn-link" id="btn-clear-quick">ล้าง</button>
-        </div>
-        <div class="quick-chips" id="quick-chips"></div>
-      </div>
-
-      <div class="quick-start">
-        <label>📍 จุดเริ่มต้น</label>
-        <select id="quick-start-mode">
-          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
-          <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
-        </select>
-      </div>
-
-      <div class="quick-end">
-        <label>🏁 จุดสิ้นสุด <span class="hint">(เลือกเพื่อประหยัดน้ำมัน)</span></label>
-        <select id="quick-end-mode">
-          <option value="none">🔄 ไป-กลับ (กลับจุดเริ่มต้น)</option>
-          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
-          <option value="office">🏢 กลับสำนักงาน</option>
-        </select>
-      </div>
-
-      <div class="quick-vehicle">
-        <label>🚗 ยานพาหนะ <span class="hint">(คำนวณน้ำมัน)</span></label>
-        <select id="quick-vehicle">
-          <option value="motorcycle">🏍️ มอเตอร์ไซค์ (35 กม./ลิตร)</option>
-          <option value="eco_car">🚙 รถ Eco (18 กม./ลิตร)</option>
-          <option value="car">🚗 รถยนต์ (12 กม./ลิตร)</option>
-          <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
-        </select>
-      </div>
-
-      <button class="btn-primary btn-large" id="btn-quick-route" disabled>
-        🧮 คำนวณเส้นทางจากลูกค้าที่เลือก
-      </button>
-
-      <div class="route-result hidden" id="quick-route-result"></div>
-
-      <div class="quick-help">
-        <h4>💡 วิธีใช้</h4>
-        <ol>
-          <li>พิมพ์ CIF หรือชื่อ → เลือกจากรายการ (กดเพื่อเพิ่ม)</li>
-          <li>เลือกได้สูงสุด 10 คน</li>
-          <li>กด <strong>"คำนวณเส้นทาง"</strong> → เรียงอัตโนมัติ</li>
-          <li>กดปุ่ม <strong>"เปิด Google Maps"</strong> เพื่อนำทางจริง</li>
-        </ol>
-      </div>
-    </section>
-
     <!-- Route Tab -->
     <section class="tab-pane" id="tab-route">
       <div class="route-header">
         <h2>🧭 วางแผนเส้นทาง</h2>
-        <p class="route-desc">เลือกลูกค้าที่ต้องการไปเยี่ยมวันนี้ → กด <strong>"คำนวณเส้นทาง"</strong></p>
+        <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
+      </div>
+
+      <!-- Search box (merged from Quick) — auto-add to today's route -->
+      <div class="route-search-box">
+        <input type="search" id="route-search" placeholder="🔍 พิมพ์ CIF / ชื่อ / เบอร์ / ที่อยู่ เพื่อเพิ่มในเส้นทาง..." autocomplete="off">
+        <div class="route-search-results" id="route-search-results"></div>
+      </div>
+
+      <!-- Selected customers chips (merged from Quick) — drag&drop + ▲▼ reorder -->
+      <div class="route-selected">
+        <div class="route-selected-header">
+          <h3>เลือกแล้ว (<span id="route-count">0</span>/10)</h3>
+          <button class="btn-link" id="btn-clear-route">ล้าง</button>
+        </div>
+        <div class="route-chips" id="route-chips">
+          <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
+        </div>
       </div>
 
       <div class="route-start">
@@ -192,13 +144,14 @@
         </select>
       </div>
 
-      <div class="route-customers" id="route-customers">
-        <p class="empty-state">เลือกลูกค้าจากแท็บ "ลูกค้า" → กด "เพิ่มในเส้นทางวันนี้"</p>
+      <div class="route-actions-row">
+        <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
+          🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
+        </button>
+        <button class="btn-secondary" id="btn-optimize-route" disabled title="เรียงลำดับอัตโนมัติด้วย TSP — เร็วที่สุด">
+          🎯 เรียงอัตโนมัติ (TSP)
+        </button>
       </div>
-
-      <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
-        🧮 คำนวณเส้นทาง
-      </button>
 
       <div class="route-result hidden" id="route-result">
         <div class="result-card">
@@ -507,8 +460,8 @@
               <small>🗑️ <b>ลบลูกค้า</b>: กดปุ่ม 🗑️ ที่รายการ → ยืนยัน → ลบถาวร</small>
             </li>
             <li>
-              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → กด <b>🧮 คำนวณเส้นทาง</b> → เลือกรถ → กด 💾 บันทึก
-              <small>💡 หรือใช้ ⚡ เร็ว ถ้ามีไม่เกิน 10 ราย</small>
+              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → ค้นหาลูกค้าด้วย CIF/ชื่อ → กด ➕ เพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → กด <b>🧮 คำนวณเส้นทาง</b> (ใช้ลำดับที่เรียง) หรือ <b>🎯 เรียงอัตโนมัติ (TSP)</b> → เลือกรถ → กด 💾 บันทึก
+              <small>💡 เพิ่มได้สูงสุด 10 รายต่อเส้นทาง</small>
             </li>
             <li>
               <b>ออกเยี่ยม</b> แท็บ 📋 เข้าพบ → กดที่ลูกค้า → เลือกผล → กด <b>📍 บันทึกพิกัด</b> → 💾 บันทึก
@@ -614,7 +567,6 @@
   <script src="js/tsp.js"></script>
   <script src="js/route.js"></script>
   <script src="js/visit.js"></script>
-  <script src="js/quick.js"></script>
   <script src="js/report.js"></script>
   <script src="js/app.js"></script>
 </body>

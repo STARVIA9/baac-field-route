@@ -89,8 +89,7 @@ const App = {
     // Initial load: fit bounds to all customers so the user sees the full picture
     Customers.renderAll(undefined, { fitBounds: true });
     Visit.render();
-    Quick.init();
-    Quick.renderSelected();
+    Route.attachEvents();
     this.updateRouteUI();
 
     // Load customer database (async, non-blocking)
@@ -121,7 +120,6 @@ const App = {
         Customers.renderAll();
         if (typeof Visit !== 'undefined') Visit.render();
         this.updateRouteUI();
-        if (typeof Quick !== 'undefined' && Quick.renderSelected) Quick.renderSelected();
       }
     });
   },
@@ -152,7 +150,6 @@ const App = {
     Customers.renderAll();
     if (typeof Visit !== 'undefined') Visit.render();
     this.updateRouteUI();
-    if (typeof Quick !== 'undefined' && Quick.renderSelected) Quick.renderSelected();
   },
 
   // Attach all event handlers
@@ -914,43 +911,63 @@ const App = {
     Utils.toast('ปิดติดตาม GPS แล้ว');
   },
 
-  // Update route tab UI
+  // Update route tab UI — render selected chips with drag&drop + ▲▼ reorder
   updateRouteUI() {
     const route = Storage.getRoute();
     const customers = Storage.getActiveCustomers();
     const routeCustomers = route.map(id => customers.find(c => c.id === id)).filter(Boolean);
-    const el = document.getElementById('route-customers');
-    const btn = document.getElementById('btn-calculate-route');
+    const el = document.getElementById('route-chips');
+    const countEl = document.getElementById('route-count');
+    const btnCalculate = document.getElementById('btn-calculate-route');
+    const btnOptimize = document.getElementById('btn-optimize-route');
+
+    if (countEl) countEl.textContent = routeCustomers.length;
 
     if (routeCustomers.length === 0) {
-      el.innerHTML = `<p class="empty-state">เลือกลูกค้าจากแท็บ "ลูกค้า" → กด "เพิ่มในเส้นทางวันนี้"</p>`;
-      btn.disabled = true;
+      if (el) el.innerHTML = '<p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>';
+      if (btnCalculate) btnCalculate.disabled = true;
+      if (btnOptimize) btnOptimize.disabled = true;
       return;
     }
 
-    el.innerHTML = routeCustomers.map(c => `
-      <div class="route-customer-chip">
-        <div class="customer-avatar">${c.name[0]}</div>
-        <div class="customer-info" style="flex:1;min-width:0">
-          <div class="customer-name">${this.escapeHTML(c.name)}</div>
-          <div class="customer-address">${this.escapeHTML(c.address || '')}</div>
-        </div>
-        <button class="chip-remove" onclick="Customers.toggleRoute('${c.id}')" title="เอาออก">×</button>
-      </div>
-    `).join('');
+    if (el) {
+      el.innerHTML = routeCustomers.map((c, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === routeCustomers.length - 1;
+        return `
+          <span class="route-chip" draggable="true" data-id="${this.escapeHTML(c.id)}" data-idx="${idx}"
+                ondragstart="Route.dragStart(event, ${idx})"
+                ondragover="Route.dragOver(event)"
+                ondrop="Route.drop(event, ${idx})"
+                ondragend="Route.dragEnd(event)">
+            <span class="route-chip-num">${idx + 1}</span>
+            <span class="route-chip-cif">${this.escapeHTML(c.cif || '-')}</span>
+            ${this.escapeHTML(c.name)}
+            <span class="route-chip-order">
+              <button onclick="Route.move(${idx}, -1)" ${isFirst ? 'disabled' : ''} title="เลื่อนขึ้น">▲</button>
+              <button onclick="Route.move(${idx}, 1)" ${isLast ? 'disabled' : ''} title="เลื่อนลง">▼</button>
+            </span>
+            <button class="route-chip-remove" onclick="Route.toggle('${this.escapeHTML(c.id)}')" title="เอาออก">×</button>
+          </span>
+        `;
+      }).join('');
+    }
 
-    btn.disabled = false;
+    if (btnCalculate) btnCalculate.disabled = false;
+    if (btnOptimize) btnOptimize.disabled = false;
   },
 
   // Calculate route
-  async calculateRoute() {
+  // useTSP = false (default) = use the manual order from chips
+  // useTSP = true = call TSP.plan() to auto-optimize (opt-in)
+  async calculateRoute(useTSP = false) {
     const route = Storage.getRoute();
     if (route.length === 0) return;
     const start = Route.getStartCoords();
     const end = Route.getEndCoords();
 
-    // Plan optimal order (TSP with optional end)
-    const ordered = TSP.plan(start, route, end);
+    // Manual order (default) or TSP optimize (opt-in)
+    const ordered = useTSP ? TSP.plan(start, route, end) : route;
 
     // Get real route from OSRM
     const result = await Route.calculate(start, ordered, end);
@@ -958,7 +975,8 @@ const App = {
       Route.showResult(result);
       this.switchTab('map'); // show route on map
       const routeType = result.isOpenPath ? ' (เปิด)' : '';
-      Utils.toast(`✅ เส้นทาง${routeType}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
+      const tspNote = useTSP ? ' (TSP)' : '';
+      Utils.toast(`✅ เส้นทาง${routeType}${tspNote}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
     }
   },
 
@@ -1043,19 +1061,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Restore saved vehicle
   const savedVehicle = Utils.getVehicle();
   const routeVehicle = document.getElementById('route-vehicle');
-  const quickVehicle = document.getElementById('quick-vehicle');
   if (routeVehicle) routeVehicle.value = savedVehicle;
-  if (quickVehicle) quickVehicle.value = savedVehicle;
-  // Sync vehicle selectors + persist
-  [routeVehicle, quickVehicle].forEach(sel => {
-    if (!sel) return;
-    sel.addEventListener('change', () => {
-      Utils.setVehicle(sel.value);
-      // Sync the other one
-      if (sel === routeVehicle && quickVehicle) quickVehicle.value = sel.value;
-      if (sel === quickVehicle && routeVehicle) routeVehicle.value = sel.value;
-    });
-  });
+  if (routeVehicle) {
+    routeVehicle.addEventListener('change', () => Utils.setVehicle(routeVehicle.value));
+  }
 
   // End mode → show customer dropdown if 'customer' selected
   const endMode = document.getElementById('route-end-mode');
