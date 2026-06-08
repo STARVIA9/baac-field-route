@@ -379,17 +379,20 @@ const Route = {
   },
 
   // ===== Open in Google Maps =====
+  // Uses ?api=1 + waypoints= query params (iOS-compatible)
   openGoogleMaps() {
     if (!this.currentResult) return;
     const start = this.getStartCoords();
     const end = this.currentResult.end;
+    const dest = end || start;
     const waypoints = this.currentResult.stops
       .map(c => `${c.lat},${c.lng}`)
-      .join('/');
-    // Open path: A → waypoints → B
-    // Round trip: A → waypoints → A
-    const endParam = end ? `/${end.lat},${end.lng}` : `/${start.lat},${start.lng}`;
-    const url = `https://www.google.com/maps/dir/${start.lat},${start.lng}/${waypoints}${endParam}/@${start.lat},${start.lng},12z/data=!3m1!4b1!4m2!4m1!3e0`;
+      .join('|');
+    const url = `https://www.google.com/maps/dir/?api=1` +
+      `&origin=${start.lat},${start.lng}` +
+      `&destination=${dest.lat},${dest.lng}` +
+      `&waypoints=${waypoints}` +
+      `&travelmode=driving`;
     window.open(url, '_blank');
   },
 
