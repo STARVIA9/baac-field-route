@@ -91,6 +91,7 @@ const App = {
     Visit.render();
     Route.attachEvents();
     this.updateRouteUI();
+    this.updateAdminUI();
 
     // Load customer database (async, non-blocking)
     CustomerDB.load();
@@ -154,28 +155,61 @@ const App = {
 
   // Attach all event handlers
   attachEvents() {
-    // Login form
+    // Login form (username/password)
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const pin = document.getElementById('pin-input').value;
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       errEl.textContent = '';
       const btn = document.getElementById('login-btn');
       btn.disabled = true;
       btn.textContent = 'กำลังเข้าสู่ระบบ...';
-      const ok = await Auth.login(pin);
+      const ok = await Auth.login(username, password);
+      if (ok) {
+        await this.afterLogin();
+      } else {
+        errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      }
+      btn.disabled = false;
+      btn.textContent = 'เข้าสู่ระบบ';
+    });
+
+    // PIN fallback toggle
+    document.getElementById('toggle-pin-login').addEventListener('click', () => {
+      const pinForm = document.getElementById('pin-form');
+      const toggleBtn = document.getElementById('toggle-pin-login');
+      pinForm.classList.toggle('hidden');
+      toggleBtn.textContent = pinForm.classList.contains('hidden') ? 'เข้าสู่ระบบด้วย PIN' : 'ซ่อน PIN';
+    });
+
+    // PIN form (legacy fallback)
+    document.getElementById('pin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pin = document.getElementById('pin-input').value;
+      const errEl = document.getElementById('pin-error');
+      errEl.textContent = '';
+      const btn = document.getElementById('pin-btn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังเข้าสู่ระบบ...';
+      const ok = await Auth.loginPIN(pin);
       if (ok) {
         await this.afterLogin();
       } else {
         errEl.textContent = 'PIN ไม่ถูกต้อง';
       }
       btn.disabled = false;
-      btn.textContent = 'เข้าสู่ระบบ';
+      btn.textContent = 'เข้าสู่ระบบ (PIN)';
     });
 
     // Logout
     document.getElementById('logout-btn').addEventListener('click', () => {
       if (confirm('ออกจากระบบ?')) Auth.logout();
+    });
+
+    // Admin: User management button
+    document.getElementById('admin-users-btn').addEventListener('click', () => {
+      this.openAdminUsers();
     });
 
     // Tabs
@@ -977,6 +1011,113 @@ const App = {
       const routeType = result.isOpenPath ? ' (เปิด)' : '';
       const tspNote = useTSP ? ' (TSP)' : '';
       Utils.toast(`✅ เส้นทาง${routeType}${tspNote}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
+    }
+  },
+
+  // ===== Admin: Show/hide admin button based on role =====
+  updateAdminUI() {
+    const btn = document.getElementById('admin-users-btn');
+    if (btn) btn.style.display = Auth.isAdmin() ? '' : 'none';
+  },
+
+  // ===== Admin: Open user management modal =====
+  async openAdminUsers() {
+    const modal = document.getElementById('admin-users-modal');
+    modal.classList.remove('hidden');
+
+    // Load branches into select
+    const branchSelect = document.getElementById('new-branch');
+    if (branchSelect.options.length <= 1) {
+      try {
+        const res = await API.get('/api/branches');
+        if (res.success && res.branches) {
+          res.branches.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.code;
+            opt.textContent = b.name;
+            branchSelect.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load branches:', e);
+      }
+    }
+
+    // Load user list
+    await this.loadAdminUsers();
+
+    // Close handler
+    document.getElementById('close-admin-users').onclick = () => modal.classList.add('hidden');
+    modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+
+    // Add user form
+    document.getElementById('admin-add-user-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('admin-user-error');
+      errEl.textContent = '';
+      const username = document.getElementById('new-username').value.trim();
+      const password = document.getElementById('new-password').value;
+      const displayName = document.getElementById('new-display-name').value.trim();
+      const branch = document.getElementById('new-branch').value;
+
+      try {
+        const res = await API.post('/api/admin/users', { username, password, displayName, branch });
+        if (res.success) {
+          Utils.toast(`✅ สร้างผู้ใช้ "${displayName}" สำเร็จ`);
+          document.getElementById('admin-add-user-form').reset();
+          await this.loadAdminUsers();
+        }
+      } catch (err) {
+        errEl.textContent = err.message || 'สร้างผู้ใช้ไม่สำเร็จ';
+      }
+    };
+  },
+
+  // ===== Admin: Load user list =====
+  async loadAdminUsers() {
+    const listEl = document.getElementById('admin-users-list');
+    try {
+      const res = await API.get('/api/admin/users');
+      if (!res.success || !res.users.length) {
+        listEl.innerHTML = '<p class="text-muted">ยังไม่มีผู้ใช้ — เพิ่มคนแรกด้านล่างเลย</p>';
+        return;
+      }
+      listEl.innerHTML = res.users.map(u => `
+        <div class="admin-user-card">
+          <div class="admin-user-info">
+            <span class="admin-user-name">${this.escapeHTML(u.displayName)}</span>
+            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'}</span>
+          </div>
+          <button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>
+        </div>
+      `).join('');
+    } catch (err) {
+      listEl.innerHTML = `<p class="login-error">โหลดรายชื่อไม่สำเร็จ: ${err.message}</p>`;
+    }
+  },
+
+  // ===== Admin: Delete user =====
+  async deleteAdminUser(id, name) {
+    if (!confirm(`ลบผู้ใช้ "${name}"?`)) return;
+    try {
+      const token = Auth.getToken();
+      const res = await fetch(API.baseUrl() + '/api/admin/users', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        Utils.toast(`🗑️ ลบผู้ใช้ "${name}" แล้ว`);
+        await this.loadAdminUsers();
+      } else {
+        Utils.toast(data.error || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
     }
   },
 

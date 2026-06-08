@@ -18,13 +18,26 @@
       <div class="login-logo">🗺️</div>
       <h1>BAAC Field Route</h1>
       <p class="login-sub">วางแผนเส้นทางอัจฉริยะสำหรับพนักงานสินเชื่อ</p>
+
+      <!-- Username/Password form (primary) -->
       <form id="login-form" autocomplete="off">
-        <label for="pin-input">กรอก PIN 4 หลัก</label>
-        <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
+        <label for="login-username">ชื่อผู้ใช้</label>
+        <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
+        <label for="login-password">รหัสผ่าน</label>
+        <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
         <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
         <p class="login-error" id="login-error"></p>
       </form>
-      <div class="login-hint">PIN เริ่มต้น: <code>0000</code> (Admin) หรือ <code>1001-1004</code> (ทีม)</div>
+
+      <!-- PIN fallback toggle -->
+      <div class="login-divider"><span>หรือ</span></div>
+      <button class="btn-link" id="toggle-pin-login">เข้าสู่ระบบด้วย PIN</button>
+      <form id="pin-form" class="hidden" autocomplete="off">
+        <label for="pin-input">กรอก PIN 4 หลัก</label>
+        <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
+        <button type="submit" class="btn-primary" id="pin-btn">เข้าสู่ระบบ (PIN)</button>
+        <p class="login-error" id="pin-error"></p>
+      </form>
     </div>
   </div>
 
@@ -38,6 +51,7 @@
       </div>
       <div class="app-user">
         <span id="user-name">กำลังโหลด...</span>
+        <button class="btn-icon admin-only" id="admin-users-btn" title="จัดการผู้-users" aria-label="Users" style="display:none">👥</button>
         <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help">❓</button>
         <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
         <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
@@ -549,6 +563,50 @@
 
         <div class="help-footer">
           <button class="btn-primary" id="btn-close-help">เข้าใจแล้ว ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin: User Management Modal -->
+  <div id="admin-users-modal" class="modal hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <h2>👥 จัดการผู้ใช้</h2>
+        <button class="btn-icon modal-close" id="close-admin-users">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="admin-users-list" class="admin-users-list">
+          <p class="text-muted">กำลังโหลด...</p>
+        </div>
+        <div class="admin-add-user">
+          <h3>➕ เพิ่มผู้ใช้ใหม่</h3>
+          <form id="admin-add-user-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="new-username">Username</label>
+                <input type="text" id="new-username" placeholder="เช่น somchai" required minlength="3">
+              </div>
+              <div class="form-group">
+                <label for="new-password">Password</label>
+                <input type="password" id="new-password" placeholder="รหัสผ่าน" required minlength="4">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="new-display-name">ชื่อที่แสดง</label>
+                <input type="text" id="new-display-name" placeholder="เช่น สมชาย ใจดี" required>
+              </div>
+              <div class="form-group">
+                <label for="new-branch">สาขา</label>
+                <select id="new-branch" required>
+                  <option value="">— เลือกสาขา —</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
+            <p class="login-error" id="admin-user-error"></p>
+          </form>
         </div>
       </div>
     </div>
