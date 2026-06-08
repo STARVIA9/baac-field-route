@@ -1,13 +1,13 @@
 // Auth handler — POST /api/login
-// Supports: username/password (KV users) + legacy PIN fallback
+// Supports: username/password (KV users) + admin PIN (KV) + legacy team PINs
 
 import { signHS256 } from '../_lib/jwt.js';
 import { verifyPassword } from '../_lib/crypto.js';
-import { BRANCHES } from '../_lib/branches.js';
+import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
+import { verifyAdminPin } from './admin/pin.js';
 
-// Legacy PIN team (offline fallback only)
+// Legacy team PINs (non-admin offline fallback)
 const PIN_TEAM = {
-  '0000': { name: 'Admin', role: 'admin', branch: 'WTC' },
   '1001': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
   '1002': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
   '1003': { name: 'ประยุทธ์ มั่นคง', role: 'user', branch: 'WTC' },
@@ -19,6 +19,18 @@ function json(data, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
+}
+
+// Get branch name from KV (with fallback to defaults)
+async function getBranchName(code, kv) {
+  if (!kv) {
+    const b = DEFAULT_BRANCHES.find(x => x.code === code);
+    return b ? b.name : code;
+  }
+  const raw = await kv.get('branches:all');
+  const branches = raw ? JSON.parse(raw) : DEFAULT_BRANCHES;
+  const b = branches.find(x => x.code === code);
+  return b ? b.name : code;
 }
 
 export async function onRequestPost(context) {
@@ -43,14 +55,14 @@ export async function onRequestPost(context) {
     if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
 
     const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
-    const branchInfo = BRANCHES.find(b => b.code === user.branch) || { code: user.branch, name: user.branch };
+    const branchName = await getBranchName(user.branch, env.BFR_KV);
     const tokenPayload = {
       sub: user.id,
       username: user.username,
       name: user.displayName,
       role: user.role,
       branch: user.branch,
-      branchName: branchInfo.name,
+      branchName,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 86400 * 7,
     };
@@ -59,21 +71,44 @@ export async function onRequestPost(context) {
     return json({
       success: true,
       token,
-      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName: branchInfo.name },
+      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName },
     });
   }
 
-  // ===== Legacy PIN login (fallback for offline migration) =====
+  // ===== PIN login =====
   if (pin) {
+    // Check admin PIN from KV first
+    if (env.BFR_KV) {
+      const adminValid = await verifyAdminPin(pin, env.BFR_KV);
+      if (adminValid) {
+        const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+        const branchName = await getBranchName('WTC', env.BFR_KV);
+        const tokenPayload = {
+          sub: 'admin-pin',
+          username: 'admin',
+          name: 'Admin',
+          role: 'admin',
+          branch: 'WTC',
+          branchName,
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 86400 * 7,
+        };
+        const token = await signHS256(tokenPayload, secret);
+        return json({ success: true, token, user: { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC', branchName } });
+      }
+    }
+
+    // Fallback: legacy team PINs
     const userInfo = PIN_TEAM[pin];
     if (!userInfo) return json({ success: false, error: 'PIN ไม่ถูกต้อง' }, 401);
 
     const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+    const branchName = await getBranchName(userInfo.branch, env.BFR_KV);
     const token = await signHS256(
-      { pin, ...userInfo, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 7 },
+      { pin, ...userInfo, branchName, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 7 },
       secret,
     );
-    return json({ success: true, token, user: { pin, ...userInfo } });
+    return json({ success: true, token, user: { pin, ...userInfo, branchName } });
   }
 
   return json({ success: false, error: 'กรุณากรอก username+password หรือ PIN' }, 400);

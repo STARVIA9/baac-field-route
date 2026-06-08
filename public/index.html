@@ -572,41 +572,100 @@
   <div id="admin-users-modal" class="modal hidden">
     <div class="modal-card modal-wide">
       <div class="modal-header">
-        <h2>👥 จัดการผู้ใช้</h2>
+        <h2>⚙️ จัดการระบบ</h2>
         <button class="btn-icon modal-close" id="close-admin-users">✕</button>
       </div>
       <div class="modal-body">
-        <div id="admin-users-list" class="admin-users-list">
-          <p class="text-muted">กำลังโหลด...</p>
+        <!-- Admin tabs -->
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-tab="users">👥 ผู้ใช้</button>
+          <button class="admin-tab" data-admin-tab="branches">🏢 สาขา</button>
+          <button class="admin-tab" data-admin-tab="pin">🔐 PIN</button>
         </div>
-        <div class="admin-add-user">
-          <h3>➕ เพิ่มผู้ใช้ใหม่</h3>
-          <form id="admin-add-user-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="new-username">Username</label>
-                <input type="text" id="new-username" placeholder="เช่น somchai" required minlength="3">
+
+        <!-- Tab: Users -->
+        <div class="admin-tab-pane active" id="admin-tab-users">
+          <div id="admin-users-list" class="admin-users-list">
+            <p class="text-muted">กำลังโหลด...</p>
+          </div>
+          <div class="admin-add-user">
+            <h3>➕ เพิ่มผู้ใช้ใหม่</h3>
+            <form id="admin-add-user-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-username">Username</label>
+                  <input type="text" id="new-username" placeholder="เช่น somchai" required minlength="3">
+                </div>
+                <div class="form-group">
+                  <label for="new-password">Password</label>
+                  <input type="password" id="new-password" placeholder="รหัสผ่าน" required minlength="4">
+                </div>
               </div>
-              <div class="form-group">
-                <label for="new-password">Password</label>
-                <input type="password" id="new-password" placeholder="รหัสผ่าน" required minlength="4">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-display-name">ชื่อที่แสดง</label>
+                  <input type="text" id="new-display-name" placeholder="เช่น สมชาย ใจดี" required>
+                </div>
+                <div class="form-group">
+                  <label for="new-branch">สาขา</label>
+                  <select id="new-branch" required>
+                    <option value="">— เลือกสาขา —</option>
+                  </select>
+                </div>
               </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="new-display-name">ชื่อที่แสดง</label>
-                <input type="text" id="new-display-name" placeholder="เช่น สมชาย ใจดี" required>
+              <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
+              <p class="login-error" id="admin-user-error"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab: Branches -->
+        <div class="admin-tab-pane" id="admin-tab-branches">
+          <div id="admin-branches-list" class="admin-users-list">
+            <p class="text-muted">กำลังโหลด...</p>
+          </div>
+          <div class="admin-add-user">
+            <h3>➕ เพิ่มสาขาใหม่</h3>
+            <form id="admin-add-branch-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-branch-code">รหัสสาขา (Code)</label>
+                  <input type="text" id="new-branch-code" placeholder="เช่น XYZ" required minlength="2" maxlength="10" style="text-transform:uppercase">
+                </div>
+                <div class="form-group">
+                  <label for="new-branch-name">ชื่อสาขา</label>
+                  <input type="text" id="new-branch-name" placeholder="เช่น สาขาXYZ" required>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="new-branch">สาขา</label>
-                <select id="new-branch" required>
-                  <option value="">— เลือกสาขา —</option>
-                </select>
+              <button type="submit" class="btn-primary">เพิ่มสาขา</button>
+              <p class="login-error" id="admin-branch-error"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab: PIN -->
+        <div class="admin-tab-pane" id="admin-tab-pin">
+          <div class="admin-pin-section">
+            <h3>🔐 เปลี่ยน PIN Admin</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px">PIN ใช้สำหรับ login แบบ fast (ไม่ต้องพิมพ์ username/password)</p>
+            <form id="admin-change-pin-form">
+              <div class="form-group" style="margin-bottom:10px">
+                <label for="current-pin">PIN ปัจจุบัน</label>
+                <input type="password" id="current-pin" inputmode="numeric" maxlength="8" placeholder="PIN ปัจจุบัน" required>
               </div>
-            </div>
-            <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
-            <p class="login-error" id="admin-user-error"></p>
-          </form>
+              <div class="form-group" style="margin-bottom:10px">
+                <label for="new-pin">PIN ใหม่ (4-8 หลัก)</label>
+                <input type="password" id="new-pin" inputmode="numeric" maxlength="8" placeholder="PIN ใหม่" required minlength="4">
+              </div>
+              <div class="form-group" style="margin-bottom:14px">
+                <label for="confirm-pin">ยืนยัน PIN ใหม่</label>
+                <input type="password" id="confirm-pin" inputmode="numeric" maxlength="8" placeholder="พิมพ์ PIN ใหม่อีกครั้ง" required minlength="4">
+              </div>
+              <button type="submit" class="btn-primary">เปลี่ยน PIN</button>
+              <p class="login-error" id="admin-pin-error"></p>
+              <p class="text-muted" id="admin-pin-success" style="color:var(--baac-green);display:none"></p>
+            </form>
+          </div>
         </div>
       </div>
     </div>

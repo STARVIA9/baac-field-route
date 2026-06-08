@@ -2027,6 +2027,35 @@ body:has(#map.map-fs-fake) .map-fab {
 /* ===== Admin: User Management Modal ===== */
 .modal-wide { max-width: 560px; width: 92vw; }
 
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+.admin-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+.admin-tab:hover { color: var(--text); }
+.admin-tab.active {
+  color: var(--baac-green);
+  border-bottom-color: var(--baac-green);
+  font-weight: 600;
+}
+.admin-tab-pane { display: none; }
+.admin-tab-pane.active { display: block; }
+
 .admin-users-list { margin-bottom: 20px; }
 .admin-user-card {
   display: flex;

@@ -1020,31 +1020,42 @@ const App = {
     if (btn) btn.style.display = Auth.isAdmin() ? '' : 'none';
   },
 
-  // ===== Admin: Open user management modal =====
+  // ===== Admin: Open management modal =====
   async openAdminUsers() {
     const modal = document.getElementById('admin-users-modal');
     modal.classList.remove('hidden');
 
-    // Load branches into select
+    // Tab switching
+    modal.querySelectorAll('.admin-tab').forEach(tab => {
+      tab.onclick = () => {
+        modal.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+        modal.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('admin-tab-' + tab.dataset.adminTab).classList.add('active');
+      };
+    });
+
+    // Load branches into select (always refresh)
     const branchSelect = document.getElementById('new-branch');
-    if (branchSelect.options.length <= 1) {
-      try {
-        const res = await API.get('/api/branches');
-        if (res.success && res.branches) {
-          res.branches.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.code;
-            opt.textContent = b.name;
-            branchSelect.appendChild(opt);
-          });
-        }
-      } catch (e) {
-        console.warn('Failed to load branches:', e);
+    branchSelect.innerHTML = '<option value="">— เลือกสาขา —</option>';
+    try {
+      const res = await API.get('/api/branches');
+      if (res.success && res.branches) {
+        window._adminBranches = res.branches;
+        res.branches.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.code;
+          opt.textContent = b.name;
+          branchSelect.appendChild(opt);
+        });
       }
+    } catch (e) {
+      console.warn('Failed to load branches:', e);
     }
 
-    // Load user list
+    // Load data
     await this.loadAdminUsers();
+    await this.loadAdminBranches();
 
     // Close handler
     document.getElementById('close-admin-users').onclick = () => modal.classList.add('hidden');
@@ -1069,6 +1080,66 @@ const App = {
         }
       } catch (err) {
         errEl.textContent = err.message || 'สร้างผู้ใช้ไม่สำเร็จ';
+      }
+    };
+
+    // Add branch form
+    document.getElementById('admin-add-branch-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('admin-branch-error');
+      errEl.textContent = '';
+      const code = document.getElementById('new-branch-code').value.trim().toUpperCase();
+      const name = document.getElementById('new-branch-name').value.trim();
+
+      try {
+        const res = await API.post('/api/admin/branches', { code, name });
+        if (res.success) {
+          Utils.toast(`✅ เพิ่มสาขา "${name}" สำเร็จ`);
+          document.getElementById('admin-add-branch-form').reset();
+          await this.loadAdminBranches();
+          // Refresh branch selects
+          const branchSelect = document.getElementById('new-branch');
+          const opt = document.createElement('option');
+          opt.value = code;
+          opt.textContent = name;
+          branchSelect.appendChild(opt);
+        }
+      } catch (err) {
+        errEl.textContent = err.message || 'เพิ่มสาขาไม่สำเร็จ';
+      }
+    };
+
+    // Change PIN form
+    document.getElementById('admin-change-pin-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('admin-pin-error');
+      const successEl = document.getElementById('admin-pin-success');
+      errEl.textContent = '';
+      successEl.style.display = 'none';
+
+      const currentPin = document.getElementById('current-pin').value;
+      const newPin = document.getElementById('new-pin').value;
+      const confirmPin = document.getElementById('confirm-pin').value;
+
+      if (newPin !== confirmPin) {
+        errEl.textContent = 'PIN ใหม่ไม่ตรงกัน';
+        return;
+      }
+      if (newPin.length < 4) {
+        errEl.textContent = 'PIN ใหม่ต้องมีอย่างน้อย 4 หลัก';
+        return;
+      }
+
+      try {
+        const res = await API.post('/api/admin/pin', { currentPin, newPin });
+        if (res.success) {
+          Utils.toast('🔐 เปลี่ยน PIN สำเร็จ');
+          successEl.textContent = '✅ เปลี่ยน PIN สำเร็จแล้ว';
+          successEl.style.display = 'block';
+          document.getElementById('admin-change-pin-form').reset();
+        }
+      } catch (err) {
+        errEl.textContent = err.message || 'เปลี่ยน PIN ไม่สำเร็จ';
       }
     };
   },
@@ -1113,6 +1184,58 @@ const App = {
       if (data.success) {
         Utils.toast(`🗑️ ลบผู้ใช้ "${name}" แล้ว`);
         await this.loadAdminUsers();
+      } else {
+        Utils.toast(data.error || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  // ===== Admin: Load branch list =====
+  async loadAdminBranches() {
+    const listEl = document.getElementById('admin-branches-list');
+    try {
+      const res = await API.get('/api/admin/branches');
+      if (!res.success || !res.branches.length) {
+        listEl.innerHTML = '<p class="text-muted">ยังไม่มีสาขา</p>';
+        return;
+      }
+      listEl.innerHTML = res.branches.map(b => `
+        <div class="admin-user-card">
+          <div class="admin-user-info">
+            <span class="admin-user-name">${this.escapeHTML(b.name)}</span>
+            <span class="admin-user-meta">${this.escapeHTML(b.code)}</span>
+          </div>
+          <button class="btn-danger-sm" onclick="App.deleteAdminBranch('${this.escapeHTML(b.code)}', '${this.escapeHTML(b.name)}')">🗑️</button>
+        </div>
+      `).join('');
+    } catch (err) {
+      listEl.innerHTML = `<p class="login-error">โหลดสาขาไม่สำเร็จ: ${err.message}</p>`;
+    }
+  },
+
+  // ===== Admin: Delete branch =====
+  async deleteAdminBranch(code, name) {
+    if (!confirm(`ลบสาขา "${name}" (${code})?`)) return;
+    try {
+      const token = Auth.getToken();
+      const res = await fetch(API.baseUrl() + '/api/admin/branches', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        Utils.toast(`🗑️ ลบสาขา "${name}" แล้ว`);
+        await this.loadAdminBranches();
+        // Remove from user form select
+        const sel = document.getElementById('new-branch');
+        const opt = sel.querySelector(`option[value="${code}"]`);
+        if (opt) opt.remove();
       } else {
         Utils.toast(data.error || 'ลบไม่สำเร็จ', 'error');
       }
