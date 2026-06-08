@@ -1,6 +1,6 @@
 // Branch list — GET /api/branches
 
-import { BRANCHES } from '../../_lib/branches.js';
+import { BRANCHES } from '../_lib/branches.js';
 
 export async function onRequestGet() {
   return new Response(JSON.stringify({ success: true, branches: BRANCHES }), {

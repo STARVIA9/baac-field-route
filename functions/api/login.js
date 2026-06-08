@@ -1,9 +1,9 @@
 // Auth handler — POST /api/login
 // Supports: username/password (KV users) + legacy PIN fallback
 
-import { signHS256 } from '../../_lib/jwt.js';
-import { verifyPassword } from '../../_lib/crypto.js';
-import { BRANCHES } from '../../_lib/branches.js';
+import { signHS256 } from '../_lib/jwt.js';
+import { verifyPassword } from '../_lib/crypto.js';
+import { BRANCHES } from '../_lib/branches.js';
 
 // Legacy PIN team (offline fallback only)
 const PIN_TEAM = {
