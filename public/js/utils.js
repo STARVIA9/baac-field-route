@@ -107,8 +107,6 @@ const Utils = {
       }
     },
   },
-
-  },
   _fuelPricesLoaded: false,
   // Fetch live prices from static JSON (updated by cron)
   async loadFuelPrices() {
