@@ -108,8 +108,6 @@ const Utils = {
     },
   },
 
-    car:        { name: '🚗 รถเก๋ง',       kmPerLiter: 12, fuelPrice: 42.73 },
-    motorcycle: { name: '🏍️ มอเตอร์ไซค์', kmPerLiter: 35, fuelPrice: 43.10 },
   },
   _fuelPricesLoaded: false,
   // Fetch live prices from static JSON (updated by cron)
