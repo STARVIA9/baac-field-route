@@ -385,9 +385,17 @@ const App = {
     };
     const onMove = (e) => {
       if (!isDragging) return;
-      e.preventDefault();
       const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
       const dy = y - startY;
+      // Content-at-top drag: only capture downward pulls (collapse sheet).
+      // Upward swipes from content should scroll the content normally.
+      if (dragOrigin === 'content' && dy <= 3) {
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        return;
+      }
+      e.preventDefault();
       const newT = Math.max(0, startTranslate + dy);
       sheet.style.transform = `translateY(${newT}px)`;
     };
