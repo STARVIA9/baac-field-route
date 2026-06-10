@@ -6,9 +6,18 @@
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 import { hashPassword } from '../../_lib/crypto.js';
-import { BRANCHES } from '../../_lib/branches.js';
+import { BRANCHES as DEFAULT_BRANCHES } from '../../_lib/branches.js';
 
 const KV_KEY = 'users:all';
+const BRANCHES_KV_KEY = 'branches:all';
+
+// Load branches from KV (includes admin-added branches), fallback to defaults
+async function loadBranches(kv) {
+  if (!kv) return DEFAULT_BRANCHES;
+  const raw = await kv.get(BRANCHES_KV_KEY);
+  if (raw) return JSON.parse(raw);
+  return DEFAULT_BRANCHES;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,6 +49,9 @@ export async function onRequestGet(context) {
   const raw = await env.BFR_KV.get(KV_KEY);
   const users = raw ? JSON.parse(raw) : [];
 
+  // Load branches from KV for display names (includes admin-added ones)
+  const branchList = await loadBranches(env.BFR_KV);
+
   // Return safe view (no password hashes)
   const safeUsers = users
     .filter(u => !u.deleted)
@@ -49,7 +61,7 @@ export async function onRequestGet(context) {
       displayName: u.displayName,
       role: u.role,
       branch: u.branch,
-      branchName: (BRANCHES.find(b => b.code === u.branch) || {}).name || u.branch,
+      branchName: (branchList.find(b => b.code === u.branch) || {}).name || u.branch,
       createdAt: u.createdAt,
     }));
 
@@ -80,7 +92,9 @@ export async function onRequestPost(context) {
   if (password.length < 4) {
     return json({ success: false, error: 'password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400);
   }
-  if (!BRANCHES.find(b => b.code === branch)) {
+  // Validate branch against KV branches (includes admin-added ones)
+  const branches = await loadBranches(env.BFR_KV);
+  if (!branches.find(b => b.code === branch)) {
     return json({ success: false, error: `สาขา "${branch}" ไม่ถูกต้อง` }, 400);
   }
 
@@ -137,7 +151,10 @@ export async function onRequestPut(context) {
   // Update fields
   if (displayName) users[idx].displayName = displayName;
   if (role) users[idx].role = role === 'admin' ? 'admin' : 'user';
-  if (branch && BRANCHES.find(b => b.code === branch)) users[idx].branch = branch;
+  if (branch) {
+    const branchList = await loadBranches(env.BFR_KV);
+    if (branchList.find(b => b.code === branch)) users[idx].branch = branch;
+  }
   if (password && password.length >= 4) users[idx].password = await hashPassword(password);
 
   await env.BFR_KV.put(KV_KEY, JSON.stringify(users));
