@@ -1598,13 +1598,18 @@ document.addEventListener('DOMContentLoaded', () => App.init());
 
 // ===== Refresh button binding (early, before login too) =====
 document.addEventListener('DOMContentLoaded', () => {
-  // Restore saved vehicle
+  // Restore saved vehicle (route + report)
   const savedVehicle = Utils.getVehicle();
   const routeVehicle = document.getElementById('route-vehicle');
   if (routeVehicle) routeVehicle.value = savedVehicle;
   if (routeVehicle) {
     routeVehicle.addEventListener('change', () => Utils.setVehicle(routeVehicle.value));
   }
+  const reportVehicle = document.getElementById('report-vehicle');
+  if (reportVehicle) reportVehicle.value = savedVehicle;
+
+  // Load live fuel prices from Bangchak (non-blocking)
+  Utils.loadFuelPrices();
 
   // End mode → show customer dropdown if 'customer' selected
   const endMode = document.getElementById('route-end-mode');

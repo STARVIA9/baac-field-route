@@ -71,19 +71,37 @@ const Utils = {
   },
 
   // ===== Vehicle fuel profiles =====
-  // Realistic Thai market rates (km/liter) for common BAAC field vehicles
+  // kmPerLiter: fixed. fuelPrice: loaded from /fuel-prices.json (Bangchak API)
   VEHICLE_PROFILES: {
-    motorcycle: { name: '🏍️ มอเตอร์ไซค์', kmPerLiter: 35, fuelPrice: 35 },  // ~35 baht/L gasohol 95
-    car:        { name: '🚗 รถยนต์',       kmPerLiter: 12, fuelPrice: 35 },
-    pickup:     { name: '🛻 กระบะ',        kmPerLiter: 10, fuelPrice: 35 },
-    eco_car:    { name: '🚙 รถ Eco',       kmPerLiter: 18, fuelPrice: 35 },
+    pickup:     { name: '🛻 กระบะ',        kmPerLiter: 10, fuelPrice: 35.80 },
+    car:        { name: '🚗 รถเก๋ง',       kmPerLiter: 12, fuelPrice: 42.73 },
+    motorcycle: { name: '🏍️ มอเตอร์ไซค์', kmPerLiter: 35, fuelPrice: 43.10 },
   },
-  // Default vehicle: motorcycle (most common for BAAC field officers)
+  _fuelPricesLoaded: false,
+  // Fetch live prices from static JSON (updated by cron)
+  async loadFuelPrices() {
+    try {
+      const resp = await fetch('/fuel-prices.json?t=' + Date.now());
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data.fuels) return;
+      for (const [key, info] of Object.entries(data.fuels)) {
+        if (this.VEHICLE_PROFILES[key]) {
+          this.VEHICLE_PROFILES[key].fuelPrice = info.price;
+        }
+      }
+      this._fuelPricesLoaded = true;
+      console.log('[Fuel] Prices loaded:', new Date(data.updated).toLocaleDateString('th-TH'));
+    } catch (e) {
+      console.warn('[Fuel] Cannot load live prices, using defaults:', e.message);
+    }
+  },
+  // Default vehicle: pickup (กระบะ)
   getVehicle() {
     const saved = localStorage.getItem('vehicle_profile');
     return saved && this.VEHICLE_PROFILES[saved]
       ? saved
-      : 'motorcycle';
+      : 'pickup';
   },
   setVehicle(profile) {
     if (this.VEHICLE_PROFILES[profile]) {
