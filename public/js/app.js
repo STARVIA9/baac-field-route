@@ -92,6 +92,9 @@ const App = {
     Route.attachEvents();
     this.updateRouteUI();
     this.updateAdminUI();
+    // Init bottom sheet (map-as-canvas mode)
+    this.initBottomSheet();
+    this.renderTodayRoute();
 
     // Load customer database (async, non-blocking)
     CustomerDB.load();
@@ -227,9 +230,9 @@ const App = {
       this.submitChangePassword();
     });
 
-    // Tabs
-    document.querySelectorAll('.tab').forEach(t => {
-      t.addEventListener('click', () => this.switchTab(t.dataset.tab));
+    // === Sheet tabs ===
+    document.querySelectorAll('.sheet-tab').forEach(t => {
+      t.addEventListener('click', () => this.switchSheetTab(t.dataset.sheet));
     });
 
     // Filters
@@ -324,16 +327,217 @@ const App = {
     document.getElementById('btn-export-share').addEventListener('click', () => Report.shareText());
   },
 
-  // Switch tab
-  switchTab(name) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
-    document.getElementById(`tab-${name}`).classList.add('active');
-    if (name === 'map') {
-      // Re-render map size after showing
-      setTimeout(() => Customers.map && Customers.map.invalidateSize(), 100);
+  // ===== Bottom Sheet (Map-as-Canvas) =====
+
+  // Init sheet interaction (drag + click handle)
+  initBottomSheet() {
+    const sheet = document.getElementById('bottom-sheet');
+    if (!sheet) return;
+
+    // Click handle to toggle peek/half
+    document.getElementById('sheet-handle').addEventListener('click', (e) => {
+      if (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full')) {
+        this.setSheetState('peek');
+      } else {
+        this.setSheetState('half');
+      }
+    });
+
+    // Drag interaction (touch + mouse)
+    let startY = 0, startTranslate = 0, isDragging = false;
+    const handle = document.getElementById('sheet-handle');
+
+    const onStart = (e) => {
+      isDragging = true;
+      startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+      sheet.style.transition = 'none';
+      // Remove all state classes to get clean base
+      ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
+      startTranslate = this._getSheetTranslate(sheet);
+    };
+    const onMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+      const dy = y - startY;
+      const newT = Math.max(0, startTranslate + dy);
+      sheet.style.transform = `translateY(${newT}px)`;
+    };
+    const onEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      sheet.style.transition = '';
+      const t = this._getSheetTranslate(sheet);
+      sheet.style.transform = '';
+      const sheetH = sheet.offsetHeight;
+      const pct = t / sheetH;
+      if (pct < 0.15) this.setSheetState('full');
+      else if (pct < 0.55) this.setSheetState('half');
+      else if (pct < 0.85) this.setSheetState('peek');
+      else this.setSheetState('collapsed');
+    };
+
+    handle.addEventListener('touchstart', onStart, {passive: true});
+    handle.addEventListener('touchmove', onMove, {passive: false});
+    handle.addEventListener('touchend', onEnd);
+    handle.addEventListener('mousedown', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+  },
+
+  // Read current translateY from computed style (px)
+  _getSheetTranslate(sheet) {
+    if (!sheet) sheet = document.getElementById('bottom-sheet');
+    if (!sheet) return 0;
+    const m = window.getComputedStyle(sheet).transform;
+    if (m && m !== 'none') {
+      // matrix(1,0,0,1,0, Y) → take the Y (5th value in matrix or 13th in matrix3d)
+      const vals = m.split(/[(),\s]+/).filter(v => v !== '');
+      const idx = m.startsWith('matrix3d') ? 13 : 5;
+      return parseFloat(vals[idx]) || 0;
     }
+    return 0;
+  },
+
+  // Set bottom sheet state
+  setSheetState(state) {
+    const sheet = document.getElementById('bottom-sheet');
+    if (!sheet) return;
+    ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
+    if (state && state !== 'default') sheet.classList.add('sheet-' + state);
+    // Hide FABs when sheet is full
+    const fab = document.querySelector('.map-fab');
+    if (fab) fab.style.display = (state === 'full') ? 'none' : '';
+  },
+
+  // Legacy switchTab — adapts to new map-as-canvas layout
+  switchTab(name) {
+    if (name === 'map') {
+      this.setSheetState('peek');
+      this.switchSheetTab('route');
+      setTimeout(() => Customers.map && Customers.map.invalidateSize(), 50);
+      return;
+    }
+    const sheetNames = { customers: 'customers', route: 'plan', visit: 'visit' };
+    this.switchSheetTab(sheetNames[name] || name);
+    this.setSheetState('half');
+  },
+
+  // Switch bottom sheet content tab
+  switchSheetTab(name) {
+    document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
+    const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
+    if (tab) tab.classList.add('active');
+    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit' };
+    const pane = document.getElementById(idMap[name] || 'sheet-route');
+    if (pane) pane.classList.add('active');
+    if (name !== 'route') this.setSheetState('half');
+  },
+
+  // Render today's visits in the route pane
+  renderTodayRoute() {
+    const container = document.getElementById('today-visits');
+    if (!container) return;
+
+    const customers = Storage.getActiveCustomers();
+    const routeIds = Storage.getRoute();
+    const routeCusts = routeIds.map(id => customers.find(c => c.id === id)).filter(Boolean);
+
+    if (!routeCusts.length) {
+      container.innerHTML = '<p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>';
+      this._updateRouteProgress(null);
+      return;
+    }
+
+    // Use calculated result order if available
+    const result = Route.currentResult;
+    let ordered = routeCusts;
+    if (result && result.stops && result.stops.length > 0) {
+      ordered = result.stops;
+    }
+
+    // Check visits for pending/completed status
+    const visits = Storage.getVisits();
+    const visitedCifs = new Set(Object.keys(visits));
+    const pending = ordered.filter(c => !visitedCifs.has(c.cif || c.id));
+
+    // Group: morning (first 60%) vs afternoon
+    const mid = Math.ceil(ordered.length / 2);
+    const morning = ordered.slice(0, mid);
+    const afternoon = ordered.slice(mid);
+
+    let html = '';
+    if (morning.length) {
+      html += '<div class="visits-group"><div class="visits-group-title">☀️ ช่วงเช้า</div>';
+      morning.forEach((c, i) => html += this._visitCard(c, i + 1));
+      html += '</div>';
+    }
+    if (afternoon.length) {
+      html += '<div class="visits-group"><div class="visits-group-title">🌤️ ช่วงบ่าย</div>';
+      afternoon.forEach((c, i) => html += this._visitCard(c, mid + i + 1));
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+
+    // Click on visit card → open visit modal
+    container.querySelectorAll('.visit-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const cif = card.dataset.cif;
+        const id = card.dataset.id;
+        if (window.Visit && typeof Visit.openForCustomer === 'function') {
+          Visit.openForCustomer(cif || id);
+        }
+      });
+    });
+
+    // Update header progress
+    const done = ordered.length - pending.length;
+    if (result && result.distance) {
+      document.getElementById('route-progress').textContent = `${done}/${ordered.length} · ${Utils.formatKm(result.distance)}`;
+    } else {
+      document.getElementById('route-progress').textContent = `${done}/${ordered.length} ✅`;
+    }
+  },
+
+  // Render a single visit card (used by renderTodayRoute)
+  _visitCard(c, order) {
+    const name = c.name || c.customerName || 'ไม่ระบุชื่อ';
+    const branch = c.branch || '';
+    // Check if visited
+    const visits = Storage.getVisits();
+    const visited = visits[c.cif || c.id];
+    const debtType = c.debtType || '';
+    let badge = '';
+    if (visited) {
+      badge = '<span class="visit-badge" style="background:#d1fae5;color:#065f46">✅ เยี่ยมแล้ว</span>';
+    } else if (debtType === 'overdue') {
+      badge = '<span class="visit-badge badge-overdue">⚠️ ค้าง</span>';
+    } else if (debtType === 'current') {
+      badge = '<span class="visit-badge badge-current">📅 ถึงกำหนด</span>';
+    }
+    const lat = c.lat || c.latitude || '';
+    const lng = c.lng || c.longitude || '';
+    const dist = (lat && lng) ? '' : '';
+    return `<div class="visit-card" data-cif="${this.escapeHTML(c.cif || '')}" data-id="${this.escapeHTML(c.id || '')}">
+      <div class="visit-order">${order}</div>
+      <div class="visit-info">
+        <div class="visit-name">${this.escapeHTML(name)}</div>
+        <div class="visit-branch">${this.escapeHTML(branch)}</div>
+      </div>
+      <div class="visit-meta">
+        ${badge}
+      </div>
+    </div>`;
+  },
+
+  // Update route progress badge in overlay header
+  _updateRouteProgress(stats) {
+    const el = document.getElementById('route-progress');
+    if (!el) return;
+    if (!stats) { el.textContent = ''; return; }
+    el.textContent = `${stats.completed || 0}/${stats.total} ✅`;
   },
 
   // Open add customer modal
@@ -1004,6 +1208,7 @@ const App = {
 
     if (btnCalculate) btnCalculate.disabled = false;
     if (btnOptimize) btnOptimize.disabled = false;
+    this.renderTodayRoute();
   },
 
   // Calculate route

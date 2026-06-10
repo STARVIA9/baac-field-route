@@ -159,13 +159,12 @@ body {
   box-shadow: 0 0 0 3px rgba(10, 143, 60, 0.15);
 }
 
-/* ===== App Layout ===== */
+/* ===== App Layout (Map-as-canvas) ===== */
 .app {
-  min-height: 100vh;
-  min-height: 100dvh; /* dynamic viewport for mobile/tablet */
-  display: flex;
-  flex-direction: column;
+  position: relative;
   width: 100%;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--surface);
 }
 .app-header {
@@ -178,6 +177,27 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+}
+/* Transparent overlay header (map-as-canvas mode) */
+.app-header.app-header-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 70%, transparent 100%);
+  padding: 12px 16px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: none;
+}
+.app-header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 13px;
+  opacity: 0.9;
 }
 .app-logo { display: flex; align-items: center; gap: 8px; }
 .logo-icon { font-size: 24px; }
@@ -208,46 +228,26 @@ body {
   50% { background: rgba(255, 200, 50, 0.7); }
 }
 
-/* ===== Tabs ===== */
-.app-tabs {
-  display: flex;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 64px;
-  z-index: 99;
+/* ===== Full-screen Map ===== */
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
 }
-.tab {
-  flex: 1;
-  background: none;
-  border: none;
-  padding: 12px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-.tab.active {
-  color: var(--baac-green);
-  border-bottom-color: var(--baac-green);
-  font-weight: 600;
-}
-
-/* ===== Map Tab ===== */
-.tab-pane { display: none; flex: 1; min-height: 0; overflow: hidden; }
-.tab-pane.active { display: flex; flex-direction: column; }
-#map { flex: 1; width: 100%; min-height: 0; }
 .map-fab {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 160px;
+  right: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   z-index: 1000;
+  pointer-events: none;
+}
+.map-fab .fab {
+  pointer-events: auto;
 }
 .fab {
   width: 56px;
@@ -256,12 +256,170 @@ body {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.2s;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
-.fab:active { transform: scale(0.95); }
+.fab:active { transform: scale(0.92); }
 .fab-primary { background: var(--baac-green); color: white; }
 .fab-secondary { background: white; color: var(--text); }
+
+/* ===== Bottom Sheet ===== */
+.bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 25px rgba(0,0,0,0.18);
+  height: 85dvh;
+  max-height: 85dvh;
+  transform: translateY(calc(85dvh - 140px)); /* peek: ~140px visible */
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  touch-action: none;
+}
+.bottom-sheet.sheet-peek { transform: translateY(calc(85dvh - 140px)); }
+.bottom-sheet.sheet-half { transform: translateY(calc(85dvh - 50dvh)); }
+.bottom-sheet.sheet-full { transform: translateY(0); }
+.bottom-sheet.sheet-collapsed { transform: translateY(calc(85dvh - 52px)); }
+
+/* Sheet handle — drag indicator */
+.sheet-handle {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+  padding: 10px 0 6px;
+  display: flex;
+  justify-content: center;
+  cursor: grab;
+  border-radius: 20px 20px 0 0;
+  touch-action: none;
+}
+.sheet-handle:active { cursor: grabbing; }
+.sheet-handle-bar {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: #d1d5db;
+}
+
+/* Sheet section tabs */
+.sheet-tabs {
+  display: flex;
+  position: sticky;
+  top: 28px;
+  z-index: 2;
+  background: var(--surface);
+  padding: 0 12px;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.sheet-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.sheet-tab.active {
+  color: var(--baac-green);
+  border-bottom-color: var(--baac-green);
+  font-weight: 600;
+}
+
+/* Sheet content panes */
+.sheet-scroll {
+  overflow-y: auto;
+  height: calc(100% - 28px); /* minus handle height */
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.sheet-content {
+  display: none;
+  padding: 16px;
+}
+.sheet-content.active { display: block; }
+
+/* Today's visits (route pane) */
+.today-visits { min-height: 100px; }
+.visit-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.visit-card:active { background: #e8ece8; }
+.visit-card .visit-order {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--baac-green);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.visit-card .visit-info {
+  flex: 1;
+  min-width: 0;
+}
+.visit-card .visit-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.visit-card .visit-branch {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.visit-card .visit-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.visit-card .visit-distance {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.visit-card .visit-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.visit-badge.badge-current { background: #dbeafe; color: #1d4ed8; }
+.visit-badge.badge-overdue { background: #fce4ec; color: #b71c1c; }
+
+
+/* ===== Visit card inline in sheets ===== */
+.visits-group { margin-bottom: 12px; }
+.visits-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--baac-green-dark);
+  padding: 8px 4px 4px;
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 8px;
+}
 
 /* Leaflet custom marker — Phase 2: Risk-based colors */
 .customer-marker {

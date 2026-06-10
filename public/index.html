@@ -43,11 +43,14 @@
 
   <!-- Main App -->
   <div id="app" class="app hidden">
-    <!-- Header -->
-    <header class="app-header">
+    <!-- Overlay Header (always floats over map) -->
+    <header class="app-header app-header-overlay">
       <div class="app-logo">
         <span class="logo-icon">🗺️</span>
         <span class="logo-text">BAAC Field Route</span>
+      </div>
+      <div class="app-header-center" id="header-status">
+        <span id="route-progress"></span>
       </div>
       <div class="app-user">
         <span id="user-name">กำลังโหลด...</span>
@@ -60,172 +63,178 @@
       </div>
     </header>
 
-    <!-- Tabs -->
-    <nav class="app-tabs">
-      <button class="tab active" data-tab="map">🗺️ แผนที่</button>
-      <button class="tab" data-tab="customers">👥 ลูกค้า</button>
-      <button class="tab" data-tab="route">🧭 เส้นทาง</button>
-      <button class="tab" data-tab="visit">📋 เข้าพบ</button>
-    </nav>
+    <!-- Full-screen map container (Leaflet) -->
+    <div id="map"></div>
 
-    <!-- Map Tab -->
-    <section class="tab-pane active" id="tab-map">
-      <div id="map"></div>
-      <div class="map-fab">
-        <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
-        <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน">📍</button>
+    <!-- Floating action buttons over map -->
+    <div class="map-fab">
+      <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
+      <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน">📍</button>
+    </div>
+
+    <!-- ===== Bottom Sheet ===== -->
+    <div class="bottom-sheet" id="bottom-sheet">
+      <div class="sheet-handle" id="sheet-handle">
+        <div class="sheet-handle-bar"></div>
       </div>
-    </section>
 
-    <!-- Customers Tab -->
-    <section class="tab-pane" id="tab-customers">
-      <div class="customers-header">
-        <h2>👥 รายชื่อลูกค้า</h2>
-        <div class="customers-stats">
-          <span id="customer-count">0</span> คน
+      <div class="sheet-scroll">
+        <!-- Sheet section tabs -->
+        <div class="sheet-tabs">
+          <button class="sheet-tab active" data-sheet="route">🧭 เส้นทาง</button>
+          <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
+          <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
+          <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
         </div>
-      </div>
-      <div class="customers-search">
-        <input type="search" id="customer-search" placeholder="🔍 ค้นหาด้วยชื่อ, CIF, เบอร์โทร, ที่อยู่..." autocomplete="off">
-      </div>
-      <div class="customers-filters">
-        <button class="filter active" data-filter="all">ทั้งหมด</button>
-        <button class="filter" data-filter="today">วันนี้</button>
-        <button class="filter" data-filter="pending">รอเยี่ยม</button>
-        <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
-      </div>
-      <div class="customers-list" id="customers-list">
-        <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
-      </div>
-    </section>
 
-    <!-- Route Tab -->
-    <section class="tab-pane" id="tab-route">
-      <div class="route-header">
-        <h2>🧭 วางแผนเส้นทาง</h2>
-        <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
-      </div>
-
-      <!-- Search box (merged from Quick) — auto-add to today's route -->
-      <div class="route-search-box">
-        <input type="search" id="route-search" placeholder="🔍 พิมพ์ CIF / ชื่อ / เบอร์ / ที่อยู่ เพื่อเพิ่มในเส้นทาง..." autocomplete="off">
-        <div class="route-search-results" id="route-search-results"></div>
-      </div>
-
-      <!-- Selected customers chips (merged from Quick) — drag&drop + ▲▼ reorder -->
-      <div class="route-selected">
-        <div class="route-selected-header">
-          <h3>เลือกแล้ว (<span id="route-count">0</span>/10)</h3>
-          <button class="btn-link" id="btn-clear-route">ล้าง</button>
+        <!-- Route pane ("วันนี้" — shows queued customers) -->
+        <div class="sheet-content active" id="sheet-route">
+          <div class="today-visits" id="today-visits">
+            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>
+          </div>
         </div>
-        <div class="route-chips" id="route-chips">
-          <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
-        </div>
-      </div>
 
-      <div class="route-start">
-        <label>📍 จุดเริ่มต้น</label>
-        <select id="route-start-mode">
-          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
-          <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
-          <option value="custom">✏️ กรอกเอง</option>
-        </select>
-        <div class="custom-start hidden" id="custom-start">
-          <input type="text" id="start-lat" placeholder="Latitude" inputmode="decimal">
-          <input type="text" id="start-lng" placeholder="Longitude" inputmode="decimal">
-        </div>
-      </div>
-
-      <div class="route-end">
-        <label>🏁 จุดสิ้นสุด <span class="hint">(เลือกเพื่อประหยัดน้ำมัน)</span></label>
-        <select id="route-end-mode">
-          <option value="none">🔄 ไป-กลับ (กลับจุดเริ่มต้น)</option>
-          <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
-          <option value="office">🏢 กลับสำนักงาน</option>
-          <option value="customer">👤 ลูกค้า (เลือกจากรายการ)</option>
-        </select>
-        <select id="route-end-customer" class="hidden">
-          <option value="">-- เลือกลูกค้า --</option>
-        </select>
-      </div>
-
-      <div class="route-vehicle">
-        <label>🚗 ยานพาหนะ <span class="hint">(ใช้คำนวณน้ำมัน)</span></label>
-        <select id="route-vehicle">
-          <option value="motorcycle">🏍️ มอเตอร์ไซค์ (35 กม./ลิตร)</option>
-          <option value="eco_car">🚙 รถ Eco (18 กม./ลิตร)</option>
-          <option value="car">🚗 รถยนต์ (12 กม./ลิตร)</option>
-          <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
-        </select>
-      </div>
-
-      <div class="route-actions-row">
-        <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
-          🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
-        </button>
-        <button class="btn-secondary" id="btn-optimize-route" disabled title="เรียงลำดับอัตโนมัติด้วย TSP — เร็วที่สุด">
-          🎯 เรียงอัตโนมัติ (TSP)
-        </button>
-      </div>
-
-      <div class="route-result hidden" id="route-result">
-        <div class="result-card">
-          <h3>📊 สรุปเส้นทาง <span class="result-route-type" id="result-route-type"></span></h3>
-          <div class="result-stats">
-            <div class="stat">
-              <span class="stat-value" id="result-distance">0</span>
-              <span class="stat-label">กิโลเมตร</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value" id="result-duration">0</span>
-              <span class="stat-label">นาที</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value" id="result-stops">0</span>
-              <span class="stat-label">จุดแวะ</span>
+        <!-- Customers pane (copied from old #tab-customers, keeps ID) -->
+        <div class="sheet-content" id="tab-customers">
+          <div class="customers-header">
+            <h2>👥 รายชื่อลูกค้า</h2>
+            <div class="customers-stats">
+              <span id="customer-count">0</span> คน
             </div>
           </div>
-          <div class="result-fuel" id="result-fuel"></div>
+          <div class="customers-search">
+            <input type="search" id="customer-search" placeholder="🔍 ค้นหาด้วยชื่อ, CIF, เบอร์โทร, ที่อยู่..." autocomplete="off">
+          </div>
+          <div class="customers-filters">
+            <button class="filter active" data-filter="all">ทั้งหมด</button>
+            <button class="filter" data-filter="today">วันนี้</button>
+            <button class="filter" data-filter="pending">รอเยี่ยม</button>
+            <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
+          </div>
+          <div class="customers-list" id="customers-list">
+            <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
+          </div>
         </div>
 
-        <ol class="route-order" id="route-order"></ol>
+        <!-- Plan pane (copied from old #tab-route, keeps ID) -->
+        <div class="sheet-content" id="tab-route">
+          <div class="route-header">
+            <h2>🧭 วางแผนเส้นทาง</h2>
+            <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
+          </div>
+          <div class="route-search-box">
+            <input type="search" id="route-search" placeholder="🔍 พิมพ์ CIF / ชื่อ / เบอร์ / ที่อยู่ เพื่อเพิ่มในเส้นทาง..." autocomplete="off">
+            <div class="route-search-results" id="route-search-results"></div>
+          </div>
+          <div class="route-selected">
+            <div class="route-selected-header">
+              <h3>เลือกแล้ว (<span id="route-count">0</span>/10)</h3>
+              <button class="btn-link" id="btn-clear-route">ล้าง</button>
+            </div>
+            <div class="route-chips" id="route-chips">
+              <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
+            </div>
+          </div>
+          <div class="route-start">
+            <label>📍 จุดเริ่มต้น</label>
+            <select id="route-start-mode">
+              <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+              <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
+              <option value="custom">✏️ กรอกเอง</option>
+            </select>
+            <div class="custom-start hidden" id="custom-start">
+              <input type="text" id="start-lat" placeholder="Latitude" inputmode="decimal">
+              <input type="text" id="start-lng" placeholder="Longitude" inputmode="decimal">
+            </div>
+          </div>
+          <div class="route-end">
+            <label>🏁 จุดสิ้นสุด <span class="hint">(เลือกเพื่อประหยัดน้ำมัน)</span></label>
+            <select id="route-end-mode">
+              <option value="none">🔄 ไป-กลับ (กลับจุดเริ่มต้น)</option>
+              <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+              <option value="office">🏢 กลับสำนักงาน</option>
+              <option value="customer">👤 ลูกค้า (เลือกจากรายการ)</option>
+            </select>
+            <select id="route-end-customer" class="hidden">
+              <option value="">-- เลือกลูกค้า --</option>
+            </select>
+          </div>
+          <div class="route-vehicle">
+            <label>🚗 ยานพาหนะ <span class="hint">(ใช้คำนวณน้ำมัน)</span></label>
+            <select id="route-vehicle">
+              <option value="motorcycle">🏍️ มอเตอร์ไซค์ (35 กม./ลิตร)</option>
+              <option value="eco_car">🚙 รถ Eco (18 กม./ลิตร)</option>
+              <option value="car">🚗 รถยนต์ (12 กม./ลิตร)</option>
+              <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
+            </select>
+          </div>
+          <div class="route-actions-row">
+            <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
+              🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
+            </button>
+            <button class="btn-secondary" id="btn-optimize-route" disabled title="เรียงลำดับอัตโนมัติด้วย TSP — เร็วที่สุด">
+              🎯 เรียงอัตโนมัติ (TSP)
+            </button>
+          </div>
+          <div class="route-result hidden" id="route-result">
+            <div class="result-card">
+              <h3>📊 สรุปเส้นทาง <span class="result-route-type" id="result-route-type"></span></h3>
+              <div class="result-stats">
+                <div class="stat">
+                  <span class="stat-value" id="result-distance">0</span>
+                  <span class="stat-label">กิโลเมตร</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value" id="result-duration">0</span>
+                  <span class="stat-label">นาที</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value" id="result-stops">0</span>
+                  <span class="stat-label">จุดแวะ</span>
+                </div>
+              </div>
+              <div class="result-fuel" id="result-fuel"></div>
+            </div>
+            <ol class="route-order" id="route-order"></ol>
+            <div class="route-actions">
+              <button class="btn-primary btn-large" id="btn-open-gmaps">
+                📤 เปิด Google Maps นำทาง
+              </button>
+              <button class="btn-secondary" id="btn-save-route">
+                💾 บันทึกเส้นทางนี้
+              </button>
+            </div>
+          </div>
+        </div>
 
-        <div class="route-actions">
-          <button class="btn-primary btn-large" id="btn-open-gmaps">
-            📤 เปิด Google Maps นำทาง
-          </button>
-          <button class="btn-secondary" id="btn-save-route">
-            💾 บันทึกเส้นทางนี้
-          </button>
+        <!-- Visit pane (copied from old #tab-visit, keeps ID) -->
+        <div class="sheet-content" id="tab-visit">
+          <div class="visit-header">
+            <h2>📋 บันทึกการเข้าพบ</h2>
+            <p class="visit-desc">บันทึกผลการเยี่ยมลูกค้าวันนี้</p>
+          </div>
+          <div class="visit-stats">
+            <div class="visit-stat visit-stat-pending">
+              <span class="visit-stat-num" id="visit-pending">0</span>
+              <span class="visit-stat-label">รอเยี่ยม</span>
+            </div>
+            <div class="visit-stat visit-stat-visited">
+              <span class="visit-stat-num" id="visit-completed">0</span>
+              <span class="visit-stat-label">เยี่ยมแล้ว</span>
+            </div>
+            <div class="visit-stat visit-stat-skipped">
+              <span class="visit-stat-num" id="visit-skipped">0</span>
+              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
+            </div>
+          </div>
+          <div class="visit-list" id="visit-list">
+            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+          </div>
         </div>
-      </div>
-    </section>
+      </div><!-- /sheet-scroll -->
+    </div><!-- /bottom-sheet -->
 
-    <!-- Visit Tab -->
-    <section class="tab-pane" id="tab-visit">
-      <div class="visit-header">
-        <h2>📋 บันทึกการเข้าพบ</h2>
-        <p class="visit-desc">บันทึกผลการเยี่ยมลูกค้าวันนี้</p>
-      </div>
-      <div class="visit-stats">
-        <div class="visit-stat visit-stat-pending">
-          <span class="visit-stat-num" id="visit-pending">0</span>
-          <span class="visit-stat-label">รอเยี่ยม</span>
-        </div>
-        <div class="visit-stat visit-stat-visited">
-          <span class="visit-stat-num" id="visit-completed">0</span>
-          <span class="visit-stat-label">เยี่ยมแล้ว</span>
-        </div>
-        <div class="visit-stat visit-stat-skipped">
-          <span class="visit-stat-num" id="visit-skipped">0</span>
-          <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
-        </div>
-      </div>
-      <div class="visit-list" id="visit-list">
-        <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
-      </div>
-    </section>
-  </div>
+  </div><!-- /app -->
 
   <!-- Add Customer Modal -->
   <div class="modal hidden" id="add-customer-modal">
