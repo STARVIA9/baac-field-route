@@ -369,13 +369,17 @@ body {
   height: calc(100% - 28px); /* minus handle height */
   -webkit-overflow-scrolling: touch;
   padding: 0;
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 28px) + 60px); /* room for action buttons + safe area */
 }
 .sheet-content {
   display: none;
-  padding: 16px;
+  padding: 16px 16px 24px; /* extra bottom padding for scroll comfort */
 }
 .sheet-content.active { display: block; }
+/* Ensure the last interactive element in plan tab is scrollable into view */
+#sheet-plan .route-actions-row {
+  margin-bottom: 8px;
+}
 
 /* Today's visits (route pane) */
 .today-visits { min-height: 100px; }
