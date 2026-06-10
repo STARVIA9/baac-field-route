@@ -336,6 +336,7 @@ const App = {
 
     // Click handle to toggle peek/half
     document.getElementById('sheet-handle').addEventListener('click', (e) => {
+      e.stopPropagation();
       if (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full')) {
         this.setSheetState('peek');
       } else {
@@ -343,17 +344,39 @@ const App = {
       }
     });
 
-    // Drag interaction (touch + mouse)
-    let startY = 0, startTranslate = 0, isDragging = false;
+    // Drag interaction (touch + mouse) — enhanced: works on handle AND content at scrollTop===0
+    let startY = 0, startTranslate = 0, isDragging = false, dragOrigin = null;
     const handle = document.getElementById('sheet-handle');
+    const scrollEl = sheet.querySelector('.sheet-scroll');
+
+    const _readTransform = (el) => {
+      const m = window.getComputedStyle(el).transform;
+      if (m && m !== 'none') {
+        const vals = m.split(/[(),\s]+/).filter(v => v !== '');
+        const idx = m.startsWith('matrix3d') ? 13 : 5;
+        return parseFloat(vals[idx]) || 0;
+      }
+      return 0;
+    };
 
     const onStart = (e) => {
+      const target = e.target;
+      // Only start drag on handle, or on scroll-content when at scrollTop===0
+      const isHandle = target.closest('#sheet-handle');
+      if (!isHandle) {
+        if (!scrollEl || scrollEl.scrollTop > 0) return;
+      }
       isDragging = true;
+      dragOrigin = isHandle ? 'handle' : 'content';
       startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+      // 1. READ current transform BEFORE any class changes
+      startTranslate = _readTransform(sheet);
+      // 2. Disable transition
       sheet.style.transition = 'none';
-      // Remove all state classes to get clean base
+      // 3. Pin current position as inline style (prevents jump)
+      sheet.style.transform = `translateY(${startTranslate}px)`;
+      // 4. Now remove state classes
       ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
-      startTranslate = this._getSheetTranslate(sheet);
     };
     const onMove = (e) => {
       if (!isDragging) return;
@@ -367,7 +390,7 @@ const App = {
       if (!isDragging) return;
       isDragging = false;
       sheet.style.transition = '';
-      const t = this._getSheetTranslate(sheet);
+      const t = _readTransform(sheet);
       sheet.style.transform = '';
       const sheetH = sheet.offsetHeight;
       const pct = t / sheetH;
@@ -375,6 +398,7 @@ const App = {
       else if (pct < 0.55) this.setSheetState('half');
       else if (pct < 0.85) this.setSheetState('peek');
       else this.setSheetState('collapsed');
+      dragOrigin = null;
     };
 
     handle.addEventListener('touchstart', onStart, {passive: true});
@@ -383,20 +407,13 @@ const App = {
     handle.addEventListener('mousedown', onStart);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
-  },
 
-  // Read current translateY from computed style (px)
-  _getSheetTranslate(sheet) {
-    if (!sheet) sheet = document.getElementById('bottom-sheet');
-    if (!sheet) return 0;
-    const m = window.getComputedStyle(sheet).transform;
-    if (m && m !== 'none') {
-      // matrix(1,0,0,1,0, Y) → take the Y (5th value in matrix or 13th in matrix3d)
-      const vals = m.split(/[(),\s]+/).filter(v => v !== '');
-      const idx = m.startsWith('matrix3d') ? 13 : 5;
-      return parseFloat(vals[idx]) || 0;
+    // Also allow drag-down from scroll-content when at top
+    if (scrollEl) {
+      scrollEl.addEventListener('touchstart', onStart, {passive: true});
+      scrollEl.addEventListener('touchmove', onMove, {passive: false});
+      scrollEl.addEventListener('touchend', onEnd);
     }
-    return 0;
   },
 
   // Set bottom sheet state
@@ -462,22 +479,9 @@ const App = {
     const visitedCifs = new Set(Object.keys(visits));
     const pending = ordered.filter(c => !visitedCifs.has(c.cif || c.id));
 
-    // Group: morning (first 60%) vs afternoon
-    const mid = Math.ceil(ordered.length / 2);
-    const morning = ordered.slice(0, mid);
-    const afternoon = ordered.slice(mid);
-
-    let html = '';
-    if (morning.length) {
-      html += '<div class="visits-group"><div class="visits-group-title">☀️ ช่วงเช้า</div>';
-      morning.forEach((c, i) => html += this._visitCard(c, i + 1));
-      html += '</div>';
-    }
-    if (afternoon.length) {
-      html += '<div class="visits-group"><div class="visits-group-title">🌤️ ช่วงบ่าย</div>';
-      afternoon.forEach((c, i) => html += this._visitCard(c, mid + i + 1));
-      html += '</div>';
-    }
+    let html = '<div class="visits-list">';
+    ordered.forEach((c, i) => html += this._visitCard(c, i + 1));
+    html += '</div>';
 
     container.innerHTML = html;
 

@@ -278,32 +278,39 @@ body {
   transform: translateY(calc(85dvh - 140px)); /* peek: ~140px visible */
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
-  touch-action: none;
+  /* touch-action is on .sheet-handle only — let content scroll normally */
 }
 .bottom-sheet.sheet-peek { transform: translateY(calc(85dvh - 140px)); }
 .bottom-sheet.sheet-half { transform: translateY(calc(85dvh - 50dvh)); }
 .bottom-sheet.sheet-full { transform: translateY(0); }
 .bottom-sheet.sheet-collapsed { transform: translateY(calc(85dvh - 52px)); }
 
-/* Sheet handle — drag indicator */
+/* Sheet handle — larger touch target */
 .sheet-handle {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 2;
   background: var(--surface);
-  padding: 10px 0 6px;
+  padding: 12px 0 8px;
   display: flex;
   justify-content: center;
   cursor: grab;
   border-radius: 20px 20px 0 0;
   touch-action: none;
+  min-height: 40px;
 }
-.sheet-handle:active { cursor: grabbing; }
+.sheet-handle:active {
+  cursor: grabbing;
+}
 .sheet-handle-bar {
-  width: 36px;
+  width: 40px;
   height: 5px;
   border-radius: 3px;
-  background: #d1d5db;
+  background: #c8cdd0;
+  transition: background 0.2s;
+}
+.sheet-handle:hover .sheet-handle-bar {
+  background: #a0a5aa;
 }
 
 /* Sheet section tabs */
@@ -1267,6 +1274,16 @@ form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .toast.error { background: var(--danger); }
 
 /* ===== Leaflet Override ===== */
+/* Push map controls below overlay header */
+.leaflet-top {
+  top: 60px !important;
+}
+.leaflet-control-zoom a {
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  font-size: 18px;
+}
 .leaflet-popup-content-wrapper { border-radius: 12px; }
 .leaflet-popup-content { margin: 12px 16px; font-family: inherit; }
 .popup-name { font-weight: 700; color: var(--baac-green-dark); margin-bottom: 4px; }
