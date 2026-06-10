@@ -106,17 +106,6 @@ const Utils = {
         dirt: 15
       }
     },
-    truck: {
-      name: "🚛 รถบรรทุก",
-      kmPerLiter: 6,
-      fuelPrice: 35.80,
-      speed: {
-        highway: 60,
-        road: 40,
-        village: 25,
-        dirt: 15
-      }
-    }
   },
 
     car:        { name: '🚗 รถเก๋ง',       kmPerLiter: 12, fuelPrice: 42.73 },

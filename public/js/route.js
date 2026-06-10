@@ -172,12 +172,17 @@ const Route = {
 
     const isOpenPath = end && (end.lat !== start.lat || end.lng !== start.lng);
 
-    // Build coordinates: start → stops → [end]
+    // Build coordinates: start → stops → [end] or back to start
     const coordList = [
       { lat: start.lat, lng: start.lng },
       ...stops.map(c => ({ lat: c.lat, lng: c.lng })),
     ];
-    if (isOpenPath) coordList.push({ lat: end.lat, lng: end.lng });
+    if (isOpenPath) {
+      coordList.push({ lat: end.lat, lng: end.lng });
+    } else {
+      // Round trip: เพิ่มจุดเริ่มต้นต่อท้าย (รวมขากลับ)
+      coordList.push({ lat: start.lat, lng: start.lng });
+    }
 
     const coords = coordList.map(p => `${p.lng},${p.lat}`).join(';');
 
