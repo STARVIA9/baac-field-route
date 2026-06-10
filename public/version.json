@@ -1,5 +1,1 @@
-{
-  "version": "20260605.125500",
-  "deployed": "2026-06-05T12:55:00+07:00",
-  "changelog": "Feature: Customer DB geocoded — 98% of 3,906 customers have GPS coordinates from Nominatim. Auto-fill lat/lng + mini-map on search select."
-}
+{"version":"20260610.214826","deployed":"2026-06-10T21:48:26+07:00","changelog":"fix: utils.js VEHICLE_PROFILES syntax error + round trip + remove truck"}
