@@ -51,7 +51,8 @@
       </div>
       <div class="app-user">
         <span id="user-name">กำลังโหลด...</span>
-        <button class="btn-icon admin-only" id="admin-users-btn" title="จัดการผู้-users" aria-label="Users" style="display:none">👥</button>
+        <button class="btn-icon" id="change-password-btn" title="เปลี่ยนรหัสผ่าน">🔑</button>
+        <button class="btn-icon admin-only" id="admin-users-btn" title="จัดการระบบ" aria-label="Users" style="display:none">👥</button>
         <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help">❓</button>
         <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
         <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
@@ -667,6 +668,35 @@
             </form>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal (for all users) -->
+  <div id="change-password-modal" class="modal hidden">
+    <div class="modal-card" style="max-width:400px">
+      <div class="modal-header">
+        <h2>🔑 เปลี่ยนรหัสผ่าน</h2>
+        <button class="btn-icon modal-close" id="close-change-password">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="change-password-form">
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-current">รหัสผ่านปัจจุบัน</label>
+            <input type="password" id="cp-current" placeholder="รหัสผ่านเดิม" required minlength="4">
+          </div>
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-new">รหัสผ่านใหม่</label>
+            <input type="password" id="cp-new" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
+          </div>
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-confirm">ยืนยันรหัสผ่านใหม่</label>
+            <input type="password" id="cp-confirm" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
+          </div>
+          <button type="submit" class="btn-primary" id="btn-change-password">เปลี่ยนรหัสผ่าน</button>
+          <p class="login-error" id="cp-error"></p>
+          <p class="text-muted" id="cp-success" style="color:var(--baac-green);display:none"></p>
+        </form>
       </div>
     </div>
   </div>

@@ -212,6 +212,21 @@ const App = {
       this.openAdminUsers();
     });
 
+    // Change password button
+    document.getElementById('change-password-btn').addEventListener('click', () => {
+      this.openChangePassword();
+    });
+    document.getElementById('close-change-password').addEventListener('click', () => {
+      document.getElementById('change-password-modal').classList.add('hidden');
+    });
+    document.getElementById('change-password-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'change-password-modal') e.target.classList.add('hidden');
+    });
+    document.getElementById('change-password-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.submitChangePassword();
+    });
+
     // Tabs
     document.querySelectorAll('.tab').forEach(t => {
       t.addEventListener('click', () => this.switchTab(t.dataset.tab));
@@ -1189,6 +1204,58 @@ const App = {
       }
     } catch (err) {
       Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  // ===== Change Password (self-service for all users) =====
+  openChangePassword() {
+    const modal = document.getElementById('change-password-modal');
+    document.getElementById('change-password-form').reset();
+    document.getElementById('cp-error').textContent = '';
+    document.getElementById('cp-success').style.display = 'none';
+    modal.classList.remove('hidden');
+  },
+
+  async submitChangePassword() {
+    const errEl = document.getElementById('cp-error');
+    const successEl = document.getElementById('cp-success');
+    errEl.textContent = '';
+    successEl.style.display = 'none';
+
+    const currentPassword = document.getElementById('cp-current').value;
+    const newPassword = document.getElementById('cp-new').value;
+    const confirmPassword = document.getElementById('cp-confirm').value;
+
+    if (newPassword !== confirmPassword) {
+      errEl.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน';
+      return;
+    }
+    if (newPassword.length < 4) {
+      errEl.textContent = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร';
+      return;
+    }
+
+    const btn = document.getElementById('btn-change-password');
+    btn.disabled = true;
+    btn.textContent = 'กำลังเปลี่ยน...';
+
+    try {
+      const res = await API.post('/api/change-password', { currentPassword, newPassword });
+      if (res.success) {
+        successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
+        successEl.style.display = 'block';
+        document.getElementById('cp-current').value = '';
+        document.getElementById('cp-new').value = '';
+        document.getElementById('cp-confirm').value = '';
+        Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
+      } else {
+        errEl.textContent = res.error || 'เปลี่ยนรหัสไม่สำเร็จ';
+      }
+    } catch (err) {
+      errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'เปลี่ยนรหัสผ่าน';
     }
   },
 
