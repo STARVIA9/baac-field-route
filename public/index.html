@@ -165,8 +165,10 @@
               <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
               <option value="car">🚗 รถเก๋ง (12 กม./ลิตร)</option>
               <option value="motorcycle">🏍️ มอเตอร์ไซค์ (35 กม./ลิตร)</option>
+<option value="truck">🚛 รถบรรทุก (6 กม./ลิตร)</option>
             </select>
           </div>
+<div class="road-classification">            <label>🛣️ จำแนกถนน类型 <span class="hint">(ใช้คำนวณความเร็ว)</span></label>            <select id="road-classification">              <option value="auto">🚗 อัตโนมัติ (จาก OpenStreetMap)</option>              <option value="highway">🛣️ ถนนหลัก (Highway)</option>              <option value="road">🛤️ ถนนรอง (Road)</option>              <option value="village">🏘️ ถนนใน (Village Road)</option>              <option value="dirt">🚜 ถนนลูกรัง (Dirt Road)</option>            </select>          </div>
           <div class="route-actions-row">
             <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
               🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
@@ -193,6 +195,7 @@
                 </div>
               </div>
               <div class="result-fuel" id="result-fuel"></div>
+<div class="result-vehicle-info" id="result-vehicle-info"></div>
             </div>
             <ol class="route-order" id="route-order"></ol>
             <div class="route-actions">

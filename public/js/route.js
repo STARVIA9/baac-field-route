@@ -221,7 +221,23 @@ const Route = {
       }
       // Add 30% detour factor for road vs straight-line
       const estDist = totalDist * 1.3;
-      const estDuration = (estDist / 1000) / 40 * 3600; // 40 km/h avg
+      
+      // Calculate duration based on vehicle type and road classification
+      const vehicleType = Utils.getVehicle();
+      const roadClassification = document.getElementById(road-classification)?.value || 'auto';
+      const vehicleProfile = Utils.VEHICLE_PROFILES[vehicleType];
+      
+      let speed = 40; // Default speed
+      if (vehicleProfile) {
+        if (roadClassification !== 'auto') {
+          speed = vehicleProfile.speed[roadClassification] || vehicleProfile.speed.road || 40;
+        } else {
+          // Use average speed based on vehicle type
+          speed = (vehicleProfile.speed.highway + vehicleProfile.speed.road + vehicleProfile.speed.village + vehicleProfile.speed.dirt) / 4;
+        }
+      }
+      const estDuration = (estDist / 1000) / speed * 3600; // Convert to seconds
+      
       const result = {
         distance: estDist,
         duration: estDuration,
@@ -233,6 +249,10 @@ const Route = {
         isOpenPath: !!isOpenPath,
         fuel: Utils.calcFuel(estDist),
         estimated: true,
+        // Vehicle and road info
+        vehicleType: vehicleType,
+        roadClassification: roadClassification,
+        vehicleProfile: vehicleProfile,
       };
       this.currentResult = result;
       Utils.toast('⚠️ ใช้การประมาณ (OSRM ไม่ตอบสนอง)');
@@ -255,6 +275,14 @@ const Route = {
       routeTypeEl.textContent = result.isOpenPath
         ? '🔀 เปิด (มีจุดสิ้นสุด)'
         : '🔄 ไป-กลับ';
+    }
+    
+    // Show vehicle and road info
+    if (result.vehicleProfile) {
+      const vehicleInfo = document.getElementById('result-vehicle-info');
+      if (vehicleInfo) {
+        vehicleInfo.textContent = `${result.vehicleProfile.name} · ${result.roadClassification}`;
+      }
     }
     // Fuel display
     const fuelEl = document.getElementById('result-fuel');

@@ -72,8 +72,53 @@ const Utils = {
 
   // ===== Vehicle fuel profiles =====
   // kmPerLiter: fixed. fuelPrice: loaded from /fuel-prices.json (Bangchak API)
-  VEHICLE_PROFILES: {
-    pickup:     { name: '🛻 กระบะ',        kmPerLiter: 10, fuelPrice: 35.80 },
+    VEHICLE_PROFILES: {
+    pickup: {
+      name: "🛻 กระบะ",
+      kmPerLiter: 10,
+      fuelPrice: 35.80,
+      speed: {
+        highway: 70,
+        road: 45,
+        village: 30,
+        dirt: 20
+      }
+    },
+    car: {
+      name: "🚗 รถเก๋ง",
+      kmPerLiter: 12,
+      fuelPrice: 42.73,
+      speed: {
+        highway: 80,
+        road: 50,
+        village: 35,
+        dirt: 25
+      }
+    },
+    motorcycle: {
+      name: "🏍️ มอเตอร์ไซค์",
+      kmPerLiter: 35,
+      fuelPrice: 43.10,
+      speed: {
+        highway: 60,
+        road: 40,
+        village: 25,
+        dirt: 15
+      }
+    },
+    truck: {
+      name: "🚛 รถบรรทุก",
+      kmPerLiter: 6,
+      fuelPrice: 35.80,
+      speed: {
+        highway: 60,
+        road: 40,
+        village: 25,
+        dirt: 15
+      }
+    }
+  },
+
     car:        { name: '🚗 รถเก๋ง',       kmPerLiter: 12, fuelPrice: 42.73 },
     motorcycle: { name: '🏍️ มอเตอร์ไซค์', kmPerLiter: 35, fuelPrice: 43.10 },
   },
