@@ -282,6 +282,8 @@ body {
   transform: translateY(var(--sheet-peek-y));
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+  display: flex;
+  flex-direction: column;
   /* touch-action is on .sheet-handle only — let content scroll normally */
 }
 @media (orientation: landscape) and (max-height: 520px) {
@@ -304,10 +306,9 @@ body {
 .bottom-sheet.sheet-full { transform: translateY(0); }
 .bottom-sheet.sheet-collapsed { transform: translateY(var(--sheet-collapsed-y)); }
 
-/* Sheet handle — larger touch target */
+/* Sheet handle — larger touch target, stays fixed above scroll area */
 .sheet-handle {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 2;
   background: var(--surface);
   padding: 12px 0 8px;
@@ -332,11 +333,10 @@ body {
   background: #a0a5aa;
 }
 
-/* Sheet section tabs */
+/* Sheet section tabs — fixed above scroll area */
 .sheet-tabs {
+  flex-shrink: 0;
   display: flex;
-  position: sticky;
-  top: 28px;
   z-index: 2;
   background: var(--surface);
   padding: 0 12px;
@@ -365,8 +365,9 @@ body {
 
 /* Sheet content panes */
 .sheet-scroll {
+  flex: 1;
+  min-height: 0; /* allow flex child to shrink below content size */
   overflow-y: auto;
-  height: calc(100% - 28px); /* minus handle height */
   -webkit-overflow-scrolling: touch;
   padding: 0;
   padding-bottom: calc(env(safe-area-inset-bottom, 28px) + 60px); /* room for action buttons + safe area */

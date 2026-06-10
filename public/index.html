@@ -78,14 +78,15 @@
         <div class="sheet-handle-bar"></div>
       </div>
 
+      <!-- Sheet section tabs (fixed, don't scroll) -->
+      <div class="sheet-tabs">
+        <button class="sheet-tab active" data-sheet="route">🧭 เส้นทาง</button>
+        <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
+        <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
+        <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
+      </div>
+
       <div class="sheet-scroll">
-        <!-- Sheet section tabs -->
-        <div class="sheet-tabs">
-          <button class="sheet-tab active" data-sheet="route">🧭 เส้นทาง</button>
-          <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
-          <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
-          <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
-        </div>
 
         <!-- Route pane ("วันนี้" — shows queued customers) -->
         <div class="sheet-content active" id="sheet-route">
