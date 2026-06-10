@@ -111,7 +111,7 @@ export async function onRequestPost(context) {
     visits: mergedVisits,
     savedRoutes: mergedRoutes,
     counts: {
-      customers: mergedCustomers.length,
+      customers: mergedCustomers.filter(c => !c.deleted).length,
       visits: Object.keys(mergedVisits).length,
       savedRoutes: mergedRoutes.length,
     },
@@ -130,11 +130,20 @@ export async function onRequestGet(context) {
   const routesRaw = await env.BFR_KV.get('routes:all');
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
 
+  const customers = customersRaw ? JSON.parse(customersRaw) : [];
+  const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
+  const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
+
   return json({
     success: true,
     serverTime: lastWrite || new Date().toISOString(),
-    customers: customersRaw ? JSON.parse(customersRaw) : [],
-    visits: visitsRaw ? JSON.parse(visitsRaw) : {},
-    savedRoutes: routesRaw ? JSON.parse(routesRaw) : [],
+    customers,
+    visits,
+    savedRoutes,
+    counts: {
+      customers: customers.filter(c => !c.deleted).length,
+      visits: Object.keys(visits).length,
+      savedRoutes: savedRoutes.length,
+    },
   });
 }

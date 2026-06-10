@@ -23,35 +23,45 @@ const Storage = {
     localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));
   },
 
-  addCustomer(customer) {
+  // ===== Server-first architecture: save → push to KV → confirm =====
+  // Returns: { customer, synced: true/false, error?: string }
+  async addCustomer(customer) {
     const list = this.getCustomers();
     customer.id = customer.id || Utils.uuid();
     customer.createdAt = customer.createdAt || new Date().toISOString();
     customer.updatedAt = new Date().toISOString();
     customer.createdBy = Auth.getUser()?.name || 'unknown';
     // ===== Phase 1: Risk classification (BAAC debt follow-up) =====
-    // riskLevel: 'unclassified' | 'good' | 'warning' | 'bad'
-    //   - unclassified: ยังไม่จัดระดับ (default สำหรับลูกค้าเก่าที่ migrate)
-    //   - good: ดี ติดตามง่าย
-    //   - warning: เริ่มมีปัญหา ยังติดต่อได้
-    //   - bad: มีปัญหามาก ติดต่อยาก/ไม่ได้
     customer.riskLevel = customer.riskLevel || 'unclassified';
-    // debtType: 'current' (หนี้ถึงกำหนด ยังไม่เกินกำหนด) | 'overdue' (หนี้ค้าง เลยกำหนดแล้ว) | null
     customer.debtType = customer.debtType || null;
     list.push(customer);
-    this.saveCustomers(list);
-    this.push(); // auto-sync
-    return customer;
+    this.saveCustomers(list);  // Save locally FIRST (instant UI)
+    // Push to server and await result
+    const result = await this.push();
+    if (result && result.success) {
+      return { customer, synced: true };
+    } else {
+      console.warn('[Storage] addCustomer: server sync failed, saved locally only', result?.error || result);
+      return { customer, synced: false, error: result?.error || 'Sync failed' };
+    }
   },
 
-  updateCustomer(id, updates) {
+  // Returns: { synced: true/false, error?: string }
+  async updateCustomer(id, updates) {
     const list = this.getCustomers();
     const idx = list.findIndex(c => c.id === id);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
       this.saveCustomers(list);
-      this.push();
+      const result = await this.push();
+      if (result && result.success) {
+        return { synced: true };
+      } else {
+        console.warn('[Storage] updateCustomer: server sync failed, saved locally only', result?.error || result);
+        return { synced: false, error: result?.error || 'Sync failed' };
+      }
     }
+    return { synced: false, error: 'Customer not found' };
   },
 
   // ===== Phase 1 + Nickname/Photo: Migrate old customers to new schema =====
@@ -87,7 +97,7 @@ const Storage = {
     return list;
   },
 
-  deleteCustomer(id) {
+  async deleteCustomer(id) {
     // Soft delete: mark as deleted so mergeByUpdatedAt skips it on pull
     const list = this.getCustomers();
     const idx = list.findIndex(c => c.id === id);
@@ -95,8 +105,10 @@ const Storage = {
       list[idx].deleted = true;
       list[idx].updatedAt = new Date().toISOString();
       this.saveCustomers(list);
-      this.push();
+      const result = await this.push();
+      return { synced: !!(result && result.success), error: result?.error };
     }
+    return { synced: false, error: 'Not found' };
   },
 
   getRoute() {
@@ -126,7 +138,7 @@ const Storage = {
     catch { return {}; }
   },
 
-  saveVisit(customerId, visit) {
+  async saveVisit(customerId, visit) {
     const visits = this.getVisits();
     visits[customerId] = {
       ...visit,
@@ -134,7 +146,8 @@ const Storage = {
       by: Auth.getUser()?.name || 'unknown',
     };
     localStorage.setItem(this.KEY_VISITS, JSON.stringify(visits));
-    this.push();
+    const result = await this.push();
+    return { synced: !!(result && result.success), error: result?.error };
   },
 
   getSavedRoutes() {
@@ -243,8 +256,21 @@ const Storage = {
   // Full sync (push then pull)
   async sync() {
     if (!navigator.onLine) return { skipped: 'offline' };
-    await this.push();
-    return this.pull();
+    const pushResult = await this.push();
+    const pullResult = await this.pull();
+    // Return pull counts (from server) if available, fall back to push
+    if (pullResult && pullResult.success) {
+      return pullResult;
+    }
+    return pushResult;
+  },
+
+  // Manual retry — forces push of all local data then pull
+  async retrySync() {
+    this._pushInFlight = null;  // Clear any stuck in-flight flag
+    this._pullInFlight = null;
+    this._notifyListeners({ status: 'syncing', action: 'retry' });
+    return this.sync();
   },
 
   // Subscribe to sync status updates

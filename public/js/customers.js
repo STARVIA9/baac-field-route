@@ -175,11 +175,14 @@ const Customers = {
     if (!c) return;
     const confirmed = await App.confirmDelete(c);
     if (!confirmed) return;
-    Storage.deleteCustomer(id);
+    const delResult = await Storage.deleteCustomer(id);
     Storage.removeFromRoute(id);
     this.renderAll();
-    Utils.toast('🗑️ ลบ "' + (c.name || 'ลูกค้า') + '" แล้ว');
-    await Storage.sync();
+    if (delResult && delResult.synced) {
+      Utils.toast('🗑️ ลบ "' + (c.name || 'ลูกค้า') + '" แล้ว · sync สำเร็จ');
+    } else {
+      Utils.toast('⚠️ ลบแล้วแต่ sync ไม่สำเร็จ — กด 🔄 เพื่อลองใหม่', 'error');
+    }
   },
 
   // Render customer list (Customers tab)

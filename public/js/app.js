@@ -133,19 +133,24 @@ const App = {
     if (!badge) {
       badge = document.createElement('div');
       badge.id = 'sync-badge';
-      badge.style.cssText = 'position:fixed;bottom:8px;right:8px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999;background:#4caf50;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:opacity 0.3s;';
+      badge.style.cssText = 'position:fixed;bottom:8px;right:8px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999;background:#4caf50;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:opacity 0.3s;cursor:pointer;';
+      badge.title = 'กดเพื่อ retry sync';
+      badge.addEventListener('click', () => Storage.retrySync());
       document.body.appendChild(badge);
     }
     if (evt.status === 'syncing') {
-      badge.textContent = '🔄 Syncing...';
+      badge.textContent = evt.action === 'retry' ? '🔄 กำลัง sync ใหม่...' : '🔄 Syncing...';
       badge.style.background = '#ff9800';
-    } else if (evt.status === 'synced') {
-      const time = evt.serverTime ? new Date(evt.serverTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-      badge.textContent = `☁️ Synced ${time}`;
+      badge.style.cursor = 'wait';
+    } else if (evt.status === 'synced' && evt.counts) {
+      const c = evt.counts;
+      badge.textContent = `☁️ Sync: ${c.customers ?? 0} คน, ${c.visits ?? 0} visits`;
       badge.style.background = '#4caf50';
+      badge.style.cursor = 'pointer';
     } else if (evt.status === 'error') {
-      badge.textContent = '⚠️ Sync error';
+      badge.textContent = '⚠️ Sync ล้มเหลว — กดเพื่อลองใหม่';
       badge.style.background = '#f44336';
+      badge.style.cursor = 'pointer';
     }
   },
 
@@ -990,18 +995,28 @@ const App = {
     document.getElementById('add-customer-modal').classList.add('hidden');
   },
 
-  // Save customer (add or edit)
+  // Save customer (add or edit) — Server-first: await sync, show real result
   async saveCustomer(form) {
     const data = Object.fromEntries(new FormData(form));
     const editId = form.dataset.editId;
     let savedCustomer;
+    let syncResult;
     if (editId) {
-      Storage.updateCustomer(editId, data);
+      syncResult = await Storage.updateCustomer(editId, data);
       savedCustomer = Storage.getCustomers().find(c => c.id === editId);
-      Utils.toast('แก้ไขลูกค้าแล้ว');
+      if (syncResult.synced) {
+        Utils.toast('✅ แก้ไขลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
+      } else {
+        Utils.toast('⚠️ แก้ไขแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
+      }
     } else {
-      savedCustomer = Storage.addCustomer(data);
-      Utils.toast('เพิ่มลูกค้าแล้ว ✓');
+      syncResult = await Storage.addCustomer(data);
+      savedCustomer = syncResult.customer;
+      if (syncResult.synced) {
+        Utils.toast('✅ เพิ่มลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
+      } else {
+        Utils.toast('⚠️ เพิ่มแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
+      }
     }
     this.closeAddCustomerModal();
     // Re-render markers WITHOUT fitBounds — preserve whatever view the user
@@ -1018,7 +1033,6 @@ const App = {
         Customers.map.flyTo(newLatLng, Math.max(Customers.map.getZoom(), 15), { duration: 0.6 });
       }
     }
-    await Storage.sync();
   },
 
   // Use GPS
@@ -1634,17 +1648,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ===== Refresh button binding =====
+  // ===== Refresh button binding (sync retry + hard refresh) =====
   const btn = document.getElementById('refresh-btn');
   if (btn) {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       if (btn.classList.contains('has-update')) {
         App.applyUpdate();
       } else {
-        App.hardRefresh();
+        // Try sync first (fast) — if data is stuck locally, this pushes to server
+        btn.classList.add('spinning');
+        const result = await Storage.retrySync();
+        btn.classList.remove('spinning');
+        if (result && result.success) {
+          const c = result.counts || {};
+          if (typeof Utils !== 'undefined') {
+            Utils.toast(`🔄 Sync สำเร็จ — ${c.customers ?? '?'} ลูกค้า, ${c.visits ?? '?'} visits`);
+          }
+        } else if (result && result.error) {
+          if (typeof Utils !== 'undefined') {
+            Utils.toast(`⚠️ Sync ล้มเหลว: ${result.error} — ข้อมูลยังอยู่ในเครื่องนี้`, 'error');
+          }
+        } else {
+          if (typeof Utils !== 'undefined') {
+            Utils.toast('🔁 รีเฟรชข้อมูลจากเซิร์ฟเวอร์...');
+          }
+        }
+        Customers.renderAll();
+        if (typeof Visit !== 'undefined') Visit.render();
+        if (typeof App !== 'undefined') App.updateRouteUI();
       }
     });
+    // Long-press (or hold 1s) = full hard refresh
+    let longPressTimer;
+    btn.addEventListener('pointerdown', () => {
+      longPressTimer = setTimeout(() => {
+        App.hardRefresh();
+      }, 1200);
+    });
+    btn.addEventListener('pointerup', () => clearTimeout(longPressTimer));
+    btn.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
   }
   // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
   document.addEventListener('keydown', (e) => {

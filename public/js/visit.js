@@ -144,7 +144,7 @@ const Visit = {
     document.getElementById('visit-log-modal').classList.add('hidden');
   },
 
-  submit(form) {
+  async submit(form) {
     if (!this.currentCustomerId) return;
     const data = {
       status: form.elements.status.value,
@@ -159,11 +159,15 @@ const Visit = {
       data.lng = parseFloat(lng);
       if (accuracy) data.accuracy = parseFloat(accuracy);
     }
-    Storage.saveVisit(this.currentCustomerId, data);
+    const result = await Storage.saveVisit(this.currentCustomerId, data);
     this.closeLog();
     this.render();
     Customers.renderMarkers(); // update marker colors
-    Utils.toast('💾 บันทึกการเข้าพบแล้ว');
+    if (result && result.synced) {
+      Utils.toast('💾 บันทึกการเข้าพบแล้ว · sync สำเร็จ');
+    } else {
+      Utils.toast('⚠️ บันทึกแล้วแต่ sync ไม่สำเร็จ — กด 🔄 เพื่อลองใหม่', 'error');
+    }
   },
 
   timeAgo(iso) {
