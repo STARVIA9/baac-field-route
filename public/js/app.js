@@ -349,10 +349,9 @@ const App = {
       }
     });
 
-    // Drag interaction (touch + mouse) — enhanced: works on handle AND content at scrollTop===0
-    let startY = 0, startTranslate = 0, isDragging = false, dragOrigin = null;
+    // Drag interaction — handle ONLY. Content always scrolls freely.
+    let startY = 0, startTranslate = 0, isDragging = false;
     const handle = document.getElementById('sheet-handle');
-    const scrollEl = sheet.querySelector('.sheet-scroll');
 
     const _readTransform = (el) => {
       const m = window.getComputedStyle(el).transform;
@@ -365,40 +364,25 @@ const App = {
     };
 
     const onStart = (e) => {
-      const target = e.target;
-      // Only start drag on handle, or on scroll-content when at scrollTop===0
-      const isHandle = target.closest('#sheet-handle');
-      if (!isHandle) {
-        if (!scrollEl || scrollEl.scrollTop > 0) return;
-      }
+      // Only handle can start drag — content never drags the sheet
+      if (!e.target.closest('#sheet-handle')) return;
       isDragging = true;
-      dragOrigin = isHandle ? 'handle' : 'content';
       startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-      // 1. READ current transform BEFORE any class changes
       startTranslate = _readTransform(sheet);
-      // 2. Disable transition
       sheet.style.transition = 'none';
-      // 3. Pin current position as inline style (prevents jump)
       sheet.style.transform = `translateY(${startTranslate}px)`;
-      // 4. Now remove state classes
       ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
     };
+
     const onMove = (e) => {
       if (!isDragging) return;
+      e.preventDefault();
       const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
       const dy = y - startY;
-      // Content-at-top drag: only capture downward pulls (collapse sheet).
-      // Upward swipes from content should scroll the content normally.
-      if (dragOrigin === 'content' && dy <= 3) {
-        isDragging = false;
-        sheet.style.transition = '';
-        sheet.style.transform = '';
-        return;
-      }
-      e.preventDefault();
       const newT = Math.max(0, startTranslate + dy);
       sheet.style.transform = `translateY(${newT}px)`;
     };
+
     const onEnd = () => {
       if (!isDragging) return;
       isDragging = false;
@@ -411,7 +395,6 @@ const App = {
       else if (pct < 0.55) this.setSheetState('half');
       else if (pct < 0.85) this.setSheetState('peek');
       else this.setSheetState('collapsed');
-      dragOrigin = null;
     };
 
     handle.addEventListener('touchstart', onStart, {passive: true});
@@ -420,13 +403,6 @@ const App = {
     handle.addEventListener('mousedown', onStart);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
-
-    // Also allow drag-down from scroll-content when at top
-    if (scrollEl) {
-      scrollEl.addEventListener('touchstart', onStart, {passive: true});
-      scrollEl.addEventListener('touchmove', onMove, {passive: false});
-      scrollEl.addEventListener('touchend', onEnd);
-    }
   },
 
   // Set bottom sheet state
