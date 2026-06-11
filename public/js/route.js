@@ -293,13 +293,23 @@ const Route = {
     const fuelEl = document.getElementById('result-fuel');
     if (fuelEl && result.fuel) {
       const v = result.fuel.vehicle;
+      const fuelName = v.fuelName || '';
+      const fuelPrice = v.fuelPrice || '?';
+      const fuelDiff = v.fuelDiff != null ? v.fuelDiff : 0;
+      const fuelUpdated = Utils.getFuelUpdated();
+      const diffBadge = fuelDiff > 0
+        ? `<span class="fuel-diff up">▲ ${fuelDiff.toFixed(2)}</span>`
+        : fuelDiff < 0
+          ? `<span class="fuel-diff down">▼ ${Math.abs(fuelDiff).toFixed(2)}</span>`
+          : '';
       fuelEl.innerHTML = `
         <div class="fuel-card">
           <div class="fuel-icon">⛽</div>
           <div class="fuel-info">
             <div class="fuel-amount">~${result.fuel.liters.toFixed(2)} ลิตร</div>
             <div class="fuel-cost">~${Utils.formatBaht(result.fuel.baht)} บาท</div>
-            <div class="fuel-meta">${v.name} · ${v.kmPerLiter} กม./ลิตร</div>
+            <div class="fuel-meta">${v.name} · ${v.kmPerLiter} กม./ลิตร · ${fuelName} ${fuelPrice} บาท/ล ${diffBadge}</div>
+            ${fuelUpdated ? `<div class="fuel-date">📅 อัปเดตราคา ${fuelUpdated}</div>` : ''}
           </div>
         </div>
       `;

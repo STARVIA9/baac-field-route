@@ -1709,6 +1709,21 @@ body:has(#map.map-fs-fake) .map-fab {
   color: #6d4c00;
   margin-top: 2px;
 }
+.fuel-card .fuel-diff {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 2px;
+}
+.fuel-card .fuel-diff.up   { color: #c62828; background: rgba(198,40,40,0.1); }
+.fuel-card .fuel-diff.down { color: #2e7d32; background: rgba(46,125,50,0.1); }
+.fuel-card .fuel-date {
+  font-size: 11px;
+  color: #8d6e00;
+  margin-top: 3px;
+  opacity: 0.85;
+}
 
 /* ===== Quick fuel display ===== */
 .route-fuel {

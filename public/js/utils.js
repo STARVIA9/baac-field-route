@@ -108,6 +108,8 @@ const Utils = {
     },
   },
   _fuelPricesLoaded: false,
+  _fuelUpdated: null,
+  _fuelData: null,
   // Fetch live prices from static JSON (updated by cron)
   async loadFuelPrices() {
     try {
@@ -115,9 +117,14 @@ const Utils = {
       if (!resp.ok) return;
       const data = await resp.json();
       if (!data.fuels) return;
+      this._fuelData = data;
+      this._fuelUpdated = data.updated || null;
       for (const [key, info] of Object.entries(data.fuels)) {
         if (this.VEHICLE_PROFILES[key]) {
           this.VEHICLE_PROFILES[key].fuelPrice = info.price;
+          this.VEHICLE_PROFILES[key].fuelName = info.name;
+          this.VEHICLE_PROFILES[key].fuelDiff = info.diff;
+          this.VEHICLE_PROFILES[key].fuelPriceTomorrow = info.price_tomorrow;
         }
       }
       this._fuelPricesLoaded = true;
@@ -125,6 +132,13 @@ const Utils = {
     } catch (e) {
       console.warn('[Fuel] Cannot load live prices, using defaults:', e.message);
     }
+  },
+  // Get fuel update date (e.g. "10/06/2569")
+  getFuelUpdated() { return this._fuelUpdated; },
+  // Get current fuel price for a vehicle type
+  getFuelPrice(vehicleType) {
+    const v = this.VEHICLE_PROFILES[vehicleType || this.getVehicle()];
+    return v ? v.fuelPrice : null;
   },
   // Default vehicle: pickup (กระบะ)
   getVehicle() {
