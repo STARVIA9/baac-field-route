@@ -1,22 +1,22 @@
 {
-  "updated": "10/06/2569",
+  "updated": "13/06/2569",
   "fuels": {
     "pickup": {
       "name": "ดีเซล B20",
-      "price": 35.8,
-      "price_tomorrow": 35.8,
+      "price": 34.8,
+      "price_tomorrow": 34.8,
       "diff": 0.0
     },
     "car": {
       "name": "แก๊สโซฮอล์ 91 S EVO",
-      "price": 42.73,
-      "price_tomorrow": 42.73,
+      "price": 41.93,
+      "price_tomorrow": 41.93,
       "diff": 0.0
     },
     "motorcycle": {
       "name": "แก๊สโซฮอล์ 95 S EVO",
-      "price": 43.1,
-      "price_tomorrow": 43.1,
+      "price": 42.3,
+      "price_tomorrow": 42.3,
       "diff": 0.0
     }
   }
