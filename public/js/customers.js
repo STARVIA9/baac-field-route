@@ -278,12 +278,17 @@ const Customers = {
         div.innerHTML = `
           <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
           <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+          <button class="layer-btn" data-layer="village" title="แสดงชื่อหมู่บ้าน">🏘️</button>
         `;
         L.DomEvent.disableClickPropagation(div);
         div.querySelectorAll('.layer-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             L.DomEvent.stop(e);
-            Customers.switchBaseLayer(btn.dataset.layer);
+            if (btn.dataset.layer === 'village') {
+              Customers.toggleVillageLayer();
+            } else {
+              Customers.switchBaseLayer(btn.dataset.layer);
+            }
           });
         });
         return div;
@@ -390,6 +395,79 @@ const Customers = {
     buttons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.layer === layerName);
     });
+  },
+
+  // ===== Village layer toggle =====
+  _villageLayer: null,
+  _villageVisible: false,
+
+  async toggleVillageLayer() {
+    if (this._villageVisible) {
+      // Hide village layer
+      if (this._villageLayer) {
+        this.map.removeLayer(this._villageLayer);
+        this._villageLayer = null;
+      }
+      this._villageVisible = false;
+      this._updateVillageButton(false);
+      return;
+    }
+
+    // Load village data if not loaded
+    if (!this._villageData) {
+      try {
+        const res = await fetch('/villages.json');
+        if (!res.ok) throw new Error('Failed to load villages');
+        this._villageData = await res.json();
+      } catch (err) {
+        console.warn('[Village] Load failed:', err.message);
+        Utils.toast('ไม่สามารถโหลดข้อมูลหมู่บ้านได้', 'error');
+        return;
+      }
+    }
+
+    // Create village markers
+    this._villageLayer = L.layerGroup();
+    const icons = {
+      'วังท่าช้าง': '#0a8f3c',
+      'เขาไม้แก้ว': '#2563eb',
+      'วังตะเคียน': '#d97706'
+    };
+
+    for (const v of this._villageData) {
+      const color = icons[v.tambon] || '#666';
+      const icon = L.divIcon({
+        className: 'village-marker',
+        html: `<div style="
+          background: ${color};
+          color: white;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          white-space: nowrap;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+          border: 1.5px solid white;
+          text-align: center;
+          line-height: 1.3;
+        ">${v.name}</div>`,
+        iconSize: null,
+        iconAnchor: [40, 10]
+      });
+
+      const marker = L.marker([v.lat, v.lng], { icon })
+        .bindPopup(`<b>${v.name}</b><br>${v.tambon}`);
+      this._villageLayer.addLayer(marker);
+    }
+
+    this._villageLayer.addTo(this.map);
+    this._villageVisible = true;
+    this._updateVillageButton(true);
+  },
+
+  _updateVillageButton(active) {
+    const btn = document.querySelector('.layer-btn[data-layer="village"]');
+    if (btn) btn.classList.toggle('active', active);
   },
 
   // Render everything
