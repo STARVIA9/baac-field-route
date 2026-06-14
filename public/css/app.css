@@ -382,10 +382,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
   position: sticky;
   top: 0;
   z-index: 100;
+  min-height: 48px;
 }
 
 .app-header.app-header-overlay {
@@ -394,18 +395,18 @@ body {
   left: 0;
   right: 0;
   z-index: 50;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.2) 60%, transparent 100%);
-  padding: env(safe-area-inset-top, 12px) var(--sp-4) var(--sp-4);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.25) 60%, transparent 100%);
+  padding: env(safe-area-inset-top, 8px) var(--sp-3) var(--sp-3);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
 .app-header-center {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   flex: 1;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
   font-weight: 500;
 }
@@ -413,42 +414,55 @@ body {
 .app-logo {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
+  flex-shrink: 0;
 }
 
 .logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .logo-text {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   color: white;
   letter-spacing: -0.2px;
+  white-space: nowrap;
 }
 
 .app-user {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  font-size: 13px;
+  gap: var(--sp-1);
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+#user-name {
+  display: none;
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-icon {
   background: rgba(255, 255, 255, 0.12);
   border: none;
   color: white;
-  font-size: 18px;
-  width: 36px;
-  height: 36px;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
@@ -457,6 +471,7 @@ body {
   transition: all 0.15s ease;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  flex-shrink: 0;
 }
 
 .btn-icon:hover {
@@ -2040,6 +2055,35 @@ body {
     border-radius: var(--radius-xl);
     max-height: 70dvh;
     --sheet-h: 70dvh;
+  }
+
+  .app-header {
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .app-header-center {
+    display: flex;
+  }
+
+  #user-name {
+    display: inline;
+  }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 18px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: 15px;
   }
 }
 
