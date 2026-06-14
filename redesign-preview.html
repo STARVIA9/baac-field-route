@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BAAC Field Route — Redesign Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --baac-green: #0a8f3c;
+      --baac-green-dark: #067029;
+      --baac-green-deeper: #044d1c;
+      --baac-gold: #c9a227;
+      --baac-gold-muted: #fdf8e8;
+      --surface: #ffffff;
+      --bg: #f5f7f5;
+      --text: #111811;
+      --text-muted: #6b776b;
+      --border: #dde3dd;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans Thai', system-ui, sans-serif;
+      background: #0a0f0a;
+      color: white;
+      min-height: 100dvh;
+    }
+
+    .header {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .dials {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      padding: 16px;
+      margin: 0 auto 24px;
+      max-width: 500px;
+    }
+    .dial {
+      text-align: center;
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .dial-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--baac-gold);
+    }
+    .dial-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .comparison {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin: 32px 0 16px;
+      padding-left: 4px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .card-label {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .card-label.before { color: #ef4444; }
+    .card-label.after { color: #22c55e; }
+
+    .card-body {
+      padding: 0;
+    }
+
+    /* Login Preview - Before */
+    .login-before {
+      background: linear-gradient(135deg, #076b2d 0%, #0a8f3c 100%);
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .login-before .card-inner {
+      background: white;
+      border-radius: 24px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+    }
+    .login-before .logo { font-size: 48px; margin-bottom: 12px; }
+    .login-before h2 { font-size: 18px; color: #076b2d; margin-bottom: 4px; }
+    .login-before .sub { font-size: 12px; color: #5a655a; margin-bottom: 20px; }
+    .login-before input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e6e0;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      background: #fffaf0;
+    }
+    .login-before .btn {
+      width: 100%;
+      padding: 10px;
+      background: #0a8f3c;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Login Preview - After */
+    .login-after {
+      background: #044d1c;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(42, 179, 87, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(201, 162, 39, 0.08) 0%, transparent 40%);
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .login-after .card-inner {
+      background: white;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .login-after .logo-box {
+      width: 56px;
+      height: 56px;
+      background: #e8f5ec;
+      border-radius: 14px;
+      margin: 0 auto 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .login-after h2 { font-size: 18px; color: #111811; margin-bottom: 2px; letter-spacing: -0.3px; }
+    .login-after .sub { font-size: 12px; color: #6b776b; margin-bottom: 24px; }
+    .login-after .field { text-align: left; margin-bottom: 10px; }
+    .login-after .field label { font-size: 12px; font-weight: 600; color: #4a554a; display: block; margin-bottom: 3px; }
+    .login-after input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #dde3dd;
+      border-radius: 10px;
+      font-size: 13px;
+      background: #f5f7f5;
+    }
+    .login-after .btn {
+      width: 100%;
+      padding: 11px;
+      background: #0a8f3c;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    /* Bottom Sheet Preview */
+    .sheet-preview {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .sheet-handle {
+      display: flex;
+      justify-content: center;
+      padding: 10px 0 6px;
+    }
+    .sheet-handle-bar {
+      width: 32px;
+      height: 4px;
+      background: #dde3dd;
+      border-radius: 99px;
+    }
+    .sheet-tabs {
+      display: flex;
+      border-bottom: 1px solid #e8ece8;
+      padding: 0 8px;
+    }
+    .sheet-tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b776b;
+      border-bottom: 2px solid transparent;
+    }
+    .sheet-tab.active {
+      color: #0a8f3c;
+      border-bottom-color: #0a8f3c;
+      font-weight: 600;
+    }
+    .sheet-content {
+      padding: 16px;
+    }
+
+    /* Customer Card Preview */
+    .customer-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f5f7f5;
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .customer-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #fdf8e8;
+      color: #c9a227;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .customer-info { flex: 1; }
+    .customer-name { font-size: 13px; font-weight: 600; color: #111811; }
+    .customer-sub { font-size: 11px; color: #6b776b; }
+
+    /* Visit Stats */
+    .visit-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .visit-stat {
+      text-align: center;
+      padding: 10px 8px;
+      background: #f5f7f5;
+      border-radius: 10px;
+      border: 1px solid #e8ece8;
+    }
+    .visit-stat .num { font-size: 20px; font-weight: 700; }
+    .visit-stat .label { font-size: 10px; color: #6b776b; margin-top: 2px; }
+    .stat-pending .num { color: #d97706; }
+    .stat-visited .num { color: #16a34a; }
+    .stat-skipped .num { color: #6b7280; }
+
+    /* Route Result */
+    .result-card {
+      background: #044d1c;
+      color: white;
+      padding: 16px;
+      border-radius: 14px;
+      margin-top: 12px;
+    }
+    .result-card h4 { font-size: 12px; opacity: 0.8; margin-bottom: 10px; }
+    .result-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .result-stat { text-align: center; }
+    .result-stat .val { font-size: 22px; font-weight: 700; }
+    .result-stat .lbl { font-size: 10px; opacity: 0.7; }
+
+    /* Markers */
+    .markers-preview {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 20px;
+      flex-wrap: wrap;
+    }
+    .marker {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2.5px solid white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .marker.gold { background: #c9a227; color: #044d1c; }
+    .marker.green { background: #16a34a; color: white; }
+    .marker.yellow { background: #d97706; color: white; }
+    .marker.red { background: #dc2626; color: white; }
+    .marker.gray { background: white; color: #6b776b; border: 2px dashed #dde3dd; }
+
+    .footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: #475569;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BAAC Field Route — Redesign</h1>
+    <p>Claude Design + Anti-Slop Frontend Principles</p>
+  </div>
+
+  <div class="dials">
+    <div class="dial">
+      <div class="dial-value">3</div>
+      <div class="dial-label">Variance</div>
+    </div>
+    <div class="dial">
+      <div class="dial-value">2</div>
+      <div class="dial-label">Motion</div>
+    </div>
+    <div class="dial">
+      <div class="dial-value">4</div>
+      <div class="dial-label">Density</div>
+    </div>
+  </div>
+
+  <div class="comparison">
+    <!-- Login Screen -->
+    <div class="section-title">Login Screen</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label before">Before</div>
+        <div class="card-body">
+          <div class="login-before">
+            <div class="card-inner">
+              <div class="logo">🗺️</div>
+              <h2>BAAC Field Route</h2>
+              <p class="sub">วางแผนเส้นทางอัจฉริยะ</p>
+              <input type="text" placeholder="username">
+              <input type="password" placeholder="รหัสผ่าน">
+              <button class="btn">เข้าสู่ระบบ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label after">After</div>
+        <div class="card-body">
+          <div class="login-after">
+            <div class="card-inner">
+              <div class="logo-box">🗺️</div>
+              <h2>BAAC Field Route</h2>
+              <p class="sub">วางแผนเส้นทางอัจฉริยะสำหรับพนักงานสินเชื่อ</p>
+              <div class="field">
+                <label>ชื่อผู้ใช้</label>
+                <input type="text" placeholder="username">
+              </div>
+              <div class="field">
+                <label>รหัสผ่าน</label>
+                <input type="password" placeholder="รหัสผ่าน">
+              </div>
+              <button class="btn">เข้าสู่ระบบ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Sheet -->
+    <div class="section-title">Bottom Sheet + Tabs</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label before">Before</div>
+        <div class="card-body">
+          <div class="sheet-preview">
+            <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+            <div class="sheet-tabs">
+              <div class="sheet-tab active">🧭 เส้นทาง</div>
+              <div class="sheet-tab">👥 ลูกค้า</div>
+              <div class="sheet-tab">🗺️ วางแผน</div>
+              <div class="sheet-tab">📋 เข้าพบ</div>
+            </div>
+            <div class="sheet-content">
+              <p style="color: #6b776b; font-size: 13px; text-align: center; padding: 20px;">ไม่มีเส้นทางวันนี้</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label after">After</div>
+        <div class="card-body">
+          <div class="sheet-preview">
+            <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+            <div class="sheet-tabs">
+              <div class="sheet-tab active">🧭 เส้นทาง</div>
+              <div class="sheet-tab">👥 ลูกค้า</div>
+              <div class="sheet-tab">🗺️ วางแผน</div>
+              <div class="sheet-tab">📋 เข้าพบ</div>
+            </div>
+            <div class="sheet-content">
+              <div class="visit-stats">
+                <div class="visit-stat stat-pending">
+                  <div class="num">3</div>
+                  <div class="label">รอเยี่ยม</div>
+                </div>
+                <div class="visit-stat stat-visited">
+                  <div class="num">5</div>
+                  <div class="label">เยี่ยมแล้ว</div>
+                </div>
+                <div class="visit-stat stat-skipped">
+                  <div class="num">1</div>
+                  <div class="label">ข้าม</div>
+                </div>
+              </div>
+              <div class="customer-card">
+                <div class="customer-avatar">สม</div>
+                <div class="customer-info">
+                  <div class="customer-name">นายสมชาย ใจดี</div>
+                  <div class="customer-sub">CIF: 1234567890</div>
+                </div>
+              </div>
+              <div class="customer-card">
+                <div class="customer-avatar">สม</div>
+                <div class="customer-info">
+                  <div class="customer-name">นางสมศรี มีสุข</div>
+                  <div class="customer-sub">CIF: 9876543210</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Route Result -->
+    <div class="section-title">Route Result Card</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label before">Before</div>
+        <div class="card-body" style="padding: 16px;">
+          <div style="background: linear-gradient(135deg, #076b2d, #0a8f3c); color: white; padding: 14px; border-radius: 14px;">
+            <h4 style="font-size: 12px; margin-bottom: 10px; opacity: 0.9;">📊 สรุปเส้นทาง</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <div style="text-align: center;"><div style="font-size: 20px; font-weight: 700;">45.2</div><div style="font-size: 10px; opacity: 0.7;">กิโลเมตร</div></div>
+              <div style="text-align: center;"><div style="font-size: 20px; font-weight: 700;">128</div><div style="font-size: 10px; opacity: 0.7;">นาที</div></div>
+              <div style="text-align: center;"><div style="font-size: 20px; font-weight: 700;">5</div><div style="font-size: 10px; opacity: 0.7;">จุดแวะ</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label after">After</div>
+        <div class="card-body" style="padding: 16px;">
+          <div class="result-card">
+            <h4>สรุปเส้นทาง</h4>
+            <div class="result-stats">
+              <div class="result-stat"><div class="val">45.2</div><div class="lbl">กิโลเมตร</div></div>
+              <div class="result-stat"><div class="val">128</div><div class="lbl">นาที</div></div>
+              <div class="result-stat"><div class="val">5</div><div class="lbl">จุดแวะ</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map Markers -->
+    <div class="section-title">Map Markers (Risk Colors)</div>
+    <div class="card" style="max-width: 100%;">
+      <div class="card-label after">Redesigned Markers</div>
+      <div class="card-body">
+        <div class="markers-preview">
+          <div style="text-align: center;">
+            <div class="marker gold">1</div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">Current</div>
+          </div>
+          <div style="text-align: center;">
+            <div class="marker green">2</div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">Good</div>
+          </div>
+          <div style="text-align: center;">
+            <div class="marker yellow">3</div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">Warning</div>
+          </div>
+          <div style="text-align: center;">
+            <div class="marker red">4</div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">Bad</div>
+          </div>
+          <div style="text-align: center;">
+            <div class="marker gray">5</div>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 6px;">Unknown</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design Changes Summary -->
+    <div class="section-title">Key Changes</div>
+    <div class="card" style="max-width: 100%;">
+      <div class="card-body" style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px;">
+          <div>
+            <h4 style="color: #ef4444; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Removed</h4>
+            <ul style="list-style: none; color: #94a3b8; line-height: 1.8;">
+              <li>- Aggressive gradient backgrounds</li>
+              <li>- Emoji-heavy icons</li>
+              <li>- Inconsistent border-radius</li>
+              <li>- Hard-coded shadows</li>
+              <li>- Mixed font sizes</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="color: #22c55e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Added</h4>
+            <ul style="list-style: none; color: #94a3b8; line-height: 1.8;">
+              <li>+ 8px spacing grid system</li>
+              <li>+ Consistent 12px border-radius</li>
+              <li>+ Subtle elevation shadows</li>
+              <li>+ Noto Sans Thai typography</li>
+              <li>+ WCAG AA contrast ratios</li>
+              <li>+ prefers-reduced-motion</li>
+              <li>+ 44px minimum touch targets</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>BAAC Field Route Redesign — Claude Design + Anti-Slop Frontend</p>
+    <p style="margin-top: 4px;">Variance: 3 | Motion: 2 | Density: 4</p>
+  </div>
+</body>
+</html>
