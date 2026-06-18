@@ -727,11 +727,16 @@ const App = {
     // CLOSE search results FIRST — before any form changes, so even if
     // something below throws, the dropdown is already gone.
     const results = document.getElementById('db-search-results');
-    if (results) results.classList.remove('active');
+    if (results) {
+      results.classList.remove('active');
+      results.innerHTML = '';          // clear DOM for safety
+    }
 
-    // Clear search input value so it can't re-trigger a search
+    // Set search input to show selected customer name
     const searchInput = document.getElementById('db-search-input');
-    if (searchInput) searchInput.value = '';
+    if (searchInput) {
+      searchInput.value = `${rec.name} (CIF: ${rec.cif})`;
+    }
 
     const form = document.getElementById('add-customer-form');
     if (!form) return;

@@ -1573,12 +1573,20 @@ body {
 
 .db-search-results {
   margin-top: var(--sp-2);
+  display: none;
+}
+.db-search-results.active {
+  display: block;
 }
 
 .db-filled-info {
   margin-top: var(--sp-2);
   font-size: 12px;
   color: var(--baac-green-dark);
+  display: none;
+}
+.db-filled-info.active {
+  display: block;
 }
 
 /* Mini Map */
