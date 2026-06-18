@@ -86,7 +86,7 @@ const Customers = {
       marker.bindPopup(this.popupHTML(c));
       // Collapse bottom sheet when tapping a marker so the map + popup are visible
       marker.on('click', () => {
-        if (typeof App !== 'undefined' \&\& App.setSheetState) App.setSheetState('peek');
+        if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
       });
       this.markers[c.id] = marker;
     });
