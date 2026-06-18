@@ -724,28 +724,37 @@ const App = {
   },
 
   _fillFromDB(rec) {
+    // CLOSE search results FIRST — before any form changes, so even if
+    // something below throws, the dropdown is already gone.
+    const results = document.getElementById('db-search-results');
+    if (results) results.classList.remove('active');
+
+    // Clear search input value so it can't re-trigger a search
+    const searchInput = document.getElementById('db-search-input');
+    if (searchInput) searchInput.value = '';
+
     const form = document.getElementById('add-customer-form');
     if (!form) return;
 
-    // Auto-fill form fields
-    if (rec.cif) form.elements.cif.value = rec.cif;
-    if (rec.name) form.elements.name.value = rec.name;
-    if (rec.phone) form.elements.phone.value = rec.phone.replace(/\s/g, '');
-    // Build full address
-    const addr = CustomerDB.fullAddress(rec);
-    if (addr) form.elements.address.value = addr;
+    try {
+      // Auto-fill form fields
+      if (rec.cif) form.elements.cif.value = rec.cif;
+      if (rec.name) form.elements.name.value = rec.name;
+      if (rec.phone) form.elements.phone.value = rec.phone.replace(/\s/g, '');
+      // Build full address
+      const addr = CustomerDB.fullAddress(rec);
+      if (addr) form.elements.address.value = addr;
 
-    // Auto-fill coordinates from DB (Nominatim geocoded)
-    if (rec.lat && rec.lng) {
-      document.getElementById('new-lat').value = rec.lat;
-      document.getElementById('new-lng').value = rec.lng;
-      // Update mini-map with the location
-      setTimeout(() => this.initMiniMap(rec.lat, rec.lng), 150);
+      // Auto-fill coordinates from DB (Nominatim geocoded)
+      if (rec.lat && rec.lng) {
+        document.getElementById('new-lat').value = rec.lat;
+        document.getElementById('new-lng').value = rec.lng;
+        // Update mini-map with the location
+        setTimeout(() => this.initMiniMap(rec.lat, rec.lng), 150);
+      }
+    } catch (e) {
+      console.warn('[App] _fillFromDB field-fill error:', e);
     }
-
-    // Close search results
-    const results = document.getElementById('db-search-results');
-    if (results) results.classList.remove('active');
 
     // Show filled info
     const info = document.getElementById('db-filled-info');
@@ -759,10 +768,6 @@ const App = {
       info.innerHTML = `✅ <strong>${this._esc(rec.name)}</strong> · CIF ${rec.cif}${badges.length ? ' · ' + badges.join(' · ') : ''}`;
       info.classList.add('active');
     }
-
-    // Update search input
-    const input = document.getElementById('db-search-input');
-    if (input) input.value = `${rec.name} (CIF: ${rec.cif})`;
 
     Utils.toast('📋 กรอกข้อมูลอัตโนมัติจากฐานข้อมูลแล้ว' + (rec.lat ? ' (มีพิกัด 📍)' : ''));
   },
