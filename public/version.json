@@ -1,1 +1,5 @@
-{"version":"20260610.214826","deployed":"2026-06-10T21:48:26+07:00","changelog":"fix: utils.js VEHICLE_PROFILES syntax error + round trip + remove truck"}
+{
+  "version": "20260625.000026",
+  "lastUpdate": "2026-06-25",
+  "changelog": "Redesign: 13 JS→6, 4 tabs→3, remove visit modal + report modal, lazy DB load, sync 10s"
+}
