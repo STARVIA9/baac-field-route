@@ -154,6 +154,61 @@ body {
   margin-top: var(--sp-1);
 }
 
+/* Features Section */
+.features-section {
+  padding: 24px 20px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.features-section h2 {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.feature-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.feature-card h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.feature-card p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.features-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 20px;
+}
+
 /* Login Form */
 #login-form {
   display: flex;
