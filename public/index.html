@@ -13,73 +13,108 @@
 </head>
 <body>
   <!-- Login Screen -->
-  <div id="login-screen" class="login-screen">
-    <div class="login-card">
-      <div class="login-logo">🗺️</div>
-      <h1>BAAC Field Route</h1>
-      <p class="login-sub">วางแผนเส้นทางอัจฉริยะสำหรับพนักงานสินเชื่อ</p>
+  <div id="login-screen" class="landing-page">
 
-      <!-- Username/Password form (primary) -->
-      <form id="login-form" autocomplete="off">
-        <label for="login-username">ชื่อผู้ใช้</label>
-        <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
-        <label for="login-password">รหัสผ่าน</label>
-        <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
-        <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
-        <p class="login-error" id="login-error"></p>
-      </form>
+    <!-- Hero -->
+    <section class="lp-hero">
+      <div class="lp-hero-inner">
+        <div class="lp-badge">ธ.ก.ส. สาขาวังท่าช้าง</div>
+        <h1 class="lp-title fade-up">BAAC<br>Field Route</h1>
+        <p class="lp-subtitle fade-up">วางแผนเส้นทางอัจฉริยะ<br>สำหรับพนักงานสินเชื่อ</p>
+        <button class="lp-cta fade-up" onclick="document.getElementById('login-screen').classList.add('login-mode')">เข้าสู่ระบบ</button>
+      </div>
+      <div class="lp-hero-scroll">
+        <span class="lp-scroll-hint fade-up">เลื่อนลงเพื่อดูฟีเจอร์</span>
+        <div class="lp-scroll-arrow">↓</div>
+      </div>
+    </section>
 
-      <!-- PIN fallback toggle -->
-      <div class="login-divider"><span>หรือ</span></div>
-      <button class="btn-link" id="toggle-pin-login">เข้าสู่ระบบด้วย PIN</button>
-      <form id="pin-form" class="hidden" autocomplete="off">
-        <label for="pin-input">กรอก PIN 4 หลัก</label>
-        <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
-        <button type="submit" class="btn-primary" id="pin-btn">เข้าสู่ระบบ (PIN)</button>
-        <p class="login-error" id="pin-error"></p>
-      </form>
-    </div>
+    <!-- Features -->
+    <section class="lp-features">
+      <div class="lp-features-inner">
+        <h2 class="lp-section-title fade-up">ทำอะไรได้บ้าง</h2>
+        <div class="lp-feature-grid">
 
-    <!-- Features Section -->
-    <div class="features-section">
-      <h2>ทำไมต้อง BAAC Field Route?</h2>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">🗺️</div>
-          <h3>แผนที่อัจฉริยะ</h3>
-          <p>ดูตำแหน่งลูกค้าทั้งหมดบนแผนที่ เลือกลูกค้าที่ต้องการเยี่ยมวันนี้</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🛣️</div>
-          <h3>คำนวณเส้นทางอัตโนมัติ</h3>
-          <p>ใช้ OSRM จัดลำดับและคำนวณเส้นทางที่สั้นที่สุด ประหยัดเวลาและน้ำมัน</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">📍</div>
-          <h3>ค้นหาลูกค้าจาก GPS</h3>
-          <p>นำเข้าข้อมูลพิกัดจาก Excel ค้นหาลูกค้าด้วย CIF ชื่อ เบอร์โทร หรือที่อยู่</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <h3>สรุปรายงาน</h3>
-          <p>สรุปจำนวนลูกค้า เส้นทาง ระยะทาง และเวลาที่ใช้ในแต่ละวัน</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🚗</div>
-          <h3>คำนวณน้ำมัน</h3>
-          <p>เลือกประเภทรถ ระบบคำนวณปริมาณน้ำมันที่ใช้โดยอัตโนมัติ</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔄</div>
-          <h3>ซิงค์ข้อมูลอัตโนมัติ</h3>
-          <p>ข้อมูลถูกบันทึกและซิงค์ระหว่างอุปกรณ์แบบ real-time</p>
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🗺️</div>
+            <h3>แผนที่อัจฉริยะ</h3>
+            <p>ดูตำแหน่งลูกค้าทั้งหมดบนแผนที่แบบ real-time เลือกลูกค้าที่ต้องการเยี่ยมวันนี้</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🛣️</div>
+            <h3>เส้นทางอัตโนมัติ</h3>
+            <p>คำนวณเส้นทางที่สั้นที่สุดด้วย OSRM จัดลำดับให้เสร็จ ประหยัดเวลาและน้ำมัน</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">📍</div>
+            <h3>ค้นหาลูกค้า</h3>
+            <p>พิมพ์ CIF ชื่อ หรือเบอร์โทร ค้นหาได้ทันที ไม่ต้องเลื่อนหาให้เสียเวลา</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">📊</div>
+            <h3>สรุปรายงาน</h3>
+            <p>ดูจำนวนลูกค้า ระยะทาง เวลาที่ใช้ สรุปครบจบในหน้าเดียว</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🚗</div>
+            <h3>คำนวณน้ำมัน</h3>
+            <p>เลือกประเภทรถ กระบะ รถเก๋ง หรือมอเตอร์ไซค์ ระบบคำนวณให้อัตโนมัติ</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🔄</div>
+            <h3>ซิงค์อัตโนมัติ</h3>
+            <p>ข้อมูลบันทึกและซิงค์ระหว่างอุปกรณ์แบบ real-time ไม่ต้องกลัวข้อมูลหาย</p>
+          </div>
+
         </div>
       </div>
-      <p class="features-footer">สำหรับพนักงานสินเชื่อ ธ.ก.ส. สาขาวังท่าช้าง ปราจีนบุรี</p>
+    </section>
+
+    <!-- CTA -->
+    <section class="lp-cta-section fade-up">
+      <h2>พร้อมเริ่มต้นใช้งาน?</h2>
+      <p>เข้าสู่ระบบด้วย PIN หรือชื่อผู้ใช้ของคุณ</p>
+      <button class="lp-cta lp-cta-bottom" onclick="document.getElementById('login-screen').classList.add('login-mode')">เข้าสู่ระบบเดี๋ยวนี้</button>
+    </section>
+
+    <!-- Login Overlay (hidden by default) -->
+    <div class="lp-login-overlay">
+      <div class="lp-login-card">
+        <button class="lp-login-close" onclick="document.getElementById('login-screen').classList.remove('login-mode')">✕</button>
+        <div class="login-logo">🗺️</div>
+        <h1>BAAC Field Route</h1>
+        <p class="login-sub">เข้าสู่ระบบ</p>
+
+        <form id="login-form" autocomplete="off">
+          <label for="login-username">ชื่อผู้ใช้</label>
+          <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
+          <label for="login-password">รหัสผ่าน</label>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+          <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
+          <p class="login-error" id="login-error"></p>
+        </form>
+
+        <div class="login-divider"><span>หรือ</span></div>
+        <button class="btn-link" id="toggle-pin-login">เข้าสู่ระบบด้วย PIN</button>
+        <form id="pin-form" class="hidden" autocomplete="off">
+          <label for="pin-input">กรอก PIN 4 หลัก</label>
+          <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
+          <button type="submit" class="btn-primary" id="pin-btn">เข้าสู่ระบบ (PIN)</button>
+          <p class="login-error" id="pin-error"></p>
+        </form>
+
+        <p class="lp-login-footer">สำหรับพนักงานสินเชื่อ ธ.ก.ส. สาขาวังท่าช้าง</p>
+      </div>
     </div>
+
   </div>
 
-  <!-- Main App -->
+<!-- Main App -->
   <div id="app" class="app hidden">
     <!-- Overlay Header (always floats over map) -->
     <header class="app-header app-header-overlay">
@@ -765,5 +800,25 @@
   <script src="js/visit.js"></script>
   <script src="js/report.js"></script>
   <script src="js/app.js"></script>
+
+  <script>
+    // Landing page scroll reveal
+    document.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+          if (entry.isIntersecting) {
+            // Stagger delay for grid items
+            const delay = entry.target.closest('.lp-feature-grid')
+              ? [...entry.target.parentElement.children].indexOf(entry.target) * 80
+              : 0;
+            setTimeout(() => entry.target.classList.add('visible'), delay);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+
+      document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+    });
+  </script>
 </body>
 </html>

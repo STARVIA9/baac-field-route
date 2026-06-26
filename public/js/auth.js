@@ -22,7 +22,9 @@ const Auth = {
 
   // ===== UI transitions =====
   showLogin() {
-    document.getElementById('login-screen').classList.remove('hidden');
+    const ls = document.getElementById('login-screen');
+    ls.classList.remove('hidden');
+    ls.classList.remove('login-mode');
     document.getElementById('app').classList.add('hidden');
   },
 

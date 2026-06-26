@@ -209,6 +209,204 @@ body {
   margin-top: 20px;
 }
 
+/* ===== Landing Page ===== */
+.landing-page {
+  min-height: 100vh;
+  background: #fff;
+  color: #1a1a1a;
+  overflow-x: hidden;
+}
+.landing-page.login-mode .lp-login-overlay { opacity: 1; pointer-events: auto; }
+.landing-page.login-mode .lp-hero,
+.landing-page.login-mode .lp-features,
+.landing-page.login-mode .lp-cta-section { display: none; }
+
+/* Hero */
+.lp-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 24px 40px;
+  background: linear-gradient(180deg, #f0faf4 0%, #fff 100%);
+  position: relative;
+}
+.lp-hero-inner { max-width: 480px; }
+.lp-badge {
+  display: inline-block;
+  background: rgba(10, 143, 60, 0.1);
+  color: #0a8f3c;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  letter-spacing: 0.5px;
+}
+.lp-title {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #0a8f3c;
+  margin: 0 0 16px;
+  letter-spacing: -1px;
+}
+.lp-subtitle {
+  font-size: 17px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0 0 32px;
+}
+.lp-cta {
+  background: #0a8f3c;
+  color: #fff;
+  border: none;
+  padding: 14px 36px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(10, 143, 60, 0.3);
+}
+.lp-cta:hover { background: #097a34; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(10, 143, 60, 0.4); }
+.lp-cta:active { transform: translateY(0); }
+.lp-hero-scroll {
+  position: absolute;
+  bottom: 32px;
+  text-align: center;
+}
+.lp-scroll-hint { font-size: 12px; color: #999; }
+.lp-scroll-arrow {
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+  color: #0a8f3c;
+  animation: bounce 2s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+/* Features */
+.lp-features {
+  padding: 80px 24px;
+  background: #fff;
+}
+.lp-features-inner { max-width: 560px; margin: 0 auto; }
+.lp-section-title {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 48px;
+  color: #1a1a1a;
+}
+.lp-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.lp-feature {
+  padding: 28px 24px;
+  border-radius: 16px;
+  background: #f8faf9;
+  border: 1px solid #e8ede9;
+  transition: all 0.3s ease;
+}
+.lp-feature:hover { border-color: rgba(10, 143, 60, 0.3); box-shadow: 0 4px 20px rgba(10, 143, 60, 0.08); }
+.lp-feature-icon { font-size: 32px; margin-bottom: 12px; }
+.lp-feature h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #1a1a1a;
+}
+.lp-feature p {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* CTA Section */
+.lp-cta-section {
+  text-align: center;
+  padding: 64px 24px 80px;
+  background: linear-gradient(180deg, #fff 0%, #f0faf4 100%);
+}
+.lp-cta-section h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: #1a1a1a;
+}
+.lp-cta-section p {
+  font-size: 15px;
+  color: #666;
+  margin: 0 0 24px;
+}
+.lp-cta-bottom { font-size: 15px; padding: 12px 32px; }
+
+/* Login Overlay */
+.lp-login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.97);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 24px;
+}
+.lp-login-card {
+  background: #fff;
+  border: 1px solid #e8ede9;
+  border-radius: 20px;
+  padding: 36px 28px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+.lp-login-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+}
+.lp-login-close:hover { color: #333; }
+.lp-login-footer {
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+  margin-top: 20px;
+}
+
+/* Scroll Reveal Animation */
+.fade-up {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== End Landing Page ===== */
+
 /* Login Form */
 #login-form {
   display: flex;
