@@ -1,5 +1,5 @@
 {
-  "version": "20260628.000001",
+  "version": "20260628.000002",
   "lastUpdate": "2026-06-28",
-  "changelog": "GPS restore: merge 182 records from backups/customers-gps-192-excel.json (post-revert v20260625.000026). 182 records with GPS."
+  "changelog": "Login reliability fix: (1) crypto.js — drop unused 3rd arg to deriveKey() that caused PBKDF2 crash → 503/1102 on /api/login. (2) login.js — try/catch around verifyPassword + idempotent seed of admin user if KV 'users:all' missing. (3) auth.js (frontend) — automatic fallback to legacy /api/auth/login when primary endpoint 5xx."
 }

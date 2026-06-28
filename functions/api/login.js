@@ -2,7 +2,7 @@
 // Supports: username/password (KV users) + admin PIN (KV) + legacy team PINs
 
 import { signHS256 } from '../_lib/jwt.js';
-import { verifyPassword } from '../_lib/crypto.js';
+import { verifyPassword, hashPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin } from './admin/pin.js';
 
@@ -10,9 +10,40 @@ import { verifyAdminPin } from './admin/pin.js';
 const PIN_TEAM = {
   '1001': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
   '1002': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
-  '1003': { name: 'ประยุทธ์ มั่นคง', role: 'user', branch: 'WTC' },
+  '1003': { name: 'ประยูทธ์ มั่นคง', role: 'user', branch: 'WTC' },
   '1004': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
 };
+
+// Default admin user (seeded into KV if missing) — survives total KV wipe
+const DEFAULT_ADMIN = {
+  username: 'admin',
+  displayName: 'Admin',
+  password: 'admin1234', // Plain text — hashed on first seed, then never re-hashed
+  role: 'admin',
+  branch: 'WTC',
+};
+
+/**
+ * Idempotent seed — if KV has no `users:all`, write default admin.
+ * Prevents "login ตาย" when KV gets wiped (the bug from 3 days ago).
+ * Safe to call on every login: checks existence first.
+ */
+async function seedDefaultAdminIfMissing(kv) {
+  const existing = await kv.get('users:all');
+  if (existing) return; // Already seeded — never overwrite
+  const hashed = await hashPassword(DEFAULT_ADMIN.password);
+  const user = {
+    id: 'admin',
+    username: DEFAULT_ADMIN.username,
+    displayName: DEFAULT_ADMIN.displayName,
+    password: hashed,
+    role: DEFAULT_ADMIN.role,
+    branch: DEFAULT_ADMIN.branch,
+    createdAt: new Date().toISOString(),
+  };
+  await kv.put('users:all', JSON.stringify([user]));
+  console.log('[login] Seeded default admin (KV was empty)');
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -45,13 +76,24 @@ export async function onRequestPost(context) {
   if (username && password) {
     if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
+    // Self-heal: seed default admin if KV was wiped
+    await seedDefaultAdminIfMissing(env.BFR_KV);
+
     const usersRaw = await env.BFR_KV.get('users:all');
     const users = usersRaw ? JSON.parse(usersRaw) : [];
     const user = users.find(u => u.username === username && !u.deleted);
 
     if (!user) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
 
-    const valid = await verifyPassword(password, user.password);
+    // Verify password inside try/catch — if PBKDF2 ever throws (corrupt hash, etc.)
+    // surface as 401 (not 500) so the frontend can fallback to PIN instead.
+    let valid = false;
+    try {
+      valid = await verifyPassword(password, user.password);
+    } catch (e) {
+      console.error('[login] verifyPassword crashed:', e?.message);
+      return json({ success: false, error: 'ระบบยืนยันรหัสผ่านขัดข้อง — กรุณาใช้ PIN แทน' }, 401);
+    }
     if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
 
     const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';

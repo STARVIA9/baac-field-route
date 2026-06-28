@@ -61,7 +61,7 @@ export async function verifyPassword(password, stored) {
     const expectedAuth = base64UrlDecode(authB64);
     const expectedVerify = base64UrlDecode(verifyB64);
 
-    const derived = await deriveKey(password, salt, iterations);
+    const derived = await deriveKey(password, salt);
     const authKey = derived.slice(0, 32);
     const verifyKey = derived.slice(32, 64);
 
