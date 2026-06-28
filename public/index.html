@@ -702,6 +702,20 @@
               <p class="login-error" id="admin-user-error"></p>
             </form>
           </div>
+
+          <!-- Bulk import from static customer DB -->
+          <div class="admin-import-section" style="margin-top:24px;padding:16px;background:#f0f9f4;border-radius:8px;border:1px solid #b6e2c5">
+            <h3>📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px;font-size:13px">
+              ใช้เมื่อ <strong>แผนที่ว่างเปล่า</strong> แต่ไฟล์ <code>customers-db.json</code> มีข้อมูล 3,853 รายการพร้อมพิกัด
+              (ระบบจะข้ามรายการที่ CIF ซ้ำ — กดได้หลายครั้ง ไม่สร้างข้อมูลซ้ำ)
+            </p>
+            <button type="button" class="btn-primary" id="btn-import-static-db" style="background:#0a8f3c">
+              📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง
+            </button>
+            <p class="login-error" id="import-static-error" style="display:none"></p>
+            <p style="display:none;color:#0a8f3c;font-size:13px;margin-top:8px" id="import-static-success"></p>
+          </div>
         </div>
 
         <!-- Tab: Branches -->

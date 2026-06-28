@@ -1,5 +1,5 @@
 {
-  "version": "20260628.000002",
+  "version": "20260628.000004",
   "lastUpdate": "2026-06-28",
-  "changelog": "Login reliability fix: (1) crypto.js — drop unused 3rd arg to deriveKey() that caused PBKDF2 crash → 503/1102 on /api/login. (2) login.js — try/catch around verifyPassword + idempotent seed of admin user if KV 'users:all' missing. (3) auth.js (frontend) — automatic fallback to legacy /api/auth/login when primary endpoint 5xx."
+  "changelog": "Bulk import + admin UI: (1) Storage.importFromStaticDB() — one-click import of all 3,853 GPS customers from customers-db.json (idempotent by CIF). (2) Admin panel — new '📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง' button in Users tab. (3) Adds marker 📍 toggle + GPS-only filter button to map layer control (works alongside 🗺️/🛰️)."
 }

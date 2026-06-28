@@ -46,6 +46,56 @@ const Storage = {
     }
   },
 
+  // ===== Bulk import static customer DB → Storage (one-time, idempotent) =====
+  // Reads /customers-db.json, adds each record as a customer (skips if CIF exists).
+  // Use when KV is empty but you still want the 3,853 GPS customers to show on map.
+  async importFromStaticDB({ batchSize = 500, onProgress } = {}) {
+    if (typeof CustomerDB === 'undefined') throw new Error('CustomerDB not loaded');
+    // Fetch the static file fresh (in case CustomerDB wasn't loaded yet)
+    const res = await fetch('/customers-db.json');
+    if (!res.ok) throw new Error(`Failed to fetch customers-db.json: ${res.status}`);
+    const db = await res.json();
+
+    // Skip records without valid GPS — can't render them on map anyway
+    const valid = db.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
+    if (valid.length === 0) return { imported: 0, skipped: 0, total: db.length };
+
+    // Find existing CIFs to avoid duplicates
+    const existing = new Set(this.getActiveCustomers().map(c => c.cif).filter(Boolean));
+    const toImport = valid.filter(r => !existing.has(r.cif));
+
+    // Build customer objects
+    const make = (r) => ({
+      id: 'db_' + r.cif,
+      cif: r.cif,
+      name: r.name,
+      phone: r.phone || '',
+      address: [r.address, r.moo && 'ม.' + r.moo, r.tambon && 'ต.' + r.tambon, r.amphoe && 'อ.' + r.amphoe, r.province && 'จ.' + r.province].filter(Boolean).join(' '),
+      lat: r.lat,
+      lng: r.lng,
+      riskLevel: r.riskLevel || 'unclassified',
+      debtType: r.debtType || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: 'AutoImport:StaticDB',
+      geo_source: r.geo_source || 'static_db',
+    });
+
+    // Save locally first (instant) — don't await server push per record (too slow)
+    const list = this.getCustomers();
+    let added = 0;
+    for (const r of toImport) {
+      list.push(make(r));
+      added++;
+    }
+    this.saveCustomers(list);
+
+    // Trigger one full sync to push to server in background
+    this.push().catch(e => console.warn('[import] push failed:', e.message));
+
+    return { imported: added, skipped: existing.size, total: db.length, validGPS: valid.length };
+  },
+
   // Returns: { synced: true/false, error?: string }
   async updateCustomer(id, updates) {
     const list = this.getCustomers();

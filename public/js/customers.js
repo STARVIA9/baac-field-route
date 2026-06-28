@@ -4,6 +4,7 @@ const Customers = {
   map: null,
   markers: {},
   currentFilter: 'all',
+  showOnlyGPS: false,  // Toggle: แสดงเฉพาะลูกค้าที่มีพิกัด
   _baseLayers: {},
   _currentBaseLayer: 'roadmap',
 
@@ -66,6 +67,15 @@ const Customers = {
       routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
     }
     customers.forEach((c, idx) => {
+      // ===== Skip customers without valid GPS (defensive — was crashing Leaflet) =====
+      // Some records have null lat/lng (53 records added after the 7-Jun backup
+      // that never got geocoded). Skip them silently rather than crashing the
+      // entire marker render.
+      if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
+      // ===== Toggle: แสดงเฉพาะลูกค้าที่มีพิกัด =====
+      // (Redundant with above filter — kept for clarity when showOnlyGPS is on)
+      if (this.showOnlyGPS && (!c.lat || !c.lng)) return;
+
       const visited = !!visits[c.id];
       const orderNum = orderMap[c.id] || (idx + 1);
       // Risk-based class drives the color
@@ -273,7 +283,7 @@ const Customers = {
     App.updateRouteUI();
   },
 
-  // ===== Base layer toggle (roadmap ↔ satellite) =====
+  // ===== Base layer toggle (roadmap ↔ satellite) + GPS-only filter =====
   _addLayerControl() {
     // Custom control as a DOM element (Leaflet way)
     const LayerToggle = L.Control.extend({
@@ -282,12 +292,18 @@ const Customers = {
         div.innerHTML = `
           <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
           <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+          <button class="layer-btn gps-btn" data-layer="gps" title="แสดงเฉพาะลูกค้าที่มีพิกัด GPS">📍</button>
         `;
         L.DomEvent.disableClickPropagation(div);
         div.querySelectorAll('.layer-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             L.DomEvent.stop(e);
-            Customers.switchBaseLayer(btn.dataset.layer);
+            const layer = btn.dataset.layer;
+            if (layer === 'gps') {
+              Customers.toggleGPSOnly();
+            } else {
+              Customers.switchBaseLayer(layer);
+            }
           });
         });
         return div;
@@ -389,11 +405,25 @@ const Customers = {
     // Add new
     this._baseLayers[layerName].addTo(this.map);
     this._currentBaseLayer = layerName;
-    // Update button states
-    const buttons = document.querySelectorAll('.layer-toggle .layer-btn');
+    // Update button states (skip gps-btn — independent toggle)
+    const buttons = document.querySelectorAll('.layer-toggle .layer-btn:not(.gps-btn)');
     buttons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.layer === layerName);
     });
+  },
+
+  // ===== Toggle GPS-only filter (independent from base layer) =====
+  toggleGPSOnly() {
+    this.showOnlyGPS = !this.showOnlyGPS;
+    const btn = document.querySelector('.layer-toggle .gps-btn');
+    if (btn) btn.classList.toggle('active', this.showOnlyGPS);
+    // Re-render with new filter
+    this.renderAll();
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast(this.showOnlyGPS
+        ? '📍 แสดงเฉพาะลูกค้าที่มีพิกัด'
+        : '🗺️ แสดงลูกค้าทั้งหมด');
+    }
   },
 
   // Render everything

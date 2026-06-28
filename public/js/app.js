@@ -1315,6 +1315,42 @@ const App = {
       }
     };
 
+    // Bulk import customers from static DB
+    const importBtn = document.getElementById('btn-import-static-db');
+    if (importBtn) {
+      importBtn.onclick = async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById('import-static-error');
+        const successEl = document.getElementById('import-static-success');
+        errEl.style.display = 'none';
+        successEl.style.display = 'none';
+        errEl.textContent = '';
+        importBtn.disabled = true;
+        const originalText = importBtn.textContent;
+        importBtn.textContent = '⏳ กำลังนำเข้า...';
+        try {
+          if (typeof Storage === 'undefined' || !Storage.importFromStaticDB) {
+            throw new Error('ฟังก์ชันนำเข้ายังโหลดไม่เสร็จ');
+          }
+          const result = await Storage.importFromStaticDB();
+          successEl.textContent = `✅ นำเข้า ${result.imported} รายการ · ข้าม ${result.skipped} ที่ซ้ำ · ทั้งหมด ${result.validGPS} รายการมีพิกัด`;
+          successEl.style.display = 'block';
+          Utils.toast(`📥 นำเข้า ${result.imported} ลูกค้าแล้ว`);
+          // Re-render map to show new markers
+          if (typeof Customers !== 'undefined' && Customers.renderAll) {
+            setTimeout(() => Customers.renderAll(), 500);
+          }
+        } catch (err) {
+          errEl.textContent = err.message || 'นำเข้าไม่สำเร็จ';
+          errEl.style.display = 'block';
+          Utils.toast('❌ นำเข้าไม่สำเร็จ', 'error');
+        } finally {
+          importBtn.disabled = false;
+          importBtn.textContent = originalText;
+        }
+      };
+    }
+
     // Add branch form
     document.getElementById('admin-add-branch-form').onsubmit = async (e) => {
       e.preventDefault();
