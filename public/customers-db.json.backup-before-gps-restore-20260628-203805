@@ -119,11 +119,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8809323,
-    "lng": 101.8583002,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379048Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642735",
@@ -245,11 +245,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8903422,
-    "lng": 101.8336309,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379057Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4624115",
@@ -413,11 +413,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9032784,
-    "lng": 101.8649229,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379064Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642922",
@@ -455,11 +455,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8854696,
-    "lng": 101.8473682,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379071Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642843",
@@ -497,11 +497,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.872896,
-    "lng": 101.8598451,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379073Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642729",
@@ -875,11 +875,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8384133,
-    "lng": 101.8766116,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379089Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "29417201",
@@ -2660,11 +2660,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8466367,
-    "lng": 101.8590623,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379170Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4629174",
@@ -4109,11 +4109,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8867096,
-    "lng": 101.8293183,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379245Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "28068051",
@@ -4949,11 +4949,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8432512,
-    "lng": 101.9092799,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379285Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642760",
@@ -4970,11 +4970,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8385168,
-    "lng": 101.8739901,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379286Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643428",
@@ -5595,11 +5595,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8811543,
-    "lng": 101.8465628,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379312Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "14182667",
@@ -5868,11 +5868,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8453789,
-    "lng": 101.8613753,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379326Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "27442152",
@@ -5910,11 +5910,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.859227,
-    "lng": 101.9267756,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379328Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "23749193",
@@ -6913,11 +6913,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8471494,
-    "lng": 101.8683702,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379374Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4625050",
@@ -7648,11 +7648,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8404173,
-    "lng": 101.9043715,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379406Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "12816462",
@@ -8152,11 +8152,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8964793,
-    "lng": 101.841016,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379428Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "28027165",
@@ -8656,11 +8656,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9129051,
-    "lng": 101.8572729,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379449Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "26010350",
@@ -8824,11 +8824,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8946345,
-    "lng": 101.8424296,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379456Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643902",
@@ -8929,11 +8929,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8439745,
-    "lng": 101.8820884,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379461Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "30923750",
@@ -9617,11 +9617,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8473262,
-    "lng": 101.8611547,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379490Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640466",
@@ -10688,11 +10688,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8609741,
-    "lng": 101.9189644,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379536Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "31053809",
@@ -10982,11 +10982,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8561633,
-    "lng": 101.9239131,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379548Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4636575",
@@ -11334,11 +11334,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8686183,
-    "lng": 101.8789073,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379563Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640296",
@@ -11565,11 +11565,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8568153,
-    "lng": 101.9227198,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379573Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "32483492",
@@ -12447,11 +12447,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8766857,
-    "lng": 101.8569561,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379613Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4638452",
@@ -12720,11 +12720,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8025652,
-    "lng": 101.8451134,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379625Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4632711",
@@ -13014,11 +13014,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.839748,
-    "lng": 101.8697925,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379637Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "28585583",
@@ -13350,11 +13350,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8538153,
-    "lng": 101.923507,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379651Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4634365",
@@ -13518,11 +13518,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.886611,
-    "lng": 101.8305588,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379660Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4625598",
@@ -13560,11 +13560,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.854256,
-    "lng": 101.9267492,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379662Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640957",
@@ -13728,11 +13728,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.806512,
-    "lng": 101.8363637,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379669Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641705",
@@ -13875,11 +13875,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8434283,
-    "lng": 101.8808204,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379675Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641434",
@@ -14379,11 +14379,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8347629,
-    "lng": 101.9011089,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379697Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "29472266",
@@ -14946,11 +14946,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9030815,
-    "lng": 101.8839461,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379723Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639683",
@@ -15135,11 +15135,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8065804,
-    "lng": 101.8361901,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379731Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640726",
@@ -15429,11 +15429,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.886886,
-    "lng": 101.8487519,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379743Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "24509681",
@@ -15975,11 +15975,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.84753,
-    "lng": 101.8649812,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379769Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642950",
@@ -16269,11 +16269,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.867036,
-    "lng": 101.8799426,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379782Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639146",
@@ -16332,11 +16332,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9038148,
-    "lng": 101.8677825,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379784Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4624556",
@@ -16731,11 +16731,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8387955,
-    "lng": 101.8729477,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379802Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25907922",
@@ -16752,11 +16752,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8456705,
-    "lng": 101.8700352,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379803Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639249",
@@ -16915,11 +16915,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.878043,
-    "lng": 101.8559201,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379809Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4631425",
@@ -16936,11 +16936,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.806328,
-    "lng": 101.8363862,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379810Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643888",
@@ -17293,11 +17293,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.90277,
-    "lng": 101.8674827,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379825Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640836",
@@ -18212,11 +18212,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.845678,
-    "lng": 101.8669154,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379869Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4622019",
@@ -18674,11 +18674,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.846974,
-    "lng": 101.86787,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379889Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4649073",
@@ -19598,11 +19598,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8189941,
-    "lng": 101.8484826,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.379957Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4645238",
@@ -20853,11 +20853,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8365678,
-    "lng": 101.8990793,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380012Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643907",
@@ -21063,11 +21063,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.888575,
-    "lng": 101.829454,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380021Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642304",
@@ -21399,11 +21399,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8685968,
-    "lng": 101.8792291,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380035Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640513",
@@ -21714,11 +21714,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8565594,
-    "lng": 101.8436708,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380049Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "22908973",
@@ -23284,11 +23284,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8858813,
-    "lng": 101.8320746,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380117Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4638872",
@@ -23594,11 +23594,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.845583,
-    "lng": 101.8683045,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380130Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643507",
@@ -23888,11 +23888,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8434722,
-    "lng": 101.9085966,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380142Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25042121",
@@ -24014,11 +24014,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8179272,
-    "lng": 101.8444466,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380148Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "22775633",
@@ -24329,11 +24329,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9129051,
-    "lng": 101.8572729,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380161Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "27227172",
@@ -24660,11 +24660,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.845678,
-    "lng": 101.8669154,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380175Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4633694",
@@ -25500,11 +25500,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8934785,
-    "lng": 101.8337657,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380211Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4649424",
@@ -25584,11 +25584,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8277049,
-    "lng": 101.9018697,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380215Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4623291",
@@ -25983,11 +25983,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8371004,
-    "lng": 101.8738426,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380233Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643066",
@@ -26235,11 +26235,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8504471,
-    "lng": 101.9141689,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380256Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25811411",
@@ -26676,11 +26676,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9031176,
-    "lng": 101.8827623,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380275Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4629731",
@@ -27889,11 +27889,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.846584,
-    "lng": 101.867412,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380326Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643937",
@@ -28855,11 +28855,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8425102,
-    "lng": 101.9082426,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380367Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4646020",
@@ -30619,11 +30619,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8529943,
-    "lng": 101.9267096,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380442Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641298",
@@ -32614,11 +32614,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.847181,
-    "lng": 101.8684946,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380527Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642915",
@@ -32803,11 +32803,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8042397,
-    "lng": 101.8396796,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380535Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4624379",
@@ -33265,11 +33265,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.842423,
-    "lng": 101.9086567,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380554Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4625688",
@@ -33496,11 +33496,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8772989,
-    "lng": 101.8564183,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380564Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4628437",
@@ -33559,11 +33559,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8438755,
-    "lng": 101.8726527,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380567Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642096",
@@ -33706,11 +33706,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9041939,
-    "lng": 101.8685291,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380573Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "24145531",
@@ -34231,11 +34231,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8455664,
-    "lng": 101.8679816,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380600Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "28001448",
@@ -34357,11 +34357,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8442756,
-    "lng": 101.8809947,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380605Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "31023791",
@@ -34819,11 +34819,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9032341,
-    "lng": 101.8696074,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380624Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640559",
@@ -34840,11 +34840,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9040315,
-    "lng": 101.8679166,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380625Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "31814667",
@@ -35155,11 +35155,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.90273,
-    "lng": 101.8813722,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380644Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4622866",
@@ -36389,11 +36389,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8800155,
-    "lng": 101.8591075,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380698Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "35513193",
@@ -36641,11 +36641,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.836338,
-    "lng": 101.870657,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380709Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "35422179",
@@ -37019,11 +37019,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.885919,
-    "lng": 101.8475489,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380725Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "33133680",
@@ -37077,11 +37077,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9093171,
-    "lng": 101.8525757,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380729Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "23725947",
@@ -37560,11 +37560,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8875884,
-    "lng": 101.8162069,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380750Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4632182",
@@ -38705,11 +38705,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8513211,
-    "lng": 101.9248756,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380797Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "32890361",
@@ -38873,11 +38873,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8816442,
-    "lng": 101.8571626,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380804Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4649285",
@@ -39020,11 +39020,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.91087588,
-    "lng": 101.8574687,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380811Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25120319",
@@ -39440,11 +39440,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.825348,
-    "lng": 101.903201,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380829Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25981621",
@@ -39839,11 +39839,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9028237,
-    "lng": 101.8860302,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380846Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639769",
@@ -39986,11 +39986,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8388788,
-    "lng": 101.875,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380852Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640421",
@@ -40191,11 +40191,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8019491,
-    "lng": 101.8451912,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380861Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642653",
@@ -41073,11 +41073,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8755566,
-    "lng": 101.8835492,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380898Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639474",
@@ -41241,11 +41241,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.817653,
-    "lng": 101.9037033,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380906Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644906",
@@ -41745,11 +41745,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8016633,
-    "lng": 101.84343,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380927Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644085",
@@ -41913,11 +41913,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8472884,
-    "lng": 101.8611856,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.380935Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641162",
@@ -43557,11 +43557,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8362549,
-    "lng": 101.8983499,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381004Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644900",
@@ -44082,11 +44082,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8530229,
-    "lng": 101.8774663,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381026Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641535",
@@ -44187,11 +44187,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8165783,
-    "lng": 101.9037734,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381031Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "36334890",
@@ -45731,11 +45731,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8886797,
-    "lng": 101.8249265,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381096Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4645119",
@@ -46782,11 +46782,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9060526,
-    "lng": 101.865681,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381139Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639777",
@@ -47255,11 +47255,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8507469,
-    "lng": 101.9145867,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381157Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642655",
@@ -47796,11 +47796,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.843021,
-    "lng": 101.8721364,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381180Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25981045",
@@ -47901,11 +47901,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8474131,
-    "lng": 101.8490992,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381184Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "24818801",
@@ -48090,11 +48090,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8307671,
-    "lng": 101.8714836,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381192Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4636893",
@@ -48279,11 +48279,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9025692,
-    "lng": 101.8887084,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381200Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4626162",
@@ -48846,11 +48846,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8366609,
-    "lng": 101.8705646,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381237Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4629256",
@@ -48867,11 +48867,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8442118,
-    "lng": 101.8726772,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381238Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644914",
@@ -49734,11 +49734,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9030408,
-    "lng": 101.883353,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381273Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4645124",
@@ -49902,11 +49902,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.848072,
-    "lng": 101.8709502,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381280Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "27093352",
@@ -50385,11 +50385,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.87713,
-    "lng": 101.8851367,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381301Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640125",
@@ -51026,11 +51026,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8442463,
-    "lng": 101.8717029,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381327Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643562",
@@ -51257,11 +51257,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8637311,
-    "lng": 101.898988,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381337Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "16575664",
@@ -52034,11 +52034,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.7896983,
-    "lng": 101.8913148,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381370Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4645453",
@@ -52680,11 +52680,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8673384,
-    "lng": 101.8808499,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381397Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643262",
@@ -52848,11 +52848,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8407025,
-    "lng": 101.8714209,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381404Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "31296724",
@@ -53037,11 +53037,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8062509,
-    "lng": 101.8363902,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381412Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641728",
@@ -53221,11 +53221,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8778923,
-    "lng": 101.8193512,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381419Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4648675",
@@ -53284,11 +53284,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8189749,
-    "lng": 101.8486986,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381422Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640544",
@@ -53578,11 +53578,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9111855,
-    "lng": 101.8569916,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381435Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "36486219",
@@ -53977,11 +53977,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8890404,
-    "lng": 101.8289555,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381452Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4638838",
@@ -54292,11 +54292,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8726883,
-    "lng": 101.8580367,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381466Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "24501815",
@@ -54980,11 +54980,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8441907,
-    "lng": 101.8706645,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381495Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639642",
@@ -55946,11 +55946,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8052708,
-    "lng": 101.8365374,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381540Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639512",
@@ -56429,11 +56429,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8437854,
-    "lng": 101.9083797,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381560Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "27182617",
@@ -57248,11 +57248,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8796854,
-    "lng": 101.8833386,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381597Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4633801",
@@ -57374,11 +57374,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9111237,
-    "lng": 101.831234,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381603Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641210",
@@ -57479,11 +57479,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.840808,
-    "lng": 101.8715034,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381607Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4647070",
@@ -58041,11 +58041,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8888366,
-    "lng": 101.8240993,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381633Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4646909",
@@ -58461,11 +58461,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8449098,
-    "lng": 101.8816793,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381651Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641154",
@@ -58524,11 +58524,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8436678,
-    "lng": 101.871894,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381654Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641666",
@@ -58818,11 +58818,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8873222,
-    "lng": 101.8479449,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381666Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "16877915",
@@ -58986,11 +58986,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9026815,
-    "lng": 101.8680406,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381675Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643603",
@@ -60157,11 +60157,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.811499,
-    "lng": 101.8599159,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381724Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25212580",
@@ -60761,11 +60761,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8375747,
-    "lng": 101.8743958,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381749Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "26202499",
@@ -60866,11 +60866,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8436864,
-    "lng": 101.8808921,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381753Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643299",
@@ -60887,11 +60887,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8870195,
-    "lng": 101.8308776,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381754Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639859",
@@ -61202,11 +61202,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.874737,
-    "lng": 101.8832152,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381767Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644795",
@@ -62163,11 +62163,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.7202185,
-    "lng": 101.8829748,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381826Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4645062",
@@ -62310,11 +62310,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.7959952,
-    "lng": 101.8993447,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381832Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "30197277",
@@ -62809,11 +62809,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.911879,
-    "lng": 101.85435,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381880Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644976",
@@ -63539,11 +63539,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8122475,
-    "lng": 101.8627215,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381911Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641507",
@@ -63602,11 +63602,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8823257,
-    "lng": 101.8376743,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381913Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642901",
@@ -63954,11 +63954,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.847165,
-    "lng": 101.862173,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381928Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642436",
@@ -64899,11 +64899,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8912822,
-    "lng": 101.9024936,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381967Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643956",
@@ -65088,11 +65088,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8683117,
-    "lng": 101.8784134,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.381975Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25161088",
@@ -65970,11 +65970,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8725308,
-    "lng": 101.8373582,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382012Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "25055253",
@@ -66243,11 +66243,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9047361,
-    "lng": 101.8651573,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382024Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643103",
@@ -66831,11 +66831,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.872896,
-    "lng": 101.8598451,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382049Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4648444",
@@ -67314,11 +67314,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.877214,
-    "lng": 101.8559073,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382069Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639706",
@@ -67440,11 +67440,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.890933,
-    "lng": 101.900263,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382074Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641407",
@@ -67860,11 +67860,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8773842,
-    "lng": 101.8846469,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382092Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "26543470",
@@ -67944,11 +67944,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8670588,
-    "lng": 101.8797619,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382095Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643236",
@@ -68280,11 +68280,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9029051,
-    "lng": 101.8817306,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382109Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639955",
@@ -68343,11 +68343,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8726613,
-    "lng": 101.8606005,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382112Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640510",
@@ -68574,11 +68574,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8375255,
-    "lng": 101.8732696,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382122Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "23424234",
@@ -68737,11 +68737,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8549233,
-    "lng": 101.8404571,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382128Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "26480823",
@@ -69425,11 +69425,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8811452,
-    "lng": 101.8569581,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382156Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642772",
@@ -69609,11 +69609,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8305324,
-    "lng": 101.8546678,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382164Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639167",
@@ -70365,11 +70365,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.837576,
-    "lng": 101.873724,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382195Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4633255",
@@ -71268,11 +71268,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.904933,
-    "lng": 101.865509,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382246Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "14182934",
@@ -71583,11 +71583,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8638822,
-    "lng": 101.897958,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382259Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642651",
@@ -72507,11 +72507,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8855008,
-    "lng": 101.8993719,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382299Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640177",
@@ -72859,11 +72859,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8051618,
-    "lng": 101.8371926,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382313Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4632701",
@@ -74093,11 +74093,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8178484,
-    "lng": 101.8498499,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382366Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642721",
@@ -74408,11 +74408,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8490268,
-    "lng": 101.9149585,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382379Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "33878618",
@@ -74450,11 +74450,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9033878,
-    "lng": 101.881629,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382381Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643912",
@@ -74613,11 +74613,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8670835,
-    "lng": 101.88408,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382388Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4643441",
@@ -75117,11 +75117,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8473744,
-    "lng": 101.8705609,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382409Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4646132",
@@ -75674,11 +75674,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.9086818,
-    "lng": 101.8658737,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382431Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4649221",
@@ -75758,11 +75758,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8382486,
-    "lng": 101.8743589,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382435Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4640384",
@@ -75968,11 +75968,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8796935,
-    "lng": 101.8545629,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382444Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642666",
@@ -76157,11 +76157,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8999968,
-    "lng": 101.8379385,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382452Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4647981",
@@ -76220,11 +76220,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8452939,
-    "lng": 101.8822775,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382454Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "26440119",
@@ -77606,11 +77606,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8471566,
-    "lng": 101.8621636,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382517Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4625206",
@@ -77795,11 +77795,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8428644,
-    "lng": 101.8723922,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382524Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642167",
@@ -78068,11 +78068,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8866709,
-    "lng": 101.8294353,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382536Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639801",
@@ -78257,11 +78257,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8688396,
-    "lng": 101.8788992,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382544Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4644268",
@@ -78299,11 +78299,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8039066,
-    "lng": 101.8406798,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382546Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639567",
@@ -78383,11 +78383,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8686899,
-    "lng": 101.8777395,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382552Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639695",
@@ -78845,11 +78845,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8472054,
-    "lng": 101.8673496,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382571Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4641201",
@@ -79328,11 +79328,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8845895,
-    "lng": 101.8997356,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382591Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4648676",
@@ -79454,11 +79454,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.847421,
-    "lng": 101.87078,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382599Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639690",
@@ -79685,11 +79685,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8377909,
-    "lng": 101.8755468,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382609Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4642347",
@@ -80252,11 +80252,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.8241091,
-    "lng": 101.9063587,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382632Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "4639170",
@@ -81323,11 +81323,11 @@
     "amphoe": "กบินทร์บุรี",
     "province": "ปราจีนบุรี",
     "postcode": "25110",
-    "lat": 13.813629,
-    "lng": 101.850756,
-    "geo_source": "wang-takhian-2026-06-25",
-    "cleared_at": null,
-    "cleared_reason": null
+    "lat": null,
+    "lng": null,
+    "geo_source": "nominatim-cleared",
+    "cleared_at": "2026-06-07T07:33:07.382679Z",
+    "cleared_reason": "tambon-centroid-inaccurate"
   },
   {
     "cif": "23482542",

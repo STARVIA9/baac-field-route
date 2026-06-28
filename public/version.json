@@ -1,5 +1,5 @@
 {
-  "version": "20260625.000026",
-  "lastUpdate": "2026-06-25",
-  "changelog": "Redesign: 13 JS→6, 4 tabs→3, remove visit modal + report modal, lazy DB load, sync 10s"
+  "version": "20260628.000001",
+  "lastUpdate": "2026-06-28",
+  "changelog": "GPS restore: merge 182 records from backups/customers-gps-192-excel.json (post-revert v20260625.000026). 182 records with GPS."
 }
