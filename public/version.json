@@ -1,5 +1,5 @@
 {
-  "version": "20260714.000005",
+  "version": "20260714.000006",
   "lastUpdate": "2026-07-14",
-  "changelog": "Revert jitter: restore original coords, keep dedup (53 no-GPS + 1 CIF dup removed)"
+  "changelog": "Strip GPS coords from customers-db.json — keep customer data only"
 }
