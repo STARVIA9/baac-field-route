@@ -1,5 +1,5 @@
 {
-  "version": "20260628.000004",
-  "lastUpdate": "2026-06-28",
-  "changelog": "Bulk import + admin UI: (1) Storage.importFromStaticDB() — one-click import of all 3,853 GPS customers from customers-db.json (idempotent by CIF). (2) Admin panel — new '📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง' button in Users tab. (3) Adds marker 📍 toggle + GPS-only filter button to map layer control (works alongside 🗺️/🛰️)."
+  "version": "20260714.000005",
+  "lastUpdate": "2026-07-14",
+  "changelog": "Revert jitter: restore original coords, keep dedup (53 no-GPS + 1 CIF dup removed)"
 }
