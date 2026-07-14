@@ -1719,6 +1719,37 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('pointerup', () => clearTimeout(longPressTimer));
     btn.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
   }
+
+  // ===== Update DB button — reload customer data from static DB =====
+  const updateBtn = document.getElementById('update-db-btn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', async () => {
+      updateBtn.classList.add('spinning');
+      updateBtn.disabled = true;
+      try {
+        if (typeof Storage === 'undefined' || !Storage.reloadStaticDB) {
+          throw new Error('ฟังก์ชันอัพเดทยังไม่พร้อม');
+        }
+        const result = await Storage.reloadStaticDB();
+        if (typeof Utils !== 'undefined') {
+          Utils.toast(`✅ อัพเดทแล้ว: ลบ ${result.removed} รายการเก่า, นำเข้า ${result.imported} รายการใหม่ (${result.total} ในระบบ)`);
+        }
+        // Re-render everything
+        if (typeof Customers !== 'undefined') Customers.renderAll();
+        if (typeof Visit !== 'undefined') Visit.render();
+        if (typeof App !== 'undefined') App.updateRouteUI();
+      } catch (err) {
+        if (typeof Utils !== 'undefined') {
+          Utils.toast(`❌ อัพเดทล้มเหลว: ${err.message}`, 'error');
+        }
+        console.error('[UpdateDB]', err);
+      } finally {
+        updateBtn.classList.remove('spinning');
+        updateBtn.disabled = false;
+      }
+    });
+  }
+
   // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
   document.addEventListener('keydown', (e) => {
     if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {

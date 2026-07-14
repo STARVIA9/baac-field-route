@@ -374,31 +374,50 @@ const Storage = {
       this._pollingTimer = null;
     }
   },
+
+  // ===== Reload customers from static DB (clear seed + re-import) =====
+  async reloadStaticDB() {
+    // 1) Clear all existing seed GPS records
+    const list = this.getCustomers();
+    const kept = list.filter(c => c.createdBy !== 'AutoImport:StaticDB');
+    const removed = list.length - kept.length;
+    this.saveCustomers(kept);
+    console.log(`[Storage] Cleared ${removed} seed GPS records`);
+
+    // 2) Refresh CustomerDB cache
+    if (typeof CustomerDB !== 'undefined') {
+      CustomerDB._loaded = false;
+      await CustomerDB.load();
+    }
+
+    // 3) Re-import from fresh static DB (with cache buster)
+    const res = await fetch('/customers-db.json?_=' + Date.now());
+    if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+    const db = await res.json();
+    const result = await this.importFromStaticDB();
+
+    return { removed, imported: result?.imported || 0, total: db.length };
+  },
 };
 
 // ===== Merge helpers =====
 function mergeByUpdatedAt(local, remote) {
   const byId = new Map();
-  // Load local first
   for (const c of local) { if (c.id) byId.set(c.id, c); }
-  // Merge remote — skip remote items older than local, and honor deleted flag
   for (const c of remote) {
     if (!c.id) continue;
     if (c.deleted) {
-      // Remote says deleted — always accept (propagate delete across devices)
       byId.set(c.id, c);
       continue;
     }
     const old = byId.get(c.id);
     if (!old) {
-      byId.set(c.id, c);  // new from remote
+      byId.set(c.id, c);
     } else if (old.deleted) {
-      // Local is deleted but remote isn't — keep deleted if local is newer
       const oldTime = new Date(old.updatedAt || 0).getTime();
       const newTime = new Date(c.updatedAt || 0).getTime();
       byId.set(c.id, newTime >= oldTime ? c : old);
     } else {
-      // Normal merge by updatedAt
       const oldTime = new Date(old.updatedAt || old.createdAt || 0).getTime();
       const newTime = new Date(c.updatedAt || c.createdAt || 0).getTime();
       byId.set(c.id, newTime >= oldTime ? c : old);
