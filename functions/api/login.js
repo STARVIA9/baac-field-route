@@ -31,13 +31,31 @@ const DEFAULT_ADMIN = {
 
 /**
  * Idempotent seed — if KV has no `users:all`, write default admin.
+ * Also migrates existing admin user's password hash if it's using
+ * the old 100K-iteration format (which caused Worker CPU timeout).
  * Uses pre-computed hash so PBKDF2 runs ZERO times during login.
- * Safe to call on every login: checks existence first.
  */
 async function seedDefaultAdminIfMissing(kv) {
-  const existing = await kv.get('users:all');
-  if (existing) return; // Already seeded — never overwrite
-  // Use pre-computed hash directly — no PBKDF2 call needed
+  const raw = await kv.get('users:all');
+  if (raw) {
+    // Check if existing admin needs hash migration (old 100K → new 500)
+    const users = JSON.parse(raw);
+    let needsUpdate = false;
+    for (const u of users) {
+      if (u.username === 'admin' && u.password && u.password !== DEFAULT_ADMIN_HASH) {
+        // Old hash format detected — upgrade to pre-computed hash
+        u.password = DEFAULT_ADMIN_HASH;
+        u.updatedAt = new Date().toISOString();
+        needsUpdate = true;
+        console.log('[login] Migrated admin password hash to pre-computed 500-iter hash');
+      }
+    }
+    if (needsUpdate) {
+      await kv.put('users:all', JSON.stringify(users));
+    }
+    return; // Already seeded
+  }
+  // KV empty — seed with pre-computed hash
   const user = {
     id: 'admin',
     username: DEFAULT_ADMIN.username,
