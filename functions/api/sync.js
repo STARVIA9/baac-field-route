@@ -107,7 +107,8 @@ export async function onRequestPost(context) {
   return json({
     success: true,
     serverTime,
-    customers: mergedCustomers,
+    // Intentionally NOT returning customers array (see GET handler for reasoning)
+    customers: [],
     visits: mergedVisits,
     savedRoutes: mergedRoutes,
     counts: {
@@ -137,11 +138,16 @@ export async function onRequestGet(context) {
   return json({
     success: true,
     serverTime: lastWrite || new Date().toISOString(),
-    customers,
+    // ⚠️ Intentionally NOT returning full customers array (3,852 records ≈ 4MB JSON)
+    //     — caused "Worker exceeded resource limits" (503) on every GET.
+    //     Sync endpoint previously JSON.stringify'd all customers every 3 seconds.
+    //     Customers are loaded locally from customers-db.json + localStorage.
+    //     Only visits + savedRoutes are synced for cross-device continuity.
+    customers: [],
     visits,
     savedRoutes,
     counts: {
-      customers: customers.filter(c => !c.deleted).length,
+      customers: customers.length,
       visits: Object.keys(visits).length,
       savedRoutes: savedRoutes.length,
     },

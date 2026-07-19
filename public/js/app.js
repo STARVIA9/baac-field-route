@@ -110,9 +110,9 @@ const App = {
       Utils.toast('⚠️ Sync ไม่สำเร็จ — ใช้ข้อมูล local', 'warn');
     }
 
-    // Start real-time polling
+    // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
     this._wireSyncEvents();
-    Storage.startPolling(3000);
+    Storage.startPolling(15000);
   },
 
   // Listen for sync events to update UI badge

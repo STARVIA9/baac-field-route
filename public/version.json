@@ -1,5 +1,5 @@
 {
-  "version": "20260719.000008",
+  "version": "20260719.000009",
   "lastUpdate": "2026-07-19",
-  "changelog": "FIX LOGIN CRASH: PBKDF2 500 iters (was 100K) + pre-computed hashes admin/PIN — no more Worker CPU limit exceeded on fresh deploy"
+  "changelog": "FIX SYNC 503: sync endpoint no longer returns full customers array (avoids Worker CPU limit on JSON.stringify of 3,852 records). Polling reduced 3s→15s."
 }
