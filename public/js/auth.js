@@ -43,16 +43,15 @@ const Auth = {
 
   // ===== Login with username/password (primary) =====
   async login(username, password) {
-    // Try primary endpoint first
+    // Try primary endpoint
     let data;
     try {
       data = await API.post('/api/login', { username, password });
     } catch (err) {
       console.warn('Primary login failed:', err);
-      // Fallback 1: legacy /api/auth/login (still works even if /api/login is broken)
-      data = await this._tryLegacyAuth({ username, password });
-      if (data?.success) return this._finalizeLogin(data, '🌟');
-      Utils.toast('เซิร์ฟเวอร์ขัดข้อง — กรุณาลองใหม่หรือใช้ PIN');
+      // Legacy /api/auth/login รับแค่ PIN ไม่รับ username/password — เลยไม่ fallback
+      // ให้แสดง error ชัดๆ ว่าลองใช้ PIN แทน
+      Utils.toast('ระบบเข้าสู่ระบบขัดข้อง — กรุณาใช้ PIN หรือลองใหม่อีกครั้ง');
       return false;
     }
     if (data?.success) return this._finalizeLogin(data, '🌟');

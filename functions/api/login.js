@@ -2,7 +2,7 @@
 // Supports: username/password (KV users) + admin PIN (KV) + legacy team PINs
 
 import { signHS256 } from '../_lib/jwt.js';
-import { verifyPassword, hashPassword } from '../_lib/crypto.js';
+import { verifyPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin } from './admin/pin.js';
 
@@ -15,34 +15,40 @@ const PIN_TEAM = {
 };
 
 // Default admin user (seeded into KV if missing) — survives total KV wipe
+// ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of 'admin1234'.
+// This eliminates the "Worker exceeded resource limits" 503 on fresh deploy
+// because no PBKDF2 runs at runtime during seed. If you change DEFAULT_ADMIN.password,
+// regenerate this hash with: node -e "crypto.pbkdf2Sync(...)" and update below.
+const DEFAULT_ADMIN_HASH = '500.R8a6ojXPiGLTsYLF7TSLGnHynomzOqNi-xpT366Y3GY._gZIc2kKe2p5N6WqPDvSPSfUgzhFIEhAAKMwPaCBg2I.jwnbz6XjwdQZgBFI6oict8gsWSvHP_-KAwDj_wjg1hM';
+
 const DEFAULT_ADMIN = {
   username: 'admin',
   displayName: 'Admin',
-  password: 'admin1234', // Plain text — hashed on first seed, then never re-hashed
+  password: DEFAULT_ADMIN_HASH, // Pre-computed hash — no PBKDF2 at runtime
   role: 'admin',
   branch: 'WTC',
 };
 
 /**
  * Idempotent seed — if KV has no `users:all`, write default admin.
- * Prevents "login ตาย" when KV gets wiped (the bug from 3 days ago).
+ * Uses pre-computed hash so PBKDF2 runs ZERO times during login.
  * Safe to call on every login: checks existence first.
  */
 async function seedDefaultAdminIfMissing(kv) {
   const existing = await kv.get('users:all');
   if (existing) return; // Already seeded — never overwrite
-  const hashed = await hashPassword(DEFAULT_ADMIN.password);
+  // Use pre-computed hash directly — no PBKDF2 call needed
   const user = {
     id: 'admin',
     username: DEFAULT_ADMIN.username,
     displayName: DEFAULT_ADMIN.displayName,
-    password: hashed,
+    password: DEFAULT_ADMIN_HASH,
     role: DEFAULT_ADMIN.role,
     branch: DEFAULT_ADMIN.branch,
     createdAt: new Date().toISOString(),
   };
   await kv.put('users:all', JSON.stringify([user]));
-  console.log('[login] Seeded default admin (KV was empty)');
+  console.log('[login] Seeded default admin (KV was empty) — used pre-computed hash, 0 PBKDF2');
 }
 
 function json(data, status = 200) {

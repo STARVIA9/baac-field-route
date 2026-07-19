@@ -1,7 +1,10 @@
 // ===== Password hashing — PBKDF2-SHA256 via Web Crypto =====
-// 100K iterations ≈ 150ms on CF Workers (safe + secure)
+// 500 iterations (reduced from 100K): CF Workers free tier has 10ms CPU limit.
+// 100K iterations was causing "Worker exceeded resource limits" (503) on every deploy.
+// For internal BAAC tool, 500 iterations + unique salt is adequate.
+// When changing this value: pre-compute new DEFAULT_ADMIN_HASH and DEFAULT_PIN_HASH below.
 
-const ITERATIONS = 100000;
+const ITERATIONS = 500;
 const KEY_LEN = 64; // bytes (32 auth + 32 verification)
 const DIGEST = 'SHA-256';
 

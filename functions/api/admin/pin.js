@@ -7,6 +7,11 @@ import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
 const KV_KEY = 'admin:pin';
 const DEFAULT_PIN = '7531'; // Default admin PIN (more secure than 0000)
 
+// ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of '7531'.
+// Same reasoning as login.js: avoid PBKDF2 at runtime on fresh deploy.
+// Regenerate if you change DEFAULT_PIN.
+const DEFAULT_PIN_HASH = '500.qAdEUmySHWOuc7EOoX5m36HeAY80ApKb_9es2NerJHU.dF5b5JthfU2yDfX0zbG1q54AxGqx1ATzO2Y7alvmeQ8.dIuNUmrVfk4lwPcwrn_kiLyzAOc19xTZLZH6M5pGWKg';
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -29,10 +34,9 @@ async function authCheck(request, env) {
 async function getAdminPinHash(kv) {
   const raw = await kv.get(KV_KEY);
   if (raw) return raw;
-  // Seed default PIN
-  const hash = await hashPassword(DEFAULT_PIN);
-  await kv.put(KV_KEY, hash);
-  return hash;
+  // Seed default PIN using pre-computed hash — no PBKDF2 at runtime
+  await kv.put(KV_KEY, DEFAULT_PIN_HASH);
+  return DEFAULT_PIN_HASH;
 }
 
 /**
