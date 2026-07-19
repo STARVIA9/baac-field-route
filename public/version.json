@@ -1,5 +1,5 @@
 {
-  "version": "20260714.000006",
-  "lastUpdate": "2026-07-14",
-  "changelog": "Strip GPS coords from customers-db.json — keep customer data only"
+  "version": "20260719.000007",
+  "lastUpdate": "2026-07-19",
+  "changelog": "Option A: import 178 unique-coord GPS records (in-bounds, no centroid stack) — from wang-takhian-2026-06-25 + backup"
 }
