@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a8f3c">
+  <title>BAAC Field Route · วางแผนเส้นทางอัจฉริยะ</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/app.css?v=20260719">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="landing-page">
+
+    <!-- Hero -->
+    <section class="lp-hero">
+      <div class="lp-hero-inner">
+        <div class="lp-badge">ธ.ก.ส. สาขาวังท่าช้าง</div>
+        <h1 class="lp-title fade-up">BAAC<br>Field Route</h1>
+        <p class="lp-subtitle fade-up">วางแผนเส้นทางอัจฉริยะ<br>สำหรับพนักงานสินเชื่อ</p>
+        <button class="lp-cta fade-up" onclick="document.getElementById('login-screen').classList.add('login-mode')">เข้าสู่ระบบ</button>
+      </div>
+      <div class="lp-hero-scroll">
+        <span class="lp-scroll-hint fade-up">เลื่อนลงเพื่อดูฟีเจอร์</span>
+        <div class="lp-scroll-arrow">↓</div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="lp-features">
+      <div class="lp-features-inner">
+        <h2 class="lp-section-title fade-up">ทำอะไรได้บ้าง</h2>
+        <div class="lp-feature-grid">
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🗺️</div>
+            <h3>แผนที่อัจฉริยะ</h3>
+            <p>ดูตำแหน่งลูกค้าทั้งหมดบนแผนที่แบบ real-time เลือกลูกค้าที่ต้องการเยี่ยมวันนี้</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🛣️</div>
+            <h3>เส้นทางอัตโนมัติ</h3>
+            <p>คำนวณเส้นทางที่สั้นที่สุดด้วย OSRM จัดลำดับให้เสร็จ ประหยัดเวลาและน้ำมัน</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">📍</div>
+            <h3>ค้นหาลูกค้า</h3>
+            <p>พิมพ์ CIF ชื่อ หรือเบอร์โทร ค้นหาได้ทันที ไม่ต้องเลื่อนหาให้เสียเวลา</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">📊</div>
+            <h3>สรุปรายงาน</h3>
+            <p>ดูจำนวนลูกค้า ระยะทาง เวลาที่ใช้ สรุปครบจบในหน้าเดียว</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🚗</div>
+            <h3>คำนวณน้ำมัน</h3>
+            <p>เลือกประเภทรถ กระบะ รถเก๋ง หรือมอเตอร์ไซค์ ระบบคำนวณให้อัตโนมัติ</p>
+          </div>
+
+          <div class="lp-feature fade-up">
+            <div class="lp-feature-icon">🔄</div>
+            <h3>ซิงค์อัตโนมัติ</h3>
+            <p>ข้อมูลบันทึกและซิงค์ระหว่างอุปกรณ์แบบ real-time ไม่ต้องกลัวข้อมูลหาย</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="lp-cta-section fade-up">
+      <h2>พร้อมเริ่มต้นใช้งาน?</h2>
+      <p>เข้าสู่ระบบด้วย PIN หรือชื่อผู้ใช้ของคุณ</p>
+      <button class="lp-cta lp-cta-bottom" onclick="document.getElementById('login-screen').classList.add('login-mode')">เข้าสู่ระบบเดี๋ยวนี้</button>
+    </section>
+
+    <!-- Login Overlay (hidden by default) -->
+    <div class="lp-login-overlay">
+      <div class="lp-login-card">
+        <button class="lp-login-close" onclick="document.getElementById('login-screen').classList.remove('login-mode')">✕</button>
+        <div class="login-logo">🗺️</div>
+        <h1>BAAC Field Route</h1>
+        <p class="login-sub">เข้าสู่ระบบ</p>
+
+        <form id="login-form" autocomplete="off">
+          <label for="login-username">ชื่อผู้ใช้</label>
+          <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
+          <label for="login-password">รหัสผ่าน</label>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+          <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
+          <p class="login-error" id="login-error"></p>
+        </form>
+
+        <div class="login-divider"><span>หรือ</span></div>
+        <button class="btn-link" id="toggle-pin-login">เข้าสู่ระบบด้วย PIN</button>
+        <form id="pin-form" class="hidden" autocomplete="off">
+          <label for="pin-input">กรอก PIN 4 หลัก</label>
+          <input type="password" id="pin-input" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required>
+          <button type="submit" class="btn-primary" id="pin-btn">เข้าสู่ระบบ (PIN)</button>
+          <p class="login-error" id="pin-error"></p>
+        </form>
+
+        <p class="lp-login-footer">สำหรับพนักงานสินเชื่อ ธ.ก.ส. สาขาวังท่าช้าง</p>
+      </div>
+    </div>
+
+  </div>
+
+<!-- Main App -->
+  <div id="app" class="app hidden">
+    <!-- Overlay Header (always floats over map) -->
+    <header class="app-header app-header-overlay">
+      <div class="app-logo">
+        <span class="logo-icon">🗺️</span>
+        <span class="logo-text">BAAC Field Route</span>
+      </div>
+      <div class="app-header-center" id="header-status">
+        <span id="route-progress"></span>
+      </div>
+      <div class="app-user">
+        <span id="user-name">กำลังโหลด...</span>
+        <button class="btn-icon" id="change-password-btn" title="เปลี่ยนรหัสผ่าน">🔑</button>
+        <button class="btn-icon admin-only" id="admin-users-btn" title="จัดการระบบ" aria-label="Users" style="display:none">👥</button>
+        <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help">❓</button>
+        <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
+        <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
+        <button class="btn-icon" id="update-db-btn" title="อัพเดทข้อมูลลูกค้าจากฐานข้อมูลกลาง" aria-label="Update DB" style="font-size:18px">⬇️</button>
+        <button class="btn-icon" id="logout-btn" title="ออกจากระบบ">⎋</button>
+      </div>
+    </header>
+
+    <!-- Full-screen map container (Leaflet) -->
+    <div id="map"></div>
+
+    <!-- Floating action buttons over map -->
+    <div class="map-fab">
+      <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
+      <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน">📍</button>
+    </div>
+
+    <!-- ===== Bottom Sheet ===== -->
+    <div class="bottom-sheet" id="bottom-sheet">
+      <div class="sheet-handle" id="sheet-handle">
+        <div class="sheet-handle-bar"></div>
+      </div>
+
+      <!-- Sheet section tabs (fixed, don't scroll) -->
+      <div class="sheet-tabs">
+        <button class="sheet-tab active" data-sheet="route">🧭 เส้นทาง</button>
+        <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
+        <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
+        <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
+      </div>
+
+      <div class="sheet-scroll">
+
+        <!-- Route pane ("วันนี้" — shows queued customers) -->
+        <div class="sheet-content active" id="sheet-route">
+          <div class="today-visits" id="today-visits">
+            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>
+          </div>
+        </div>
+
+        <!-- Customers pane (copied from old #tab-customers, keeps ID) -->
+        <div class="sheet-content" id="tab-customers">
+          <div class="customers-header">
+            <h2>👥 รายชื่อลูกค้า</h2>
+            <div class="customers-stats">
+              <span id="customer-count">0</span> คน
+            </div>
+          </div>
+          <div class="customers-search">
+            <input type="search" id="customer-search" placeholder="🔍 ค้นหาด้วยชื่อ, CIF, เบอร์โทร, ที่อยู่..." autocomplete="off">
+          </div>
+          <div class="customers-filters">
+            <button class="filter active" data-filter="all">ทั้งหมด</button>
+            <button class="filter" data-filter="today">วันนี้</button>
+            <button class="filter" data-filter="pending">รอเยี่ยม</button>
+            <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
+          </div>
+          <div class="customers-list" id="customers-list">
+            <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
+          </div>
+        </div>
+
+        <!-- Plan pane (copied from old #tab-route, keeps ID) -->
+        <div class="sheet-content" id="tab-route">
+          <div class="route-header">
+            <h2>🧭 วางแผนเส้นทาง</h2>
+            <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
+          </div>
+          <div class="route-search-box">
+            <input type="search" id="route-search" placeholder="🔍 พิมพ์ CIF / ชื่อ / เบอร์ / ที่อยู่ เพื่อเพิ่มในเส้นทาง..." autocomplete="off">
+            <div class="route-search-results" id="route-search-results"></div>
+          </div>
+          <div class="route-selected">
+            <div class="route-selected-header">
+              <h3>เลือกแล้ว (<span id="route-count">0</span>/10)</h3>
+              <button class="btn-link" id="btn-clear-route">ล้าง</button>
+            </div>
+            <div class="route-chips" id="route-chips">
+              <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
+            </div>
+          </div>
+          <div class="route-start">
+            <label>📍 จุดเริ่มต้น</label>
+            <select id="route-start-mode">
+              <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+              <option value="office">🏢 สำนักงาน (ธ.ก.ส. วังท่าช้าง)</option>
+              <option value="custom">✏️ กรอกเอง</option>
+            </select>
+            <div class="custom-start hidden" id="custom-start">
+              <input type="text" id="start-lat" placeholder="Latitude" inputmode="decimal">
+              <input type="text" id="start-lng" placeholder="Longitude" inputmode="decimal">
+            </div>
+          </div>
+          <div class="route-end">
+            <label>🏁 จุดสิ้นสุด <span class="hint">(เลือกเพื่อประหยัดน้ำมัน)</span></label>
+            <select id="route-end-mode">
+              <option value="none">🔄 ไป-กลับ (กลับจุดเริ่มต้น)</option>
+              <option value="current">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+              <option value="office">🏢 กลับสำนักงาน</option>
+              <option value="customer">👤 ลูกค้า (เลือกจากรายการ)</option>
+            </select>
+            <select id="route-end-customer" class="hidden">
+              <option value="">-- เลือกลูกค้า --</option>
+            </select>
+          </div>
+          <div class="route-vehicle">
+            <label>🚗 ยานพาหนะ <span class="hint">(ใช้คำนวณน้ำมัน)</span></label>
+            <select id="route-vehicle">
+              <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
+              <option value="car">🚗 รถเก๋ง (12 กม./ลิตร)</option>
+              <option value="motorcycle">🏍️ มอเตอร์ไซค์ (35 กม./ลิตร)</option>
+            </select>
+          </div>
+<div class="road-classification">            <label>🛣️ จำแนกถนน <span class="hint">(ใช้คำนวณความเร็ว)</span></label>            <select id="road-classification">              <option value="auto">🚗 อัตโนมัติ (จาก OpenStreetMap)</option>              <option value="highway">🛣️ ถนนหลัก (Highway)</option>              <option value="road">🛤️ ถนนรอง (Road)</option>              <option value="village">🏘️ ถนนใน (Village Road)</option>              <option value="dirt">🚜 ถนนลูกรัง (Dirt Road)</option>            </select>          </div>
+          <div class="route-actions-row">
+            <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
+              🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
+            </button>
+            <button class="btn-secondary" id="btn-optimize-route" disabled title="เรียงลำดับอัตโนมัติด้วย TSP — เร็วที่สุด">
+              🎯 เรียงอัตโนมัติ (TSP)
+            </button>
+          </div>
+          <div class="route-result hidden" id="route-result">
+            <div class="result-card">
+              <h3>📊 สรุปเส้นทาง <span class="result-route-type" id="result-route-type"></span></h3>
+              <div class="result-stats">
+                <div class="stat">
+                  <span class="stat-value" id="result-distance">0</span>
+                  <span class="stat-label">กิโลเมตร</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value" id="result-duration">0</span>
+                  <span class="stat-label">นาที</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value" id="result-stops">0</span>
+                  <span class="stat-label">จุดแวะ</span>
+                </div>
+              </div>
+              <div class="result-fuel" id="result-fuel"></div>
+<div class="result-vehicle-info" id="result-vehicle-info"></div>
+            </div>
+            <ol class="route-order" id="route-order"></ol>
+            <div class="route-actions">
+              <button class="btn-primary btn-large" id="btn-open-gmaps">
+                📤 เปิด Google Maps นำทาง
+              </button>
+              <button class="btn-secondary" id="btn-save-route">
+                💾 บันทึกเส้นทางนี้
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Visit pane (copied from old #tab-visit, keeps ID) -->
+        <div class="sheet-content" id="tab-visit">
+          <div class="visit-header">
+            <h2>📋 บันทึกการเข้าพบ</h2>
+            <p class="visit-desc">บันทึกผลการเยี่ยมลูกค้าวันนี้</p>
+          </div>
+          <div class="visit-stats">
+            <div class="visit-stat visit-stat-pending">
+              <span class="visit-stat-num" id="visit-pending">0</span>
+              <span class="visit-stat-label">รอเยี่ยม</span>
+            </div>
+            <div class="visit-stat visit-stat-visited">
+              <span class="visit-stat-num" id="visit-completed">0</span>
+              <span class="visit-stat-label">เยี่ยมแล้ว</span>
+            </div>
+            <div class="visit-stat visit-stat-skipped">
+              <span class="visit-stat-num" id="visit-skipped">0</span>
+              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
+            </div>
+          </div>
+          <div class="visit-list" id="visit-list">
+            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+          </div>
+        </div>
+      </div><!-- /sheet-scroll -->
+    </div><!-- /bottom-sheet -->
+
+  </div><!-- /app -->
+
+  <!-- Add Customer Modal -->
+  <div class="modal hidden" id="add-customer-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>➕ เพิ่มลูกค้าใหม่</h3>
+        <button class="btn-close" id="close-add-modal">×</button>
+      </div>
+      <form id="add-customer-form">
+        <!-- DB Search: auto-fill from imported customer data -->
+        <div class="db-search-container">
+          <label>🔍 ค้นหาจากฐานข้อมูลลูกค้า (CIF / ชื่อ / เลขบัตร)</label>
+          <div class="db-search-row">
+            <input type="text" id="db-search-input" placeholder="พิมพ์ CIF หรือ ชื่อ-สกุล..." autocomplete="off">
+          </div>
+          <div class="db-search-results" id="db-search-results"></div>
+          <div class="db-filled-info" id="db-filled-info"></div>
+        </div>
+        <div class="form-row">
+          <label>รหัสลูกค้า (CIF) *</label>
+          <input type="text" name="cif" required pattern="[0-9]{6,20}" placeholder="เช่น 1234567890123" inputmode="numeric">
+        </div>
+        <div class="form-row">
+          <label>เบอร์โทรศัพท์</label>
+          <input type="tel" name="phone" placeholder="0812345678">
+        </div>
+        <div class="form-row">
+          <label>ที่อยู่</label>
+          <textarea name="address" rows="2" placeholder="เลขที่ หมู่ ตำบล อำเภอ จังหวัด"></textarea>
+        </div>
+        <div class="form-row">
+          <label>📍 ตำแหน่งบนแผนที่ * <span class="label-hint">(จิ้ม/คลิกที่แผนที่ด้านล่าง)</span></label>
+          <div class="mini-map-container">
+            <div id="mini-map"></div>
+            <div class="mini-map-hint">👆 จิ้มที่แผนที่เพื่อเลือกตำแหน่ง</div>
+          </div>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label>Latitude</label>
+            <input type="text" name="lat" id="new-lat" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+          </div>
+          <div>
+            <label>Longitude</label>
+            <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+          </div>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label>ชื่อ-นามสกุล *</label>
+            <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
+          </div>
+          <div>
+            <label>ชื่อเล่น <span class="label-hint">(ไม่บังคับ)</span></label>
+            <input type="text" name="nickname" placeholder="เช่น ชาย, เจ, ตั้ม">
+          </div>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label>🎯 ระดับความเสี่ยง (หนี้)</label>
+            <select name="riskLevel">
+              <option value="unclassified">❓ ยังไม่จัดระดับ</option>
+              <option value="good">🟢 ดี · ติดตามง่าย</option>
+              <option value="warning">🟡 เริ่มมีปัญหา · ยังติดต่อได้</option>
+              <option value="bad">🔴 มีปัญหามาก · ติดต่อยาก</option>
+            </select>
+          </div>
+          <div>
+            <label>💰 ประเภทหนี้</label>
+            <select name="debtType">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="current">📅 หนี้ถึงกำหนด (ยังไม่เกิน)</option>
+              <option value="overdue">⚠️ หนี้ค้าง (เลยกำหนด)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>📷 รูปถ่าย <span class="label-hint">(ไม่บังคับ · ใช้ช่วยจำลูกค้า)</span></label>
+          <div class="photo-upload">
+            <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+            <div class="photo-preview" id="photo-preview" onclick="document.getElementById('photo-input').click()">
+              <div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>
+            </div>
+            <div class="photo-actions">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('photo-input').click()">📷 ถ่ายรูป/เลือกไฟล์</button>
+              <button type="button" class="btn-secondary hidden" id="btn-remove-photo" onclick="App.removePhoto()">🗑️ ลบรูป</button>
+            </div>
+            <input type="hidden" name="photo" id="photo-data">
+            <small class="photo-size-hint">รูปจะถูกย่ออัตโนมัติ (สูงสุด 800px) เพื่อ sync เร็ว</small>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ GPS ปัจจุบัน</button>
+          <button type="button" class="btn-secondary" id="btn-pick-on-main-map">🗺️ ไปเลือกบนแผนที่หลัก</button>
+          <button type="submit" class="btn-primary">💾 บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Visit Log Modal -->
+  <div class="modal hidden" id="visit-log-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="visit-modal-title">📋 บันทึกการเข้าพบ</h3>
+        <button class="btn-close" id="close-visit-modal">×</button>
+      </div>
+      <form id="visit-log-form">
+        <div class="form-row">
+          <label>ผลการเข้าพบ *</label>
+          <select name="status" required>
+            <option value="visited">✅ เยี่ยมสำเร็จ - พบลูกค้า</option>
+            <option value="no_answer">❌ ไม่พบลูกค้า</option>
+            <option value="not_home">🚪 ไม่อยู่บ้าน</option>
+            <option value="reschedule">📅 นัดใหม่</option>
+            <option value="interested">💚 ลูกค้าสนใจ</option>
+            <option value="not_interested">🚫 ไม่สนใจ</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>หมายเหตุ</label>
+          <textarea name="note" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+        </div>
+        <div class="form-row">
+          <label>📍 พิกัด GPS <span class="label-hint">(กดปุ่มเพื่อบันทึก)</span></label>
+          <div class="gps-capture">
+            <button type="button" class="btn-secondary" id="btn-capture-gps">📍 บันทึกพิกัดปัจจุบัน</button>
+            <div class="gps-display" id="gps-display">
+              <span class="gps-empty">ยังไม่ได้บันทึก</span>
+            </div>
+          </div>
+          <input type="hidden" name="lat" id="visit-lat">
+          <input type="hidden" name="lng" id="visit-lng">
+          <input type="hidden" name="accuracy" id="visit-accuracy">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btn-cancel-visit">ยกเลิก</button>
+          <button type="submit" class="btn-primary">💾 บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Report Modal — Phase 7-9 -->
+  <div class="modal hidden" id="report-modal">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h3>📊 รายงานการติดตามหนี้</h3>
+        <button class="btn-close" id="close-report-modal">×</button>
+      </div>
+      <div class="report-controls">
+        <div class="form-row form-row-3">
+          <div>
+            <label>📅 ช่วงวันที่</label>
+            <select id="report-range">
+              <option value="today">วันนี้</option>
+              <option value="week" selected>สัปดาห์นี้</option>
+              <option value="month">เดือนนี้</option>
+              <option value="custom">กำหนดเอง</option>
+            </select>
+          </div>
+          <div>
+            <label>🚗 ยานพาหนะ</label>
+            <select id="report-vehicle">
+              <option value="pickup">🛻 กระบะ (10 กม./ลิตร)</option>
+              <option value="car">🚗 รถเก๋ง (12 กม./ลิตร)</option>
+              <option value="motorcycle">🏍️ มอเตอร์ไซด์ (35 กม./ลิตร)</option>
+            </select>
+          </div>
+          <div class="report-range-label-wrap">
+            <label>&nbsp;</label>
+            <span id="report-range-label" class="report-range-label">-</span>
+          </div>
+        </div>
+        <div class="form-row form-row-2 hidden" id="custom-range">
+          <div>
+            <label>ตั้งแต่</label>
+            <input type="date" id="report-from">
+          </div>
+          <div>
+            <label>ถึง</label>
+            <input type="date" id="report-to">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="btn-generate-report">📊 สร้างรายงาน</button>
+        </div>
+        <div class="report-allowance-note">
+          💡 <strong>เกณฑ์เบี้ยเลี้ยง:</strong> 160฿/วัน เมื่อติดตามหนี้ถึงกำหนด ≥ 10 ราย หรือ หนี้ค้าง ≥ 5 ราย
+        </div>
+      </div>
+      <div class="report-preview" id="report-preview">
+        <p class="empty-state">กด "สร้างรายงาน" เพื่อดูข้อมูล</p>
+      </div>
+      <div class="export-buttons hidden" id="export-buttons">
+        <button type="button" class="btn-secondary" id="btn-export-html">📄 HTML (พิมพ์)</button>
+        <button type="button" class="btn-secondary" id="btn-export-csv">📊 CSV (Excel)</button>
+        <button type="button" class="btn-secondary" id="btn-export-share">📱 Share / Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal — แสดงก่อนลบลูกค้า -->
+  <div class="modal hidden" id="confirm-delete-modal">
+    <div class="modal-card modal-card-narrow">
+      <div class="modal-header modal-header-danger">
+        <h3>🗑️ ยืนยันการลบลูกค้า</h3>
+        <button class="btn-close" id="close-confirm-del">×</button>
+      </div>
+      <div class="modal-body confirm-del-body">
+        <div class="confirm-del-photo" id="confirm-del-photo"></div>
+        <p class="confirm-del-question">คุณต้องการลบลูกค้า</p>
+        <h4 class="confirm-del-name" id="confirm-del-name"></h4>
+        <p class="confirm-del-details" id="confirm-del-details"></p>
+        <div class="confirm-del-warning">
+          ⚠️ <b>การลบจะลบข้อมูลทั้งหมด</b> รวมถึง visit records, GPS coordinates, รูปถ่าย และ visit history
+          <br>❌ ไม่สามารถกู้คืนได้
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-confirm-del-no">ยกเลิก</button>
+        <button class="btn-danger" id="btn-confirm-del-yes">🗑️ ลบเลย</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal — คำอธิบายการใช้งาน -->
+  <div class="modal hidden" id="help-modal">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h3>❓ วิธีใช้งาน BAAC Field Route</h3>
+        <button class="btn-close" id="close-help-modal">×</button>
+      </div>
+      <div class="modal-body help-content">
+
+        <section class="help-intro">
+          <h4>🎯 เว็บนี้คืออะไร?</h4>
+          <p>เครื่องมือช่วย <b>วางแผนเยี่ยมลูกค้าติดตามหนี้</b> + <b>คำนวณเบี้ยเลี้ยง 160฿/วัน</b> อัตโนมัติ + <b>ออกรายงานส่งหัวหน้า</b></p>
+        </section>
+
+        <section class="help-quickstart">
+          <h4>⚡ Quick Start — 5 ขั้นตอนหลัก</h4>
+          <ol class="help-steps">
+            <li>
+              <b>เพิ่มลูกค้า</b> แท็บ 👥 ลูกค้า → กด ➕ → กรอกชื่อ + ที่อยู่ + <b>จิ้มแผนที่</b>เพื่อเลือกตำแหน่ง → บันทึก
+              <small>💡 ตั้งระดับความเสี่ยง (เขียว/เหลือง/แดง) + ประเภทหนี้ (ถึงกำหนด/ค้าง) + ชื่อเล่น + รูปถ่าย ด้วย</small>
+              <small>🗑️ <b>ลบลูกค้า</b>: กดปุ่ม 🗑️ ที่รายการ → ยืนยัน → ลบถาวร</small>
+            </li>
+            <li>
+              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → ค้นหาลูกค้าด้วย CIF/ชื่อ → กด ➕ เพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → กด <b>🧮 คำนวณเส้นทาง</b> (ใช้ลำดับที่เรียง) หรือ <b>🎯 เรียงอัตโนมัติ (TSP)</b> → เลือกรถ → กด 💾 บันทึก
+              <small>💡 เพิ่มได้สูงสุด 10 รายต่อเส้นทาง</small>
+            </li>
+            <li>
+              <b>ออกเยี่ยม</b> แท็บ 📋 เข้าพบ → กดที่ลูกค้า → เลือกผล → กด <b>📍 บันทึกพิกัด</b> → 💾 บันทึก
+            </li>
+            <li>
+              <b>Sync อัตโนมัติ</b> ข้อมูลจะซิงก์ขึ้น ☁️ Cloud ทุก 3 วินาที — หัวหน้าดูเรียลไทม์ได้
+            </li>
+            <li>
+              <b>สร้างรายงาน</b> กด 📊 (header) → เลือกช่วงวันที่ + รถ → Export HTML/CSV/Share → <b>ส่งหัวหน้า</b>
+            </li>
+          </ol>
+        </section>
+
+        <section class="help-markers">
+          <h4>🎨 สีหมุด = ระดับความเสี่ยง</h4>
+          <ul class="help-list">
+            <li><span class="marker-dot good"></span> <b>เขียว</b> = ลูกค้าดี ติดตามง่าย</li>
+            <li><span class="marker-dot warning"></span> <b>เหลือง</b> = เริ่มมีปัญหา ยังติดต่อได้</li>
+            <li><span class="marker-dot bad"></span> <b>แดง</b> = มีปัญหามาก ติดต่อยาก/ไม่ได้</li>
+            <li><span class="marker-dot unclassified"></span> <b>❓ ไม่มีสี</b> = ยังไม่ได้จัดระดับ (เข้าไปแก้ไขลูกค้า)</li>
+          </ul>
+        </section>
+
+        <section class="help-status">
+          <h4>📋 สถานะการเข้าพบ (เลือกตอนบันทึก)</h4>
+          <div class="status-table">
+            <div class="status-row"><b>✅ visited</b><span>เยี่ยมสำเร็จ · พบลูกค้า</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>💚 interested</b><span>ลูกค้าสนใจ</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>❌ no_answer</b><span>ไม่พบลูกค้า</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>🚪 not_home</b><span>ไม่อยู่บ้าน</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>📅 reschedule</b><span>นัดใหม่</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>🚫 not_interested</b><span>ไม่สนใจ</span><b class="counts">ไม่นับ</b></div>
+          </div>
+          <small>💡 ต้องเลือก <b>visited</b> หรือ <b>interested</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
+        </section>
+
+        <section class="help-allowance">
+          <h4>💰 เบี้ยเลี้ยง 160฿/วัน — นับยังไง?</h4>
+          <div class="allowance-box">
+            <p>ใน 1 วัน เจ้าหน้าที่ต้องเยี่ยมลูกค้า:</p>
+            <ul>
+              <li>✅ <b>≥ 10 ราย</b> หนี้ถึงกำหนด → ได้ <b>160฿</b></li>
+              <li>✅ <b>≥ 5 ราย</b> หนี้ค้าง → ได้ <b>160฿</b></li>
+            </ul>
+            <p><small>(ถึงเกณฑ์ใดเกณฑ์หนึ่งก็ได้ ไม่บวกกัน)</small></p>
+            <p><b>📌 ตัวอย่าง:</b></p>
+            <ul>
+              <li>จันทร์: เยี่ยม upcoming 12 + overdue 3 → ได้ 160฿ (ถึงเกณฑ์แรก)</li>
+              <li>อังคาร: เยี่ยม upcoming 7 + overdue 6 → ได้ 160฿ (ถึงเกณฑ์สอง)</li>
+              <li>พุธ: เยี่ยม upcoming 5 + overdue 2 → ได้ 0฿ (ไม่ถึง)</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="help-vehicle">
+          <h4>🚗 รถ + น้ำมัน</h4>
+          <ul class="help-list">
+            <li>🏍️ <b>มอเตอร์ไซด์</b> — 35 กม./ลิตร · แก๊สโซฮอล์ 95</li>
+            <li>🚗 <b>รถเก๋ง</b> — 12 กม./ลิตร · แก๊สโซฮอล์ 95</li>
+            <li>🛻 <b>รถกระบะ</b> — 10 กม./ลิตร · <b>ดีเซล</b></li>
+          </ul>
+          <small>💡 เลือกตอนสร้างรายงาน — ระบบคำนวณค่าน้ำมันอัตโนมัติ</small>
+        </section>
+
+        <section class="help-report">
+          <h4>📊 รายงาน — 3 ทางเลือกส่งหัวหน้า</h4>
+          <ul class="help-list">
+            <li>🖨️ <b>HTML</b> — เปิดพิมพ์ → Save PDF → ส่ง LINE/Email</li>
+            <li>📊 <b>CSV</b> — เปิด Excel → แก้ไขได้ → ส่ง Email</li>
+            <li>📱 <b>Share</b> — Copy text → Paste ใน Messenger/LINE</li>
+          </ul>
+          <small>💡 รายงานแสดงพิกัด GPS (กดลิงก์เปิด Google Maps ตรวจสอบได้) + ชื่อผู้บันทึก + เวลา</small>
+        </section>
+
+        <section class="help-tips">
+          <h4>💡 Tips ใช้งานจริง</h4>
+          <ul class="help-tips-list">
+            <li>📌 <b>ก่อนออก</b>: วางแผนเส้นทาง + เช็คลูกค้า debtType ที่ต้องเยี่ยม</li>
+            <li>📍 <b>หน้างาน</b>: กดบันทึก GPS ทุกครั้ง (ยืนยันว่าไปถึง)</li>
+            <li>🌐 <b>Offline ได้</b>: แอพทำงานแม้ไม่มีเน็ต — sync อัตโนมัติเมื่อกลับมา</li>
+            <li>👥 <b>ทำงานเป็นทีม</b>: ข้อมูลซิงก์ทุกเครื่อง — หัวหน้าดู realtime ได้</li>
+            <li>📷 <b>ถ่ายรูป</b>: เก็บรูปลูกค้าไว้ช่วยจำ — ย่ออัตโนมัติไม่เปลืองเน็ต</li>
+          </ul>
+        </section>
+
+        <div class="help-footer">
+          <button class="btn-primary" id="btn-close-help">เข้าใจแล้ว ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin: User Management Modal -->
+  <div id="admin-users-modal" class="modal hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <h2>⚙️ จัดการระบบ</h2>
+        <button class="btn-icon modal-close" id="close-admin-users">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Admin tabs -->
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-tab="users">👥 ผู้ใช้</button>
+          <button class="admin-tab" data-admin-tab="branches">🏢 สาขา</button>
+          <button class="admin-tab" data-admin-tab="pin">🔐 PIN</button>
+        </div>
+
+        <!-- Tab: Users -->
+        <div class="admin-tab-pane active" id="admin-tab-users">
+          <div id="admin-users-list" class="admin-users-list">
+            <p class="text-muted">กำลังโหลด...</p>
+          </div>
+          <div class="admin-add-user">
+            <h3>➕ เพิ่มผู้ใช้ใหม่</h3>
+            <form id="admin-add-user-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-username">Username</label>
+                  <input type="text" id="new-username" placeholder="เช่น somchai" required minlength="3">
+                </div>
+                <div class="form-group">
+                  <label for="new-password">Password</label>
+                  <input type="password" id="new-password" placeholder="รหัสผ่าน" required minlength="4">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-display-name">ชื่อที่แสดง</label>
+                  <input type="text" id="new-display-name" placeholder="เช่น สมชาย ใจดี" required>
+                </div>
+                <div class="form-group">
+                  <label for="new-branch">สาขา</label>
+                  <select id="new-branch" required>
+                    <option value="">— เลือกสาขา —</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
+              <p class="login-error" id="admin-user-error"></p>
+            </form>
+          </div>
+
+          <!-- Bulk import from static customer DB -->
+          <div class="admin-import-section" style="margin-top:24px;padding:16px;background:#f0f9f4;border-radius:8px;border:1px solid #b6e2c5">
+            <h3>📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px;font-size:13px">
+              ใช้เมื่อ <strong>แผนที่ว่างเปล่า</strong> แต่ไฟล์ <code>customers-db.json</code> มีข้อมูล 3,853 รายการพร้อมพิกัด
+              (ระบบจะข้ามรายการที่ CIF ซ้ำ — กดได้หลายครั้ง ไม่สร้างข้อมูลซ้ำ)
+            </p>
+            <button type="button" class="btn-primary" id="btn-import-static-db" style="background:#0a8f3c">
+              📥 นำเข้าลูกค้าจากฐานข้อมูลกลาง
+            </button>
+            <p class="login-error" id="import-static-error" style="display:none"></p>
+            <p style="display:none;color:#0a8f3c;font-size:13px;margin-top:8px" id="import-static-success"></p>
+          </div>
+        </div>
+
+        <!-- Tab: Branches -->
+        <div class="admin-tab-pane" id="admin-tab-branches">
+          <div id="admin-branches-list" class="admin-users-list">
+            <p class="text-muted">กำลังโหลด...</p>
+          </div>
+          <div class="admin-add-user">
+            <h3>➕ เพิ่มสาขาใหม่</h3>
+            <form id="admin-add-branch-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="new-branch-code">รหัสสาขา (Code)</label>
+                  <input type="text" id="new-branch-code" placeholder="เช่น XYZ" required minlength="2" maxlength="10" style="text-transform:uppercase">
+                </div>
+                <div class="form-group">
+                  <label for="new-branch-name">ชื่อสาขา</label>
+                  <input type="text" id="new-branch-name" placeholder="เช่น สาขาXYZ" required>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary">เพิ่มสาขา</button>
+              <p class="login-error" id="admin-branch-error"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab: PIN -->
+        <div class="admin-tab-pane" id="admin-tab-pin">
+          <div class="admin-pin-section">
+            <h3>🔐 เปลี่ยน PIN Admin</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px">PIN ใช้สำหรับ login แบบ fast (ไม่ต้องพิมพ์ username/password)</p>
+            <form id="admin-change-pin-form">
+              <div class="form-group" style="margin-bottom:10px">
+                <label for="current-pin">PIN ปัจจุบัน</label>
+                <input type="password" id="current-pin" inputmode="numeric" maxlength="8" placeholder="PIN ปัจจุบัน" required>
+              </div>
+              <div class="form-group" style="margin-bottom:10px">
+                <label for="new-pin">PIN ใหม่ (4-8 หลัก)</label>
+                <input type="password" id="new-pin" inputmode="numeric" maxlength="8" placeholder="PIN ใหม่" required minlength="4">
+              </div>
+              <div class="form-group" style="margin-bottom:14px">
+                <label for="confirm-pin">ยืนยัน PIN ใหม่</label>
+                <input type="password" id="confirm-pin" inputmode="numeric" maxlength="8" placeholder="พิมพ์ PIN ใหม่อีกครั้ง" required minlength="4">
+              </div>
+              <button type="submit" class="btn-primary">เปลี่ยน PIN</button>
+              <p class="login-error" id="admin-pin-error"></p>
+              <p class="text-muted" id="admin-pin-success" style="color:var(--baac-green);display:none"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal (for all users) -->
+  <div id="change-password-modal" class="modal hidden">
+    <div class="modal-card" style="max-width:400px">
+      <div class="modal-header">
+        <h2>🔑 เปลี่ยนรหัสผ่าน</h2>
+        <button class="btn-icon modal-close" id="close-change-password">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="change-password-form">
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-current">รหัสผ่านปัจจุบัน</label>
+            <input type="password" id="cp-current" placeholder="รหัสผ่านเดิม" required minlength="4">
+          </div>
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-new">รหัสผ่านใหม่</label>
+            <input type="password" id="cp-new" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
+          </div>
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="cp-confirm">ยืนยันรหัสผ่านใหม่</label>
+            <input type="password" id="cp-confirm" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
+          </div>
+          <button type="submit" class="btn-primary" id="btn-change-password">เปลี่ยนรหัสผ่าน</button>
+          <p class="login-error" id="cp-error"></p>
+          <p class="text-muted" id="cp-success" style="color:var(--baac-green);display:none"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/utils.js?v=20260719"></script>
+  <script src="js/auth.js?v=20260719"></script>
+  <script src="js/api.js?v=20260719"></script>
+  <script src="js/storage.js?v=20260719"></script>
+  <script src="js/fuel.js?v=20260719"></script>
+  <script src="js/customers.js?v=20260719"></script>
+  <script src="js/customer-db.js?v=20260719"></script>
+  <script src="js/tsp.js?v=20260719"></script>
+  <script src="js/route.js?v=20260719"></script>
+  <script src="js/visit.js?v=20260719"></script>
+  <script src="js/report.js?v=20260719"></script>
+  <script src="js/app.js?v=20260719"></script>
+
+  <script>
+    // Landing page scroll reveal
+    document.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+          if (entry.isIntersecting) {
+            // Stagger delay for grid items
+            const delay = entry.target.closest('.lp-feature-grid')
+              ? [...entry.target.parentElement.children].indexOf(entry.target) * 80
+              : 0;
+            setTimeout(() => entry.target.classList.add('visible'), delay);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+
+      document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+    });
+  </script>
+</body>
+</html>
