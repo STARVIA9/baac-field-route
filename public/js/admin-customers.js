@@ -10,17 +10,33 @@ const Admin = {
 
   // ===== Init =====
   async init() {
-    // Check existing session
-    if (Auth.isLoggedIn() && Auth.isAdmin()) {
-      this.showApp();
-    } else if (Auth.isLoggedIn() && !Auth.isAdmin()) {
-      Utils.toast('ต้องเป็น Admin เท่านั้น', 'error');
-      setTimeout(() => location.href = '/', 1500);
-      return;
-    } else {
-      this.showLogin();
+    // Check existing session — try API first to verify token isn't stale
+    if (Auth.isLoggedIn()) {
+      if (Auth.isAdmin()) {
+        // Try API; if 401, fall back to login
+        try {
+          const data = await API.get('/api/admin/customers-crud');
+          if (data.success) {
+            this.customers = data.customers || [];
+            this.showApp();
+            this.applyFilters();
+            this.updateTagFilter();
+            this.updateSyncBadge('ok');
+            this.startPolling();
+            this.bindEvents();
+            return;
+          }
+        } catch (e) {
+          // fall through to login
+        }
+        Auth.logout();
+      } else {
+        Utils.toast('ต้องเป็น Admin เท่านั้น', 'error');
+        setTimeout(() => location.href = '/', 1500);
+        return;
+      }
     }
-
+    this.showLogin();
     this.bindEvents();
   },
 
