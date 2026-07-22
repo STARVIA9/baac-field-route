@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>จัดการข้อมูลลูกค้า · BAAC Field Route</title>
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="stylesheet" href="css/admin.css?v=20260722">
+</head>
+<body>
+
+  <!-- Login -->
+  <div id="login-screen" class="admin-login">
+    <div class="admin-login-card">
+      <h1>🔧 จัดการข้อมูลลูกค้า</h1>
+      <p>เข้าสู่ระบบด้วยบัญชี Admin เท่านั้น</p>
+      <form id="login-form" autocomplete="off">
+        <label for="login-username">ชื่อผู้ใช้</label>
+        <input type="text" id="login-username" autocomplete="username" required>
+        <label for="login-password">รหัสผ่าน</label>
+        <input type="password" id="login-password" autocomplete="current-password" required>
+        <button type="submit">เข้าสู่ระบบ</button>
+        <div class="admin-login-error" id="login-error"></div>
+      </form>
+      <p style="margin-top:16px; font-size:12px; color:#94a3b8;">
+        <a href="/" style="color:#0a8f3c; text-decoration:none;">← กลับหน้าแผนที่</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- App shell -->
+  <div id="app" class="app-shell">
+
+    <!-- Header -->
+    <header class="app-header">
+      <h1>🔧 จัดการข้อมูลลูกค้า</h1>
+      <span id="sync-badge" class="badge">🟢 ซิงค์แล้ว</span>
+      <span class="spacer"></span>
+      <span id="user-name" style="font-size:13px; color:#475569;"></span>
+      <button id="btn-export">📤 Export</button>
+      <button id="btn-import">📥 Import</button>
+      <button id="btn-add" class="primary">➕ เพิ่มลูกค้า</button>
+      <button id="btn-back">← แผนที่</button>
+      <button id="btn-logout">ออก</button>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input type="search" id="search" class="search" placeholder="🔍 ค้นหา CIF / ชื่อ / เบอร์ / ที่อยู่..." autocomplete="off">
+      <select id="filter-gps">
+        <option value="all">ทั้งหมด</option>
+        <option value="yes">มี GPS</option>
+        <option value="no">ไม่มี GPS</option>
+      </select>
+      <select id="filter-risk">
+        <option value="all">ทุกความเสี่ยง</option>
+        <option value="good">🟢 ดี</option>
+        <option value="warning">🟡 เริ่มมีปัญหา</option>
+        <option value="bad">🔴 มีปัญหามาก</option>
+        <option value="unclassified">❓ ยังไม่จัด</option>
+      </select>
+      <select id="filter-tag">
+        <option value="all">ทุก Tag</option>
+      </select>
+      <span class="spacer"></span>
+      <button id="btn-recycle">🗑️ ถังขยะ</button>
+      <span id="count-display" style="font-size:13px; color:#64748b;"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="data-table" id="data-table">
+        <thead>
+          <tr>
+            <th style="width:32px;"><input type="checkbox" id="select-all"></th>
+            <th>CIF</th>
+            <th>ชื่อ-นามสกุล</th>
+            <th>เบอร์โทร</th>
+            <th>ตำบล/อำเภอ</th>
+            <th>GPS</th>
+            <th>ความเสี่ยง</th>
+            <th>Tags</th>
+            <th>อัพเดท</th>
+            <th style="width:120px;">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="data-tbody">
+          <tr><td colspan="10" class="empty-state">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <span id="page-info">หน้า 1 / 1</span>
+      <div>
+        <button id="prev-page">◀ ก่อนหน้า</button>
+        <button id="next-page">ถัดไป ▶</button>
+      </div>
+      <select id="page-size">
+        <option value="20">20 / หน้า</option>
+        <option value="50" selected>50 / หน้า</option>
+        <option value="100">100 / หน้า</option>
+      </select>
+    </div>
+
+  </div>
+
+  <!-- Edit/Add modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-title">➕ เพิ่มลูกค้าใหม่</h2>
+        <button class="modal-close" id="close-edit">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-form">
+          <input type="hidden" id="edit-id">
+          <div class="form-row">
+            <div class="form-group">
+              <label>CIF <span class="required">*</span></label>
+              <input type="text" id="edit-cif" required>
+            </div>
+            <div class="form-group">
+              <label>ชื่อ-นามสกุล <span class="required">*</span></label>
+              <input type="text" id="edit-name" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ชื่อเล่น</label>
+              <input type="text" id="edit-nickname">
+            </div>
+            <div class="form-group">
+              <label>เบอร์โทร</label>
+              <input type="tel" id="edit-phone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>ที่อยู่</label>
+            <textarea id="edit-address" rows="2"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Latitude</label>
+              <input type="text" id="edit-lat" inputmode="decimal" placeholder="เช่น 13.7563">
+            </div>
+            <div class="form-group">
+              <label>Longitude</label>
+              <input type="text" id="edit-lng" inputmode="decimal" placeholder="เช่น 100.5018">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>🎯 ความเสี่ยง</label>
+              <select id="edit-risk">
+                <option value="unclassified">❓ ยังไม่จัด</option>
+                <option value="good">🟢 ดี</option>
+                <option value="warning">🟡 เริ่มมีปัญหา</option>
+                <option value="bad">🔴 มีปัญหามาก</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>💰 ประเภทหนี้</label>
+              <select id="edit-debt">
+                <option value="">— ไม่ระบุ —</option>
+                <option value="current">📅 ถึงกำหนด</option>
+                <option value="overdue">⚠️ ค้างชำระ</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>🏷️ Tags <span style="font-weight:400; color:#94a3b8;">(คั่นด้วย , เช่น VIP, ติดตามค่างวด)</span></label>
+            <input type="text" id="edit-tags" placeholder="VIP, ติดตามค่างวด">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-edit">ยกเลิก</button>
+        <button class="primary" id="save-edit">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recycle bin modal -->
+  <div class="modal-overlay" id="recycle-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>🗑️ ถังขยะ (เก็บ 30 วัน)</h2>
+        <button class="modal-close" id="close-recycle">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:12px; color:#64748b; font-size:13px;">
+          ลูกค้าที่ถูกลบจะถูกเก็บไว้ที่นี่ 30 วัน แล้วจะถูกลบถาวรอัตโนมัติ
+        </p>
+        <div id="recycle-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/admin-customers.js?v=20260722"></script>
+</body>
+</html>
