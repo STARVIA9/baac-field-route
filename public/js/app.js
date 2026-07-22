@@ -54,6 +54,11 @@ const App = {
         btn.classList.add('has-update');
         btn.title = `เวอร์ชันใหม่พร้อมใช้งาน! (กดเพื่ออัพเดท)`;
       }
+      // Auto-notify with banner (auto-reload after 8 seconds)
+      if (!this._updateNotified && typeof Utils !== 'undefined') {
+        this._updateNotified = true;
+        this._showUpdateToast(serverVer);
+      }
       return true;
     }
     if (btn) {
@@ -61,6 +66,43 @@ const App = {
       btn.title = 'รีเฟรชข้อมูล + เคลียร์ cache';
     }
     return false;
+  },
+
+  _showUpdateToast(newVer) {
+    // Build a persistent toast banner at top of screen
+    const existing = document.getElementById('update-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+      background: #0a8f3c; color: #fff; text-align: center;
+      padding: 12px 16px; font-size: 15px; font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 10px;
+    `;
+    banner.innerHTML = `
+      <span>🔄 อัปเดตเวอร์ชัน ${newVer} — กดเพื่อโหลดใหม่ทันที</span>
+      <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-size:13px" id="update-countdown">⏳ 8 วิ</span>
+    `;
+    banner.addEventListener('click', () => {
+      if (typeof App !== 'undefined') App.applyUpdate();
+    });
+    document.body.prepend(banner);
+
+    // Countdown then auto-reload
+    let sec = 8;
+    const countEl = document.getElementById('update-countdown');
+    this._updateTimer = setInterval(() => {
+      sec--;
+      if (countEl) countEl.textContent = `⏳ ${sec} วิ`;
+      if (sec <= 0) {
+        clearInterval(this._updateTimer);
+        if (typeof App !== 'undefined') App.applyUpdate();
+      }
+    }, 1000);
   },
 
   startVersionWatcher() {
@@ -218,6 +260,11 @@ const App = {
     // Admin: User management button
     document.getElementById('admin-users-btn').addEventListener('click', () => {
       this.openAdminUsers();
+    });
+
+    // Admin: Data manager (go to /admin.html)
+    document.getElementById('admin-data-btn').addEventListener('click', () => {
+      window.location.href = '/admin.html';
     });
 
     // Change password button
@@ -1248,8 +1295,11 @@ const App = {
 
   // ===== Admin: Show/hide admin button based on role =====
   updateAdminUI() {
-    const btn = document.getElementById('admin-users-btn');
-    if (btn) btn.style.display = Auth.isAdmin() ? '' : 'none';
+    const isAdmin = Auth.isAdmin();
+    const userBtn = document.getElementById('admin-users-btn');
+    const dataBtn = document.getElementById('admin-data-btn');
+    if (userBtn) userBtn.style.display = isAdmin ? '' : 'none';
+    if (dataBtn) dataBtn.style.display = isAdmin ? '' : 'none';
   },
 
   // ===== Admin: Open management modal =====
@@ -1618,6 +1668,15 @@ const App = {
 
   // ===== Update available — prompt user =====
   async applyUpdate() {
+    // Cancel any pending update notification
+    if (this._updateTimer) {
+      clearInterval(this._updateTimer);
+      this._updateTimer = null;
+    }
+    const banner = document.getElementById('update-banner');
+    if (banner) banner.remove();
+    this._updateNotified = false;
+
     const newVer = await this.fetchServerVersion();
     if (newVer) {
       if (typeof Utils !== 'undefined' && Utils.toast) {
@@ -1758,3 +1817,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ===== Global error handler — show user-friendly message instead of silent failure =====
+(function() {
+  const originalHandler = window.onerror;
+  window.onerror = function(msg, source, line, col, error) {
+    // Log to console for debugging
+    console.error('[Global Error]', msg, 'at', source, line, col, error);
+    // Show user-friendly toast if Utils loaded
+    try {
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        // Check if it's a known non-critical error we can auto-recover from
+        const errStr = String(msg || error?.message || '');
+        const warnOnly = errStr.includes('ResizeObserver') ||
+                         errStr.includes('Cancelled') ||
+                         errStr.includes('AbortError');
+        if (!warnOnly) {
+          Utils.toast('⚠️ เกิดข้อผิดพลาดเล็กน้อย — กด 🔄 เพื่อรีเฟรชถ้าใช้งานไม่ได้', 'error');
+        }
+      }
+    } catch (_) {}
+    // Call original handler if exists
+    if (typeof originalHandler === 'function') {
+      return originalHandler.call(window, msg, source, line, col, error);
+    }
+    return true; // Prevent default browser error display
+  };
+
+  // Also catch unhandled promise rejections
+  window.addEventListener('unhandledrejection', function(e) {
+    console.error('[Unhandled Promise]', e.reason);
+    try {
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        const errStr = String(e.reason?.message || e.reason || '');
+        if (!errStr.includes('AbortError') && !errStr.includes('Cancelled')) {
+          Utils.toast('⚠️ เกิดข้อผิดพลาด — ถ้าใช้ไม่ได้ลองกด 🔄 รีเฟรช', 'error');
+        }
+      }
+    } catch (_) {}
+  });
+})();

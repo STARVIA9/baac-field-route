@@ -1,5 +1,5 @@
 {
-  "version": "20260719.000009",
+  "version": "20260719.000010",
   "lastUpdate": "2026-07-19",
-  "changelog": "FIX SYNC 503: sync endpoint no longer returns full customers array (avoids Worker CPU limit on JSON.stringify of 3,852 records). Polling reduced 3s→15s."
+  "changelog": "AUTO UPDATE: ปุ่มอัปเดตอัตโนมัติเมื่อมีเวอร์ชันใหม่ (แถบเขียว + นับถอยหลัง 8 วิ) + error handler แจ้งผู้ใช้ภาษาไทย"
 }

@@ -68,11 +68,12 @@ const API = {
     return await res.json();
   },
 
-  // DELETE request
-  async del(path) {
+  // DELETE request (optional body for actions that need it)
+  async del(path, body) {
     const res = await fetch(this.baseUrl() + path, {
       method: 'DELETE',
       headers: this.headers(),
+      body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
