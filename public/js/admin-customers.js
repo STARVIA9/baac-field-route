@@ -50,6 +50,7 @@ const Admin = {
 
     document.getElementById('btn-add').addEventListener('click', () => this.openAdd());
     document.getElementById('btn-import').addEventListener('click', () => this.openImport());
+    document.getElementById('btn-gps-import').addEventListener('click', () => this.openGpsImport());
     document.getElementById('btn-export').addEventListener('click', () => this.openExport());
     document.getElementById('btn-recycle').addEventListener('click', () => this.openRecycle());
     document.getElementById('btn-batch-delete').addEventListener('click', () => this.handleBatchDelete());
@@ -543,6 +544,106 @@ const Admin = {
       });
       return obj;
     });
+  },
+
+  // ===== GPS Import (bulk coords by CIF → KV gps:overlay) =====
+  openGpsImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = (e) => this.handleGpsFile(e.target.files[0]);
+    input.click();
+  },
+
+  async handleGpsFile(file) {
+    if (!file) return;
+    Utils.toast('⏳ กำลังอ่านไฟล์...');
+    try {
+      const name = file.name.toLowerCase();
+      let rows;
+      if (name.endsWith('.csv')) {
+        rows = this.parseCSV(await file.text());
+      } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        rows = await this.parseExcel(file);
+      } else {
+        return Utils.toast('รองรับเฉพาะ .csv, .xlsx, .xls', 'error');
+      }
+
+      const records = this.extractGpsRecords(rows);
+      if (records.length === 0) {
+        return Utils.toast('❌ ไม่พบข้อมูลพิกัดในไฟล์ — ต้องมีคอลัมน์ CIF + พิกัด (lat/lng หรือคอลัมน์ "พิกัด")', 'error');
+      }
+
+      const skipped = rows.length - records.length;
+      if (!confirm(`พบ ${records.length} รายการมีพิกัด${skipped ? ` (ข้าม ${skipped} ที่ไม่มีพิกัด/ค่าผิด)` : ''}\n\nระบบจะ match ตาม CIF:\n• ลูกค้าเดิม → อัพเดทพิกัด\n• CIF ใหม่ → สร้างลูกค้าใหม่\n• ลูกค้าที่ไม่อยู่ในไฟล์ → ไม่แตะต้อง\n\nยืนยัน?`)) return;
+
+      const result = await API.post('/api/admin/gps-import', { records });
+      if (result && result.success) {
+        Utils.toast(`✅ อัพพิกัดแล้ว: +${result.added} ใหม่, ↻${result.updated} อัพเดท, ⊘${result.skipped} ข้าม`, 'success');
+        this.loadAll();
+      } else {
+        Utils.toast((result && result.error) || 'อัพพิกัดไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      Utils.toast('อัพพิกัดไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  async parseExcel(file) {
+    if (!window.XLSX) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('โหลดไลบรารี Excel ไม่สำเร็จ (ต้องต่อเน็ต)'));
+        document.head.appendChild(s);
+      });
+    }
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { defval: '' });
+  },
+
+  // Pull cif/name/lat/lng out of parsed rows, tolerating many column-name variants.
+  extractGpsRecords(rows) {
+    const norm = (s) => String(s ?? '').trim().toLowerCase();
+    const records = [];
+    for (const row of rows) {
+      const m = {};
+      for (const [k, v] of Object.entries(row)) m[norm(k)] = v;
+      const pick = (...keys) => {
+        for (const k of keys) {
+          const v = m[k];
+          if (v !== undefined && v !== null && v !== '') return v;
+        }
+        return undefined;
+      };
+
+      const cif = String(pick('cif', 'cif no', 'รหัส', 'เลขที่', 'เลขที่บัญชี') ?? '').trim();
+      const name = String(pick('name', 'ชื่อ', 'ชื่อ-นามสกุล', 'ชื่อสกุล', 'ชื่อลูกค้า') ?? '').trim();
+
+      let lat = null, lng = null;
+      const combined = pick('พิกัด', 'coords', 'coordinates', 'พิกัด gps', 'gps', 'พิกัดจีพีเอส');
+      if (combined !== undefined) {
+        const parts = String(combined).trim().split(/[\s,;]+/).filter(Boolean);
+        if (parts.length >= 2) { lat = parseFloat(parts[0]); lng = parseFloat(parts[1]); }
+      }
+      if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+        const latV = pick('lat', 'latitude', 'ละติจูด');
+        const lngV = pick('lng', 'longitude', 'ลองจิจูด', 'ลองติจูด');
+        // If one column holds "13.8 101.8" combined, split it
+        const latParts = String(latV ?? '').trim().split(/[\s,;]+/).filter(Boolean);
+        if (latV !== undefined && lngV === undefined && latParts.length >= 2) {
+          lat = parseFloat(latParts[0]); lng = parseFloat(latParts[1]);
+        } else {
+          lat = parseFloat(latV); lng = parseFloat(lngV);
+        }
+      }
+
+      if (!cif || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) continue;
+      records.push({ cif, name, lat, lng });
+    }
+    return records;
   },
 
   // ===== Export =====

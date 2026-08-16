@@ -85,7 +85,65 @@ const Storage = {
     for (const r of toImport) list.push(make(r));
     this.saveCustomers(list);
 
+    // Apply bulk GPS overlay (admin file uploads) — match by CIF, create new for unmatched
+    await this.applyGpsOverlay();
+
     return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
+  },
+
+  // ===== Apply bulk GPS overlay (admin file uploads) =====
+  // Fetches /api/gps-overlay (compact map CIF -> {lat,lng,name}) and applies it:
+  // - matching seed (AutoImport:StaticDB) customers get lat/lng set
+  // - CIFs not yet in the list are created as new seed customers
+  // - user-edited customers (createdBy != AutoImport:StaticDB) are left untouched
+  // Returns count of customers changed (applied + created).
+  async applyGpsOverlay() {
+    try {
+      const res = await API.get('/api/gps-overlay');
+      if (!res || !res.success || !res.overlay) return 0;
+      const overlay = res.overlay;
+      const list = this.getCustomers();
+      const byCif = new Map();
+      for (const c of list) {
+        if (c.cif) byCif.set(String(c.cif).trim(), c);
+      }
+      const now = new Date().toISOString();
+      let applied = 0, created = 0;
+      for (const [cif, g] of Object.entries(overlay)) {
+        if (!g || !(Number.isFinite(g.lat) && Number.isFinite(g.lng))) continue;
+        const existing = byCif.get(String(cif).trim());
+        if (existing) {
+          if (existing.createdBy !== 'AutoImport:StaticDB') continue; // user-owned → keep their data
+          existing.lat = g.lat;
+          existing.lng = g.lng;
+          if (g.name && !existing.name) existing.name = g.name;
+          existing.updatedAt = now;
+          applied++;
+        } else {
+          list.push({
+            id: 'db_' + cif,
+            cif,
+            name: g.name || '',
+            phone: '',
+            address: '',
+            lat: g.lat,
+            lng: g.lng,
+            riskLevel: 'unclassified',
+            debtType: null,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: 'AutoImport:StaticDB',
+            geo_source: 'gps-overlay',
+          });
+          created++;
+        }
+      }
+      if (applied > 0 || created > 0) this.saveCustomers(list);
+      return applied + created;
+    } catch (e) {
+      console.warn('[gps-overlay] apply failed:', e.message);
+      return 0;
+    }
   },
 
   // Returns: { synced: true/false, error?: string }
