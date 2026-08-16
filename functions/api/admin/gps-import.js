@@ -53,3 +53,36 @@ export async function onRequestPost(context) {
   await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
   return json({ success: true, added, updated, skipped, total: Object.keys(overlay).length });
 }
+
+// DELETE /api/admin/gps-import?cif=4642836,4642883 — remove specific CIFs
+// DELETE /api/admin/gps-import — clear the whole overlay (admin only)
+export async function onRequestDelete(context) {
+  const { request, env } = context;
+
+  const token = extractBearerToken(request);
+  if (!token) return json({ success: false, error: 'No token' }, 401);
+  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
+  if (payload.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
+
+  const url = new URL(request.url);
+  const cifParam = url.searchParams.get('cif');
+
+  const raw = await env.BFR_KV.get(KV_OVERLAY);
+  let overlay = raw ? JSON.parse(raw) : {};
+  let removed = 0;
+
+  if (cifParam) {
+    const cifs = cifParam.split(',').map(s => s.trim()).filter(Boolean);
+    for (const c of cifs) {
+      if (overlay[c]) { delete overlay[c]; removed++; }
+    }
+  } else {
+    removed = Object.keys(overlay).length;
+    overlay = {};
+  }
+
+  await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
+  return json({ success: true, removed, total: Object.keys(overlay).length });
+}
