@@ -47,32 +47,32 @@ const Storage = {
   },
 
   // ===== Bulk import static customer DB → Storage (one-time, idempotent) =====
-  // Reads /customers-db.json, adds each record as a customer (skips if CIF exists).
-  // Use when KV is empty but you still want the 3,853 GPS customers to show on map.
-  async importFromStaticDB({ batchSize = 500, onProgress } = {}) {
+  // Reads /customers-db.json and imports EVERY record (GPS or not) so the full
+  // 3,852-customer database is searchable in the list. Only records with lat/lng
+  // render as map markers (Customers.renderMarkers skips null coords).
+  // Static-DB records are NOT pushed to KV — they're served from customers-db.json,
+  // and pushing 3,852 records re-triggers the Worker 503 (JSON.stringify > CPU limit).
+  // User edits flip `createdBy` (see updateCustomer/deleteCustomer) so they sync.
+  async importFromStaticDB() {
     if (typeof CustomerDB === 'undefined') throw new Error('CustomerDB not loaded');
-    // Fetch the static file fresh (in case CustomerDB wasn't loaded yet)
     const res = await fetch('/customers-db.json');
     if (!res.ok) throw new Error(`Failed to fetch customers-db.json: ${res.status}`);
     const db = await res.json();
 
-    // Skip records without valid GPS — can't render them on map anyway
-    const valid = db.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
-    if (valid.length === 0) return { imported: 0, skipped: 0, total: db.length };
-
     // Find existing CIFs to avoid duplicates
     const existing = new Set(this.getActiveCustomers().map(c => c.cif).filter(Boolean));
-    const toImport = valid.filter(r => !existing.has(r.cif));
+    const toImport = db.filter(r => r.cif && !existing.has(r.cif));
+    const withGPS = toImport.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng)).length;
 
-    // Build customer objects
+    // Build customer objects (lat/lng null-safe — non-GPS records stay searchable)
     const make = (r) => ({
       id: 'db_' + r.cif,
       cif: r.cif,
       name: r.name,
       phone: r.phone || '',
       address: [r.address, r.moo && 'ม.' + r.moo, r.tambon && 'ต.' + r.tambon, r.amphoe && 'อ.' + r.amphoe, r.province && 'จ.' + r.province].filter(Boolean).join(' '),
-      lat: r.lat,
-      lng: r.lng,
+      lat: r.lat ?? null,
+      lng: r.lng ?? null,
       riskLevel: r.riskLevel || 'unclassified',
       debtType: r.debtType || null,
       createdAt: new Date().toISOString(),
@@ -81,19 +81,11 @@ const Storage = {
       geo_source: r.geo_source || 'static_db',
     });
 
-    // Save locally first (instant) — don't await server push per record (too slow)
     const list = this.getCustomers();
-    let added = 0;
-    for (const r of toImport) {
-      list.push(make(r));
-      added++;
-    }
+    for (const r of toImport) list.push(make(r));
     this.saveCustomers(list);
 
-    // Trigger one full sync to push to server in background
-    this.push().catch(e => console.warn('[import] push failed:', e.message));
-
-    return { imported: added, skipped: existing.size, total: db.length, validGPS: valid.length };
+    return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
   },
 
   // Returns: { synced: true/false, error?: string }
@@ -101,6 +93,11 @@ const Storage = {
     const list = this.getCustomers();
     const idx = list.findIndex(c => c.id === id);
     if (idx >= 0) {
+      // Editing a static-DB seed customer "claims" it — flip createdBy so the
+      // change actually syncs (push() skips AutoImport:StaticDB records).
+      if (list[idx].createdBy === 'AutoImport:StaticDB') {
+        list[idx].createdBy = Auth.getUser()?.name || 'user';
+      }
       list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
       this.saveCustomers(list);
       const result = await this.push();
@@ -152,6 +149,11 @@ const Storage = {
     const list = this.getCustomers();
     const idx = list.findIndex(c => c.id === id);
     if (idx >= 0) {
+      // Deleting a static-DB seed customer must sync — flip createdBy first
+      // (push() skips AutoImport:StaticDB records).
+      if (list[idx].createdBy === 'AutoImport:StaticDB') {
+        list[idx].createdBy = Auth.getUser()?.name || 'user';
+      }
       list[idx].deleted = true;
       list[idx].updatedAt = new Date().toISOString();
       this.saveCustomers(list);
@@ -174,9 +176,13 @@ const Storage = {
   addToRoute(customerId) {
     const route = this.getRoute();
     if (!route.includes(customerId)) {
+      // Guard: a customer without GPS can't be routed (OSRM/haversine would NaN).
+      const c = this.getCustomers().find(x => x.id === customerId);
+      if (!c || !(Number.isFinite(c.lat) && Number.isFinite(c.lng))) return false;
       route.push(customerId);
       this.saveRoute(route);
     }
+    return true;
   },
 
   removeFromRoute(customerId) {
@@ -230,7 +236,10 @@ const Storage = {
       return this._pushInFlight;
     }
     const payload = {
-      customers: this.getCustomers(),
+      // Static-DB seed customers are excluded — they're served from customers-db.json.
+      // Pushing all 3,852 re-triggers the Worker 503 (JSON.stringify > CPU limit).
+      // User edits flip createdBy (updateCustomer/deleteCustomer) so they sync.
+      customers: this.getCustomers().filter(c => c.createdBy !== 'AutoImport:StaticDB'),
       visits: this.getVisits(),
       savedRoutes: this.getSavedRoutes(),
     };
@@ -347,7 +356,7 @@ const Storage = {
     this.stopPolling();
     const tick = async () => {
       try {
-        // First, do a HEAD-like cheap check
+        // Poll with since= — returns delta customers + full visits/routes
         const lastServer = localStorage.getItem(this.KEY_SERVER_TIME);
         const res = await fetch(API.baseUrl() + '/api/sync?since=' + encodeURIComponent(lastServer || ''), {
           headers: API.headers(),
@@ -355,8 +364,15 @@ const Storage = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.serverTime && data.serverTime !== lastServer) {
-            // Server has new data — pull full
-            await this.pull();
+            // Merge delta directly from poll response (don't call pull — returns empty customers)
+            this._mergeRemote(data);
+            localStorage.setItem(this.KEY_SERVER_TIME, data.serverTime);
+            localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
+            this._notifyListeners({
+              status: 'synced',
+              serverTime: data.serverTime,
+              counts: data.counts,
+            });
           }
         }
       } catch (e) {

@@ -2,34 +2,22 @@
 
 const Admin = {
   customers: [],
-  filtered: [],
   recycle: [],
   page: 1,
   pageSize: 50,
+  total: 0,
+  totalPages: 1,
+  allTags: [],
   pollingTimer: null,
 
   // ===== Init =====
   async init() {
-    // Check existing session — try API first to verify token isn't stale
     if (Auth.isLoggedIn()) {
       if (Auth.isAdmin()) {
-        // Try API; if 401, fall back to login
-        try {
-          const data = await API.get('/api/admin/customers-crud');
-          if (data.success) {
-            this.customers = data.customers || [];
-            this.showApp();
-            this.applyFilters();
-            this.updateTagFilter();
-            this.updateSyncBadge('ok');
-            this.startPolling();
-            this.bindEvents();
-            return;
-          }
-        } catch (e) {
-          // fall through to login
-        }
-        Auth.logout();
+        this.showApp();
+        this.bindEvents();
+        this.startPolling();
+        return;
       } else {
         Utils.toast('ต้องเป็น Admin เท่านั้น', 'error');
         setTimeout(() => location.href = '/', 1500);
@@ -64,6 +52,7 @@ const Admin = {
     document.getElementById('btn-import').addEventListener('click', () => this.openImport());
     document.getElementById('btn-export').addEventListener('click', () => this.openExport());
     document.getElementById('btn-recycle').addEventListener('click', () => this.openRecycle());
+    document.getElementById('btn-batch-delete').addEventListener('click', () => this.handleBatchDelete());
 
     document.getElementById('search').addEventListener('input', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('filter-gps').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
@@ -72,9 +61,14 @@ const Admin = {
 
     document.getElementById('prev-page').addEventListener('click', () => this.changePage(-1));
     document.getElementById('next-page').addEventListener('click', () => this.changePage(1));
-    document.getElementById('page-size').addEventListener('change', (e) => { this.pageSize = +e.target.value; this.page = 1; this.renderTable(); });
+    document.getElementById('page-size').addEventListener('change', (e) => { this.pageSize = +e.target.value; this.page = 1; this.applyLocalFilters(); });
 
-    document.getElementById('select-all').addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
+    document.getElementById('select-all').addEventListener('change', (e) => { this.toggleSelectAll(e.target.checked); this.updateBatchDeleteBtn(); });
+
+    // Delegate: checkbox change → update batch-delete button
+    document.getElementById('data-table').addEventListener('change', (e) => {
+      if (e.target.classList.contains('row-check')) this.updateBatchDeleteBtn();
+    });
 
     document.getElementById('close-edit').addEventListener('click', () => this.closeEdit());
     document.getElementById('cancel-edit').addEventListener('click', () => this.closeEdit());
@@ -103,19 +97,57 @@ const Admin = {
   },
 
   // ===== Data =====
-  async loadAll() {
+  async loadAll(retryCount = 0) {
     try {
-      const data = await API.get('/api/admin/customers-crud');
+      // Fetch paginated from backend — supports 10k+ records without 503
+      const q = (document.getElementById('search').value || '').trim().toLowerCase();
+      const gpsFilter = document.getElementById('filter-gps').value;
+      const riskFilter = document.getElementById('filter-risk').value;
+      const tagFilter = document.getElementById('filter-tag').value;
+
+      let url = `/api/admin/customers-crud?page=${this.page}&per_page=${this.pageSize}`;
+      if (q) url += '&q=' + encodeURIComponent(q);
+      if (gpsFilter === 'yes') url += '&hasGps=true';
+      else if (gpsFilter === 'no') url += '&hasGps=false';
+      if (riskFilter && riskFilter !== 'all') url += '&risk=' + encodeURIComponent(riskFilter);
+      if (tagFilter && tagFilter !== 'all') url += '&tag=' + encodeURIComponent(tagFilter);
+
+      const data = await API.get(url);
       if (data.success) {
         this.customers = data.customers || [];
-        this.applyFilters();
+        this.total = data.total || 0;
+        this.page = data.page || 1;
+        this.totalPages = data.totalPages || 1;
+        this.allTags = data.allTags || [];
         this.updateTagFilter();
+        this.renderTable();
         this.updateSyncBadge('ok');
       }
     } catch (err) {
       console.error('loadAll failed:', err);
+      // Retry once after 2s if it's not an auth error
+      if (retryCount === 0 && !err.message?.includes('401') && !err.message?.includes('403')) {
+        this.updateSyncBadge('stale');
+        await new Promise(r => setTimeout(r, 2000));
+        return this.loadAll(1);
+      }
+      if (err.message && (err.message.includes('401') || err.message.includes('403'))) {
+        Auth.logout();
+        return;
+      }
       this.updateSyncBadge('offline');
     }
+  },
+
+  /** Apply search + filters + pagination — fetches from backend */
+  applyLocalFilters() {
+    this.page = 1;
+    this.loadAll();
+  },
+
+  changePage(delta) {
+    this.page = Math.max(1, Math.min(this.totalPages, this.page + delta));
+    this.loadAll();
   },
 
   startPolling() {
@@ -138,32 +170,14 @@ const Admin = {
   },
 
   applyFilters() {
-    const q = document.getElementById('search').value.toLowerCase().trim();
-    const gps = document.getElementById('filter-gps').value;
-    const risk = document.getElementById('filter-risk').value;
-    const tag = document.getElementById('filter-tag').value;
-
-    this.filtered = this.customers.filter(c => {
-      if (q) {
-        const hay = `${c.cif || ''} ${c.name || ''} ${c.nickname || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (gps === 'yes' && !(c.lat && c.lng && Number.isFinite(c.lat) && Number.isFinite(c.lng))) return false;
-      if (gps === 'no' && c.lat && c.lng && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return false;
-      if (risk !== 'all' && (c.riskLevel || 'unclassified') !== risk) return false;
-      if (tag !== 'all' && !(c.tags || []).includes(tag)) return false;
-      return true;
-    });
-
-    this.renderTable();
+    this.page = 1;
+    this.applyLocalFilters();
   },
 
   updateTagFilter() {
     const sel = document.getElementById('filter-tag');
     const current = sel.value;
-    const allTags = new Set();
-    this.customers.forEach(c => (c.tags || []).forEach(t => allTags.add(t)));
-    const sorted = Array.from(allTags).sort();
+    const sorted = this.allTags || [];
     sel.innerHTML = '<option value="all">ทุก Tag</option>' +
       sorted.map(t => `<option value="${this.escapeAttr(t)}">${this.escapeHtml(t)}</option>`).join('');
     sel.value = sorted.includes(current) ? current : 'all';
@@ -172,22 +186,21 @@ const Admin = {
   // ===== Table render =====
   renderTable() {
     const tbody = document.getElementById('data-tbody');
-    const total = this.filtered.length;
-    const start = (this.page - 1) * this.pageSize;
-    const slice = this.filtered.slice(start, start + this.pageSize);
-    const totalPages = Math.max(1, Math.ceil(total / this.pageSize));
+    const customers = this.customers || [];
+    const total = this.total || 0;
+    const totalPages = this.totalPages || 1;
 
     document.getElementById('count-display').textContent = `${total.toLocaleString()} คน`;
     document.getElementById('page-info').textContent = `หน้า ${this.page} / ${totalPages} (${total.toLocaleString()} คน)`;
     document.getElementById('prev-page').disabled = this.page <= 1;
     document.getElementById('next-page').disabled = this.page >= totalPages;
 
-    if (slice.length === 0) {
+    if (customers.length === 0) {
       tbody.innerHTML = `<tr><td colspan="10" class="empty-state"><h3>ไม่พบข้อมูล</h3><p>ลองเปลี่ยน filter หรือคำค้นหา</p></td></tr>`;
       return;
     }
 
-    tbody.innerHTML = slice.map(c => this.renderRow(c)).join('');
+    tbody.innerHTML = customers.map(c => this.renderRow(c)).join('');
 
     tbody.querySelectorAll('[data-action="edit"]').forEach(b => b.addEventListener('click', () => this.openEdit(b.dataset.id)));
     tbody.querySelectorAll('[data-action="delete"]').forEach(b => b.addEventListener('click', () => this.handleDelete(b.dataset.id)));
@@ -228,18 +241,40 @@ const Admin = {
     return m ? m.slice(0, 2).join(' ') : addr.slice(0, 30);
   },
 
-  changePage(delta) {
-    const totalPages = Math.max(1, Math.ceil(this.filtered.length / this.pageSize));
-    this.page = Math.max(1, Math.min(totalPages, this.page + delta));
-    this.renderTable();
-  },
-
   toggleSelectAll(checked) {
     document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
   },
 
   getSelected() {
     return Array.from(document.querySelectorAll('.row-check:checked')).map(cb => cb.value);
+  },
+
+  updateBatchDeleteBtn() {
+    const btn = document.getElementById('btn-batch-delete');
+    const count = this.getSelected().length;
+    btn.disabled = count === 0;
+    btn.textContent = count > 0 ? `🗑️ ลบ ${count} รายการ` : '🗑️ ลบที่เลือก';
+  },
+
+  async handleBatchDelete() {
+    const ids = this.getSelected();
+    if (ids.length === 0) return Utils.toast('เลือกรายการที่ต้องการลบก่อน', 'warning');
+    const count = ids.length;
+    if (!confirm(`ลบ ${count} รายการ?
+(จะย้ายไปถังขยะ 30 วัน กู้คืนได้)`)) return;
+
+    try {
+      const result = await API.post('/api/admin/customers-crud?action=batch-delete', { ids });
+      if (result.success) {
+        Utils.toast(`✅ ลบ ${result.count || count} รายการ (เก็บในถังขยะ 30 วัน)`, 'success');
+        this.page = Math.min(this.page, this.totalPages);
+        this.loadAll();
+      } else {
+        Utils.toast(result.error || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch (err) {
+      Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+    }
   },
 
   // ===== Edit/Add modal =====

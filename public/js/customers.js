@@ -13,7 +13,9 @@ const Customers = {
     if (this.map) return;
     // Default: BAAC สาขาวังท่าช้าง (single source of truth in app.js)
     const office = window.OFFICE_LOCATION || { lat: 13.7563, lng: 100.5018 };
-    this.map = L.map('map').setView([office.lat, office.lng], 12);
+    this.map = L.map('map', {
+      preferCanvas: true,  // Render vector layers on <canvas> — GPU accelerated, NO DOM per marker
+    }).setView([office.lat, office.lng], 12);
 
     // Define 2 base layers: roadmap + satellite
     this._baseLayers = {
@@ -52,12 +54,25 @@ const Customers = {
     });
   },
 
-  // Render all markers on map
+  // ===== Color scheme for circleMarker (no DOM elements) =====
+  _riskColors: {
+    unclassified: { fill: '#e0e0e0', stroke: '#bbbbbb' },
+    good:         { fill: '#16a34a', stroke: '#16a34a' },
+    warning:      { fill: '#d97706', stroke: '#d97706' },
+    bad:          { fill: '#dc2626', stroke: '#dc2626' },
+  },
+
+  // Render all markers on map — L.circleMarker + Canvas (ZERO DOM per marker)
   renderMarkers(routeOrder, opts = {}) {
     if (!this.map) return;
     // Clear existing
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
     this.markers = {};
+    // Clear route-number overlays if any
+    if (this._routeNumLayer) {
+      this.map.removeLayer(this._routeNumLayer);
+      this._routeNumLayer = null;
+    }
 
     const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
@@ -66,47 +81,63 @@ const Customers = {
     if (routeOrder && routeOrder.length) {
       routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
     }
-    customers.forEach((c, idx) => {
-      // ===== Skip customers without valid GPS (defensive — was crashing Leaflet) =====
-      // Some records have null lat/lng (53 records added after the 7-Jun backup
-      // that never got geocoded). Skip them silently rather than crashing the
-      // entire marker render.
+
+    customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
-      // ===== Toggle: แสดงเฉพาะลูกค้าที่มีพิกัด =====
-      // (Redundant with above filter — kept for clarity when showOnlyGPS is on)
       if (this.showOnlyGPS && (!c.lat || !c.lng)) return;
 
       const visited = !!visits[c.id];
-      const orderNum = orderMap[c.id] || (idx + 1);
-      // Risk-based class drives the color
       const riskClass = c.riskLevel || 'unclassified';
-      // ===== Center content = route order number when in today's route.
-      // Off-route customers get an empty colored circle (no letter).
-      // Cleaner than the old "first letter of name" which didn't help
-      // field officers identify customers any faster than the color did.
       const inRoute = orderMap[c.id] != null;
-      const centerHTML = inRoute ? orderNum : '';
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="customer-marker ${riskClass}${visited ? ' visited' : ''}">${centerHTML}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-      const marker = L.marker([c.lat, c.lng], { icon }).addTo(this.map);
+      const colors = this._riskColors[riskClass] || this._riskColors.unclassified;
+      // Visited = override to green
+      const fill = visited ? '#16a34a' : colors.fill;
+      const stroke = visited ? '#16a34a' : colors.stroke;
+
+      const marker = L.circleMarker([c.lat, c.lng], {
+        radius: inRoute ? 11 : 8,
+        fillColor: fill,
+        color: stroke,
+        weight: inRoute ? 3 : 1.5,
+        opacity: riskClass === 'unclassified' ? 0.6 : 0.9,
+        fillOpacity: riskClass === 'unclassified' ? 0.3 : 0.85,
+        pane: 'markerPane',
+      }).addTo(this.map);
+
       marker.bindPopup(this.popupHTML(c));
-      // Collapse bottom sheet when tapping a marker so the map + popup are visible
       marker.on('click', () => {
         if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
       });
       this.markers[c.id] = marker;
     });
 
+    // ===== Route number overlays (max 10 — negligible DOM) =====
+    // Show a little white pill with the order number for customers in
+    // today's planned route.  Only ~10 elements instead of 3800.
+    const inRouteCusts = customers.filter(c => orderMap[c.id] != null);
+    if (inRouteCusts.length > 0) {
+      this._routeNumLayer = L.layerGroup(inRouteCusts.map(c => {
+        return L.marker([c.lat, c.lng], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="marker-route-num">${orderMap[c.id]}</div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, -12],  // float above the circleMarker
+          }),
+          interactive: false,  // don't steal clicks
+          pane: 'overlayPane',
+        });
+      })).addTo(this.map);
+    }
+
     // Fit bounds only when caller explicitly requests it (e.g. initial load).
-    // Auto-fitting on every re-render would yank the map away from wherever
-    // the user has panned/zoomed to.
+    // Only GPS customers have coords — skip null coords to avoid LatLng(null).
     if (opts.fitBounds && customers.length > 0) {
-      const bounds = L.latLngBounds(customers.map(c => [c.lat, c.lng]));
-      this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      const gps = customers.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      if (gps.length > 0) {
+        const bounds = L.latLngBounds(gps.map(c => [c.lat, c.lng]));
+        this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      }
     }
   },
 
@@ -154,8 +185,8 @@ const Customers = {
     form.elements.nickname.value = c.nickname || '';
     form.elements.phone.value = c.phone || '';
     form.elements.address.value = c.address || '';
-    form.elements.lat.value = c.lat;
-    form.elements.lng.value = c.lng;
+    form.elements.lat.value = c.lat || '';
+    form.elements.lng.value = c.lng || '';
     // Phase 4: pre-fill risk + debt dropdowns
     form.elements.riskLevel.value = c.riskLevel || 'unclassified';
     form.elements.debtType.value = c.debtType || '';
@@ -276,7 +307,10 @@ const Customers = {
       Storage.removeFromRoute(id);
       Utils.toast('เอาออกจากเส้นทาง');
     } else {
-      Storage.addToRoute(id);
+      if (!Storage.addToRoute(id)) {
+        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        return;
+      }
       Utils.toast('เพิ่มในเส้นทางวันนี้ ✓');
     }
     this.renderList();

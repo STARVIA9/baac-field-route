@@ -96,7 +96,10 @@ const Route = {
         Utils.toast(`เลือกได้สูงสุด ${this.MAX_SELECT} คน`, 'error');
         return;
       }
-      Storage.addToRoute(id);
+      if (!Storage.addToRoute(id)) {
+        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        return;
+      }
     }
     // Re-search to update + button states (✓/disabled)
     const search = document.getElementById('route-search');

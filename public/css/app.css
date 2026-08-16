@@ -1053,56 +1053,23 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* ===== Leaflet Markers ===== */
-.customer-marker {
-  background: var(--baac-gold);
-  border: 2.5px solid white;
-  border-radius: 50%;
-  width: 32px !important;
-  height: 32px !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.5px;
-  color: var(--baac-green-deeper);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
-}
-
-.customer-marker.unclassified {
-  background: white;
-  color: var(--text-muted);
-  border: 2px dashed var(--border);
-  font-weight: 700;
-}
-
-.customer-marker.good { background: var(--risk-good); color: white; }
-.customer-marker.warning { background: var(--risk-warning); color: white; }
-.customer-marker.bad { background: var(--risk-bad); color: white; }
-.customer-marker.visited { background: var(--risk-good); color: white; }
-.customer-marker.start { background: var(--baac-green); color: white; }
-.customer-marker.current { background: var(--baac-gold); }
-
-.marker-order {
-  position: absolute;
-  top: -6px;
-  right: -6px;
+/* ===== Leaflet CircleMarker + Route Number Overlays ===== */
+/* circleMarker has NO CSS — rendered directly on Canvas/SVG.
+   Only the route-number pill (max 10) needs styling. */
+.marker-route-num {
   background: var(--baac-green-deeper);
   color: white;
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 4px;
-  box-shadow: var(--shadow-xs);
-  border: 1.5px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  border: 2px solid white;
 }
 
 /* ===== Customers Tab ===== */

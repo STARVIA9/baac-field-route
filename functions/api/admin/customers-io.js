@@ -10,6 +10,7 @@ import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 
 const KV_CUSTOMERS = 'customers:all';
 const KV_RECYCLE = 'customers:recycle';
+const KV_TAGS = 'customers:tags';
 const KV_AUDIT = 'audit:log';
 
 // Standard fields in exportable order
@@ -207,6 +208,17 @@ export async function onRequestPost(context) {
 
   await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
   await log(env, auth.user, 'import', { mode, ...stats, total: incoming.length });
+
+  // Rebuild tags cache after import (tags may have changed significantly)
+  try {
+    const tagsSet = new Set();
+    for (const c of all) {
+      if (c.tags) c.tags.forEach(t => tagsSet.add(t));
+    }
+    await env.BFR_KV.put(KV_TAGS, JSON.stringify(Array.from(tagsSet).sort()));
+  } catch (e) {
+    console.warn('refreshTagsCache after import failed:', e.message);
+  }
 
   return json({ success: true, ...stats, total: incoming.length });
 }

@@ -126,28 +126,44 @@ export async function onRequestGet(context) {
 
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
+  const url = new URL(request.url);
+  const since = url.searchParams.get('since');  // ISO timestamp — return only customers updated AFTER this
+
   const customersRaw = await env.BFR_KV.get('customers:all');
   const visitsRaw = await env.BFR_KV.get('visits:all');
   const routesRaw = await env.BFR_KV.get('routes:all');
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
 
-  const customers = customersRaw ? JSON.parse(customersRaw) : [];
+  const allCustomers = customersRaw ? JSON.parse(customersRaw) : [];
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
+
+  // Incremental sync: if `?since=` provided, return only customers modified after that time.
+  // First-time load (no since) returns empty — client loads static customers-db.json.
+  // Subsequent polls get only the delta (typically 0-5 records), keeping Worker CPU low.
+  let customers;
+  if (since) {
+    const sinceTime = new Date(since).getTime();
+    if (!isNaN(sinceTime)) {
+      customers = allCustomers.filter(c => {
+        const t = new Date(c.updatedAt || c.createdAt || 0).getTime();
+        return t > sinceTime;
+      });
+    } else {
+      customers = [];  // invalid date → return nothing
+    }
+  } else {
+    customers = [];  // first-time load: client uses static DB
+  }
 
   return json({
     success: true,
     serverTime: lastWrite || new Date().toISOString(),
-    // ⚠️ Intentionally NOT returning full customers array (3,852 records ≈ 4MB JSON)
-    //     — caused "Worker exceeded resource limits" (503) on every GET.
-    //     Sync endpoint previously JSON.stringify'd all customers every 3 seconds.
-    //     Customers are loaded locally from customers-db.json + localStorage.
-    //     Only visits + savedRoutes are synced for cross-device continuity.
-    customers: [],
+    customers,
     visits,
     savedRoutes,
     counts: {
-      customers: customers.length,
+      customers: allCustomers.length,
       visits: Object.keys(visits).length,
       savedRoutes: savedRoutes.length,
     },

@@ -141,6 +141,19 @@ const App = {
     // Load customer database (async, non-blocking)
     CustomerDB.load();
 
+    // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
+    if (Storage.getCustomers().length === 0) {
+      try {
+        const r = await Storage.importFromStaticDB();
+        if (r && r.imported > 0) {
+          Customers.renderAll(undefined, { fitBounds: true });
+          Utils.toast(`📥 โหลดลูกค้า ${r.imported} รายการจากฐานข้อมูลกลาง (${r.withGPS} มีพิกัด)`);
+        }
+      } catch (e) {
+        console.warn('[afterLogin] auto-import failed:', e.message);
+      }
+    }
+
     // Initial sync (push local + pull remote)
     const sync = await Storage.sync();
     if (sync && sync.success) {
@@ -1383,7 +1396,7 @@ const App = {
             throw new Error('ฟังก์ชันนำเข้ายังโหลดไม่เสร็จ');
           }
           const result = await Storage.importFromStaticDB();
-          successEl.textContent = `✅ นำเข้า ${result.imported} รายการ · ข้าม ${result.skipped} ที่ซ้ำ · ทั้งหมด ${result.validGPS} รายการมีพิกัด`;
+          successEl.textContent = `✅ นำเข้า ${result.imported} รายการ · ${result.withGPS} มีพิกัด · ข้าม ${result.skipped} ที่ซ้ำ`;
           successEl.style.display = 'block';
           Utils.toast(`📥 นำเข้า ${result.imported} ลูกค้าแล้ว`);
           // Re-render map to show new markers
