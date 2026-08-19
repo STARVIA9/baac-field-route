@@ -63,11 +63,17 @@ const Customers = {
   },
 
   // Render all markers on map — L.circleMarker + Canvas (ZERO DOM per marker)
+  // Clustered so zoomed-out mobile doesn't render/overlap 178 dots.
   renderMarkers(routeOrder, opts = {}) {
     if (!this.map) return;
     // Clear existing
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
     this.markers = {};
+    // Remove old cluster layer
+    if (this._cluster) {
+      this.map.removeLayer(this._cluster);
+      this._cluster = null;
+    }
     // Clear route-number overlays if any
     if (this._routeNumLayer) {
       this.map.removeLayer(this._routeNumLayer);
@@ -81,6 +87,27 @@ const Customers = {
     if (routeOrder && routeOrder.length) {
       routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
     }
+
+    // Cluster layer (only if leaflet.markercluster loaded); circleMarkers go here on canvas.
+    const clusterable = typeof L.markerClusterGroup === 'function';
+    const cluster = clusterable
+      ? L.markerClusterGroup({
+          maxClusterRadius: 45,          // merge points within ~45px
+          disableClusteringAtZoom: 16,   // below 16, show individual dots (village level)
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true,
+          iconCreateFunction: (cc) => {
+            const n = cc.getChildCount();
+            // Color ramp: 2-9 green, 10-49 orange, 50+ red
+            const cls = n >= 50 ? 'mc-red' : n >= 10 ? 'mc-orange' : 'mc-green';
+            return L.divIcon({
+              html: `<div class="marker-cluster-icon ${cls}">${n}</div>`,
+              className: '', iconSize: [40, 40], iconAnchor: [20, 20],
+            });
+          },
+        })
+      : null;
 
     customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
@@ -102,14 +129,23 @@ const Customers = {
         opacity: riskClass === 'unclassified' ? 0.6 : 0.9,
         fillOpacity: riskClass === 'unclassified' ? 0.3 : 0.85,
         pane: 'markerPane',
-      }).addTo(this.map);
+      });
 
       marker.bindPopup(this.popupHTML(c));
       marker.on('click', () => {
         if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
       });
+
+      if (cluster) cluster.addLayer(marker);
+      else marker.addTo(this.map);
       this.markers[c.id] = marker;
     });
+
+    // Add cluster layer to map (fast canvas underneath, cluster icons on overlay)
+    if (cluster) {
+      cluster.addTo(this.map);
+      this._cluster = cluster;
+    }
 
     // ===== Route number overlays (max 10 — negligible DOM) =====
     // Show a little white pill with the order number for customers in

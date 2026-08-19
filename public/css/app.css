@@ -1072,6 +1072,31 @@ body {
   border: 2px solid white;
 }
 
+/* ===== Marker Cluster (zoomed-out grouping) — styled numeric badges ===== */
+.marker-cluster-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  border: 3px solid #fff;
+  cursor: pointer;
+}
+.marker-cluster-icon.mc-green  { background: rgba(22,163,74,0.92); }  /* 2-9 */
+.marker-cluster-icon.mc-orange { background: rgba(217,119,6,0.92); }  /* 10-49 */
+.marker-cluster-icon.mc-red    { background: rgba(220,38,38,0.92); }  /* 50+ */
+/* hide markercluster default background ring so our icon shows cleanly */
+.leaflet-marker-icon.marker-cluster {
+  background: transparent !important;
+}
+
+
 /* ===== Customers Tab ===== */
 .customers-header {
   padding: var(--sp-4) 0 var(--sp-3);
