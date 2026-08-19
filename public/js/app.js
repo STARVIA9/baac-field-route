@@ -21,14 +21,22 @@ const App = {
 
   // Init
   async init() {
-    if (Auth.isLoggedIn()) {
-      Auth.showApp();
-      await this.afterLogin();
-    } else {
-      Auth.showLogin();
-    }
+    // attachEvents + version watcher MUST bind even before login resolves.
+    // afterLogin is async (network/sync) and can be slow or throw — if we await
+    // it first, header/panel buttons (help/report/change-password/refresh/logout)
+    // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
+    try {
+      if (Auth.isLoggedIn()) {
+        Auth.showApp();
+        await this.afterLogin();
+      } else {
+        Auth.showLogin();
+      }
+    } catch (e) {
+      console.warn('[App.init] afterLogin error:', e?.message);
+    }
   },
 
   // ===== Version watcher (auto-detect new deploys) =====

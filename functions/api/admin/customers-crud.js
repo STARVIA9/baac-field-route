@@ -76,7 +76,7 @@ async function getRecycle(env) {
   if (!env.BFR_DB) return [];
   // Recycle = deleted customers
   const { results } = await env.BFR_DB.prepare(
-    'SELECT * FROM customers WHERE deleted=1 ORDER BY deleted_at DESC OR updated_at DESC'
+    'SELECT * FROM customers WHERE deleted=1 ORDER BY deleted_at DESC, updated_at DESC'
   ).all();
   return (results || []).map(rowToCustomer);
 }
