@@ -51,7 +51,9 @@ export async function onRequestPost(context) {
   }
 
   await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
-  return json({ success: true, added, updated, skipped, total: Object.keys(overlay).length });
+  // Bump overlay version so every device's 15s poll picks up the change
+  await env.BFR_KV.put('meta:overlay-updated', now);
+  return json({ success: true, added, updated, skipped, total: Object.keys(overlay).length, overlayUpdatedAt: now });
 }
 
 // DELETE /api/admin/gps-import?cif=4642836,4642883 — remove specific CIFs
@@ -84,5 +86,7 @@ export async function onRequestDelete(context) {
   }
 
   await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
+  // Bump overlay version so every device's 15s poll picks up the removal
+  await env.BFR_KV.put('meta:overlay-updated', new Date().toISOString());
   return json({ success: true, removed, total: Object.keys(overlay).length });
 }

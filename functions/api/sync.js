@@ -107,7 +107,6 @@ export async function onRequestPost(context) {
   return json({
     success: true,
     serverTime,
-    // Intentionally NOT returning customers array (see GET handler for reasoning)
     customers: [],
     visits: mergedVisits,
     savedRoutes: mergedRoutes,
@@ -133,6 +132,7 @@ export async function onRequestGet(context) {
   const visitsRaw = await env.BFR_KV.get('visits:all');
   const routesRaw = await env.BFR_KV.get('routes:all');
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
+  const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
 
   const allCustomers = customersRaw ? JSON.parse(customersRaw) : [];
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
@@ -159,6 +159,7 @@ export async function onRequestGet(context) {
   return json({
     success: true,
     serverTime: lastWrite || new Date().toISOString(),
+    overlayUpdatedAt: overlayUpdatedAt || null,
     customers,
     visits,
     savedRoutes,

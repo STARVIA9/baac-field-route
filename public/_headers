@@ -1,0 +1,8 @@
+# BAAC Field Route — cache control
+# Data files must always be fresh from the server (server-authoritative GPS).
+/customers-db.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/fuel-prices.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate

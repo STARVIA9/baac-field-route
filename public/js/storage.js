@@ -7,6 +7,7 @@ const Storage = {
   KEY_SYNC_TIME: 'bfr_last_sync',
   KEY_SERVER_TIME: 'bfr_server_time',
   KEY_SAVED_ROUTES: 'bfr_saved_routes',
+  KEY_OVERLAY_TIME: 'bfr_overlay_time',
 
   // ===== Local persistence (always first — fast, offline) =====
   getCustomers() {
@@ -91,11 +92,11 @@ const Storage = {
     return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
   },
 
-  // ===== Apply bulk GPS overlay (admin file uploads) =====
-  // Fetches /api/gps-overlay (compact map CIF -> {lat,lng,name}) and applies it:
-  // - matching seed (AutoImport:StaticDB) customers get lat/lng set
-  // - CIFs not yet in the list are created as new seed customers
-  // - user-edited customers (createdBy != AutoImport:StaticDB) are left untouched
+  // ===== Apply bulk GPS overlay (admin file uploads) — SERVER-AUTHORITATIVE =====
+  // Fetches /api/gps-overlay (compact map CIF -> {lat,lng,name}) and applies it.
+  // Server wins: coords uploaded to the web overwrite the device copy for EVERY
+  // matching record (including user-edited ones) so all devices show identical
+  // markers. Only records NOT in the overlay keep their local values.
   // Returns count of customers changed (applied + created).
   async applyGpsOverlay() {
     try {
@@ -113,11 +114,11 @@ const Storage = {
         if (!g || !(Number.isFinite(g.lat) && Number.isFinite(g.lng))) continue;
         const existing = byCif.get(String(cif).trim());
         if (existing) {
-          if (existing.createdBy !== 'AutoImport:StaticDB') continue; // user-owned → keep their data
           existing.lat = g.lat;
           existing.lng = g.lng;
           if (g.name && !existing.name) existing.name = g.name;
           existing.updatedAt = now;
+          existing.geo_source = 'gps-overlay';
           applied++;
         } else {
           list.push({
@@ -139,6 +140,9 @@ const Storage = {
         }
       }
       if (applied > 0 || created > 0) this.saveCustomers(list);
+      if (res.overlayUpdatedAt) {
+        localStorage.setItem(this.KEY_OVERLAY_TIME, res.overlayUpdatedAt);
+      }
       return applied + created;
     } catch (e) {
       console.warn('[gps-overlay] apply failed:', e.message);
@@ -421,16 +425,30 @@ const Storage = {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && data.serverTime && data.serverTime !== lastServer) {
-            // Merge delta directly from poll response (don't call pull — returns empty customers)
-            this._mergeRemote(data);
-            localStorage.setItem(this.KEY_SERVER_TIME, data.serverTime);
-            localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
-            this._notifyListeners({
-              status: 'synced',
-              serverTime: data.serverTime,
-              counts: data.counts,
-            });
+          if (data.success) {
+            let changed = false;
+            // Server-authoritative GPS overlay: if the web has newer coords,
+            // fetch + apply them so every device shows the same markers.
+            const localOverlayTime = localStorage.getItem(this.KEY_OVERLAY_TIME);
+            if (data.overlayUpdatedAt && data.overlayUpdatedAt !== localOverlayTime) {
+              const n = await this.applyGpsOverlay();
+              if (n > 0) changed = true;
+              else localStorage.setItem(this.KEY_OVERLAY_TIME, data.overlayUpdatedAt);
+            }
+            if (data.serverTime && data.serverTime !== lastServer) {
+              // Merge delta directly from poll response (don't call pull — returns empty customers)
+              this._mergeRemote(data);
+              localStorage.setItem(this.KEY_SERVER_TIME, data.serverTime);
+              localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
+              changed = true;
+            }
+            if (changed) {
+              this._notifyListeners({
+                status: 'synced',
+                serverTime: data.serverTime,
+                counts: data.counts,
+              });
+            }
           }
         }
       } catch (e) {
@@ -469,6 +487,8 @@ const Storage = {
     if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
     const db = await res.json();
     const result = await this.importFromStaticDB();
+    // 4) Re-apply server GPS overlay on top of the fresh static data
+    await this.applyGpsOverlay();
 
     return { removed, imported: result?.imported || 0, total: db.length };
   },

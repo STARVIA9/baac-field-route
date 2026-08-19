@@ -24,5 +24,6 @@ export async function onRequestGet(context) {
 
   const raw = await env.BFR_KV.get(KV_OVERLAY);
   const overlay = raw ? JSON.parse(raw) : {};
-  return json({ success: true, overlay, count: Object.keys(overlay).length });
+  const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
+  return json({ success: true, overlay, count: Object.keys(overlay).length, overlayUpdatedAt: overlayUpdatedAt || null });
 }

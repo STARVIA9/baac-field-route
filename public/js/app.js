@@ -152,6 +152,18 @@ const App = {
       } catch (e) {
         console.warn('[afterLogin] auto-import failed:', e.message);
       }
+    } else {
+      // Existing device: re-apply server GPS overlay so coords match the web
+      // (server-authoritative — uploaded coords overwrite this device's copy)
+      try {
+        const n = await Storage.applyGpsOverlay();
+        if (n > 0) {
+          Customers.renderAll();
+          Utils.toast(`📍 อัพเดทพิกัดจากเว็บ ${n} รายการ`);
+        }
+      } catch (e) {
+        console.warn('[afterLogin] gps-overlay apply failed:', e.message);
+      }
     }
 
     // Initial sync (push local + pull remote)

@@ -1,5 +1,5 @@
 {
-  "version": "20260816.000002",
-  "lastUpdate": "2026-08-16",
-  "changelog": "FEAT: อัพพิกัด GPS จากไฟล์ (หน้า admin) — อ่าน CSV/Excel อัตโนมัติ + match พิกัดตาม CIF + สร้างลูกค้าใหม่ถ้า CIF ยังไม่มี + ไม่แตะลูกค้าที่ไม่อยู่ในไฟล์"
+  "version": "20260817.000001",
+  "lastUpdate": "2026-08-17",
+  "changelog": "FEAT: Server-authoritative GPS — พิกัดที่อัพขึ้นเว็บเป็นข้อมูลหลัก ทับข้อมูลในเครื่องทุกเครื่อง (apply ตอน login + poll ทุก 15 วิ) + ปิด cache ไฟล์ข้อมูล"
 }
