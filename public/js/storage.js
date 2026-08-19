@@ -47,18 +47,16 @@ const Storage = {
     }
   },
 
-  // ===== Bulk import static customer DB → Storage (one-time, idempotent) =====
-  // Reads /customers-db.json and imports EVERY record (GPS or not) so the full
-  // 3,852-customer database is searchable in the list. Only records with lat/lng
-  // render as map markers (Customers.renderMarkers skips null coords).
-  // Static-DB records are NOT pushed to KV — they're served from customers-db.json,
-  // and pushing 3,852 records re-triggers the Worker 503 (JSON.stringify > CPU limit).
-  // User edits flip `createdBy` (see updateCustomer/deleteCustomer) so they sync.
+  // ===== Bulk import customers from single D1 source → Storage (idempotent) =====
+  // Fetch ALL active customers from the unified D1 API (/api/customers) so the
+  // single D1 database is the one source of truth for the map, admin, and sync.
+  // This replaces the old fragmented static customers-db.json + KV stores with
+  // one D1-backed endpoint. Only records with lat/lng render as map markers.
   async importFromStaticDB() {
-    if (typeof CustomerDB === 'undefined') throw new Error('CustomerDB not loaded');
-    const res = await fetch('/customers-db.json');
-    if (!res.ok) throw new Error(`Failed to fetch customers-db.json: ${res.status}`);
-    const db = await res.json();
+    // Pull full customer list from D1 (single source of truth)
+    const res = await API.get('/api/customers');
+    if (!res || !res.success) throw new Error('Failed to load customers from D1');
+    const db = res.customers || [];
 
     // Find existing CIFs to avoid duplicates
     const existing = new Set(this.getActiveCustomers().map(c => c.cif).filter(Boolean));
@@ -67,18 +65,19 @@ const Storage = {
 
     // Build customer objects (lat/lng null-safe — non-GPS records stay searchable)
     const make = (r) => ({
-      id: 'db_' + r.cif,
+      id: r.id || 'db_' + r.cif,
       cif: r.cif,
       name: r.name,
+      nickname: r.nickname || '',
       phone: r.phone || '',
-      address: [r.address, r.moo && 'ม.' + r.moo, r.tambon && 'ต.' + r.tambon, r.amphoe && 'อ.' + r.amphoe, r.province && 'จ.' + r.province].filter(Boolean).join(' '),
+      address: r.address || [r.extra?.moo && 'ม.' + r.extra.moo, r.extra?.tambon && 'ต.' + r.extra.tambon, r.extra?.amphoe && 'อ.' + r.extra.amphoe, r.extra?.province && 'จ.' + r.extra.province].filter(Boolean).join(' '),
       lat: r.lat ?? null,
       lng: r.lng ?? null,
       riskLevel: r.riskLevel || 'unclassified',
       debtType: r.debtType || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'AutoImport:StaticDB',
+      createdAt: r.createdAt || new Date().toISOString(),
+      updatedAt: r.updatedAt || new Date().toISOString(),
+      createdBy: r.createdBy || 'AutoImport:StaticDB',
       geo_source: r.geo_source || 'static_db',
     });
 
@@ -86,7 +85,7 @@ const Storage = {
     for (const r of toImport) list.push(make(r));
     this.saveCustomers(list);
 
-    // Apply bulk GPS overlay (admin file uploads) — match by CIF, create new for unmatched
+    // Apply any server GPS overlay updates (kept for live marker refresh)
     await this.applyGpsOverlay();
 
     return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
@@ -467,7 +466,7 @@ const Storage = {
     }
   },
 
-  // ===== Reload customers from static DB (clear seed + re-import) =====
+  // ===== Reload customers from D1 (clear seed + re-import) =====
   async reloadStaticDB() {
     // 1) Clear all existing seed GPS records
     const list = this.getCustomers();
@@ -482,15 +481,12 @@ const Storage = {
       await CustomerDB.load();
     }
 
-    // 3) Re-import from fresh static DB (with cache buster)
-    const res = await fetch('/customers-db.json?_=' + Date.now());
-    if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-    const db = await res.json();
+    // 3) Re-import from D1 (single source of truth)
     const result = await this.importFromStaticDB();
-    // 4) Re-apply server GPS overlay on top of the fresh static data
+    // 4) Re-apply server GPS overlay on top of the fresh D1 data
     await this.applyGpsOverlay();
 
-    return { removed, imported: result?.imported || 0, total: db.length };
+    return { removed, imported: result?.imported || 0, total: result?.total || 0 };
   },
 };
 

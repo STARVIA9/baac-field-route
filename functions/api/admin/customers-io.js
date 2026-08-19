@@ -55,8 +55,16 @@ function escapeCsv(v) {
 }
 
 async function getAll(env) {
-  const raw = await env.BFR_KV.get(KV_CUSTOMERS);
-  return raw ? JSON.parse(raw) : [];
+  if (!env.BFR_DB) return [];
+  const { results } = await env.BFR_DB.prepare('SELECT * FROM customers').all();
+  return (results || []).map(r => ({
+    id: 'db_' + r.cif, cif: r.cif, name: r.name, nickname: r.nickname || '',
+    phone: r.phone || '', address: r.address || '',
+    lat: r.lat != null ? Number(r.lat) : null, lng: r.lng != null ? Number(r.lng) : null,
+    riskLevel: r.risk_level || 'unclassified', debtType: r.debt_type || null,
+    deleted: !!r.deleted, createdAt: r.created_at || '', updatedAt: r.updated_at || '',
+    createdBy: r.created_by || '', tags: [],
+  }));
 }
 
 // ===== GET: export =====
@@ -206,7 +214,33 @@ export async function onRequestPost(context) {
     }
   }
 
-  await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
+  // Persist changes to D1 (single source of truth)
+  const now = new Date().toISOString();
+  for (const c of all) {
+    if (!c.cif) continue;
+    try {
+      const exists = await env.BFR_DB.prepare('SELECT cif FROM customers WHERE cif = ?1').bind(c.cif).first();
+      if (exists) {
+        await env.BFR_DB.prepare(
+          `UPDATE customers SET
+             name = COALESCE(?1, name), nickname = COALESCE(?2, nickname),
+             phone = COALESCE(?3, phone), address = COALESCE(?4, address),
+             lat = COALESCE(?5, lat), lng = COALESCE(?6, lng),
+             risk_level = COALESCE(?7, risk_level), deleted = ?8, updated_at = ?9
+           WHERE cif = ?10`
+        ).bind(c.name ?? null, c.nickname ?? null, c.phone ?? null, c.address ?? null,
+          c.lat != null ? Number(c.lat) : null, c.lng != null ? Number(c.lng) : null,
+          c.riskLevel ?? null, c.deleted ? 1 : 0, c.updatedAt || now, c.cif).run();
+      } else {
+        await env.BFR_DB.prepare(
+          `INSERT INTO customers (cif, name, nickname, phone, address, lat, lng, risk_level, deleted, created_by, created_at, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)`
+        ).bind(c.cif, c.name || '', c.nickname || '', c.phone || '', c.address || '',
+          c.lat != null ? Number(c.lat) : null, c.lng != null ? Number(c.lng) : null,
+          c.riskLevel || 'unclassified', c.deleted ? 1 : 0, c.createdBy || 'import', c.createdAt || now).run();
+      }
+    } catch (e) { console.warn('import persist failed', c.cif, e.message); }
+  }
   await log(env, auth.user, 'import', { mode, ...stats, total: incoming.length });
 
   // Sync lat/lng changes to gps:overlay so map sees them

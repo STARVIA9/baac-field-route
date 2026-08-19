@@ -9,3 +9,9 @@ id = "bc1b3d9b873045c88b43ebe0fd241706"
 
 # JWT secret — set in Cloudflare Pages dashboard (BFR_JWT_SECRET)
 # Use a long random string (≥32 chars)
+
+# D1 database — ถังข้อมูลเดียว (แทน static JSON + KV keys)
+[[d1_databases]]
+binding = "BFR_DB"
+database_name = "baac-field-route-db"
+database_id = "182fd241-2f13-4603-85a7-5e669110d202"

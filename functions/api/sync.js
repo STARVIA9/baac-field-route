@@ -79,30 +79,30 @@ export async function onRequestPost(context) {
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
-
-  // Read all existing
-  const customersRaw = await env.BFR_KV.get('customers:all');
+  // Customers now live in D1 (single source of truth).
+  // Visits + savedRoutes stay in KV.
   const visitsRaw = await env.BFR_KV.get('visits:all');
-  const routesRaw = await env.BFR_KV.get('routes:all');  // saved routes (history)
+  const routesRaw = await env.BFR_KV.get('routes:all');
 
-  const existingCustomers = customersRaw ? JSON.parse(customersRaw) : [];
   const existingVisits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const existingRoutes = routesRaw ? JSON.parse(routesRaw) : [];
 
   // Merge incoming
-  const mergedCustomers = mergeById(existingCustomers, body.customers || []);
   const mergedVisits = mergeVisits(existingVisits, body.visits || {});
   const mergedRoutes = mergeById(existingRoutes, body.savedRoutes || []);
 
-  // Save back
-  await env.BFR_KV.put('customers:all', JSON.stringify(mergedCustomers));
+  // Save visits + routes to KV
   await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
   await env.BFR_KV.put('routes:all', JSON.stringify(mergedRoutes));
+
+  // Sync incoming customers into D1 (single source of truth)
+  const customersSynced = await syncCustomersToD1(env, body.customers || []);
 
   // Update last-write timestamp (used for polling/etag)
   const serverTime = new Date().toISOString();
   await env.BFR_KV.put('meta:lastwrite', serverTime);
+
+  const d1Count = await d1CountCustomers(env);
 
   return json({
     success: true,
@@ -111,7 +111,7 @@ export async function onRequestPost(context) {
     visits: mergedVisits,
     savedRoutes: mergedRoutes,
     counts: {
-      customers: mergedCustomers.filter(c => !c.deleted).length,
+      customers: d1Count,
       visits: Object.keys(mergedVisits).length,
       savedRoutes: mergedRoutes.length,
     },
@@ -123,37 +123,34 @@ export async function onRequestGet(context) {
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
 
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
-
   const url = new URL(request.url);
   const since = url.searchParams.get('since');  // ISO timestamp — return only customers updated AFTER this
 
-  const customersRaw = await env.BFR_KV.get('customers:all');
   const visitsRaw = await env.BFR_KV.get('visits:all');
   const routesRaw = await env.BFR_KV.get('routes:all');
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
 
-  const allCustomers = customersRaw ? JSON.parse(customersRaw) : [];
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
 
-  // Incremental sync: if `?since=` provided, return only customers modified after that time.
-  // First-time load (no since) returns empty — client loads static customers-db.json.
-  // Subsequent polls get only the delta (typically 0-5 records), keeping Worker CPU low.
-  let customers;
-  if (since) {
-    const sinceTime = new Date(since).getTime();
-    if (!isNaN(sinceTime)) {
-      customers = allCustomers.filter(c => {
-        const t = new Date(c.updatedAt || c.createdAt || 0).getTime();
-        return t > sinceTime;
-      });
-    } else {
-      customers = [];  // invalid date → return nothing
+  // Customers come from D1 (single source of truth).
+  let customers = [];
+  let allCustomersCount = 0;
+  if (env.BFR_DB) {
+    if (since) {
+      // Incremental: customers modified after this time
+      const sinceTime = new Date(since).getTime();
+      if (!isNaN(sinceTime)) {
+        const sinceIso = new Date(sinceTime).toISOString();
+        const { results } = await env.BFR_DB.prepare(
+          `SELECT * FROM customers WHERE updated_at > ?1 AND deleted=0 ORDER BY updated_at ASC`
+        ).bind(sinceIso).all();
+        customers = (results || []).map(d1ToCustomer);
+      }
     }
-  } else {
-    customers = [];  // first-time load: client uses static DB
+    const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+    allCustomersCount = countRes?.n || 0;
   }
 
   return json({
@@ -164,9 +161,104 @@ export async function onRequestGet(context) {
     visits,
     savedRoutes,
     counts: {
-      customers: allCustomers.length,
+      customers: allCustomersCount,
       visits: Object.keys(visits).length,
       savedRoutes: savedRoutes.length,
     },
   });
+}
+
+// ===== D1 helpers =====
+
+function d1ToCustomer(r) {
+  return {
+    id: 'db_' + r.cif,
+    cif: r.cif,
+    name: r.name,
+    nickname: r.nickname || '',
+    phone: r.phone || '',
+    address: r.address || '',
+    lat: r.lat != null ? r.lat : null,
+    lng: r.lng != null ? r.lng : null,
+    riskLevel: r.risk_level || 'unclassified',
+    debtType: r.debt_type || null,
+    zone: r.zone || '',
+    potential: r.potential || '',
+    photo: r.photo || '',
+    createdBy: r.created_by || 'AutoImport:StaticDB',
+    deleted: !!r.deleted,
+    createdAt: r.created_at || '',
+    updatedAt: r.updated_at || '',
+    geo_source: r.geo_source || 'static_db',
+  };
+}
+
+function esc(v) {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number') return String(v);
+  return "'" + String(v).replace(/'/g, "''") + "'";
+}
+
+async function d1CountCustomers(env) {
+  if (!env.BFR_DB) return 0;
+  const res = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+  return res?.n || 0;
+}
+
+// Upsert incoming customers into D1 (soft-delete honored)
+async function syncCustomersToD1(env, incoming) {
+  if (!env.BFR_DB || !Array.isArray(incoming) || incoming.length === 0) return 0;
+  let synced = 0;
+  for (const c of incoming) {
+    const cif = String(c.cif || '').trim();
+    if (!cif) continue;
+    const now = new Date().toISOString();
+    const deleted = c.deleted ? 1 : 0;
+
+    // Check existence
+    const exists = await env.BFR_DB.prepare(
+      'SELECT cif FROM customers WHERE cif = ?1'
+    ).bind(cif).first();
+
+    try {
+      if (exists) {
+        // Only update non-empty fields + deleted flag
+        await env.BFR_DB.prepare(
+          `UPDATE customers SET
+             name = COALESCE(?1, name),
+             nickname = COALESCE(?2, nickname),
+             phone = COALESCE(?3, phone),
+             address = COALESCE(?4, address),
+             risk_level = COALESCE(?5, risk_level),
+             debt_type = COALESCE(?6, debt_type),
+             lat = COALESCE(?7, lat),
+             lng = COALESCE(?8, lng),
+             deleted = ?9,
+             updated_at = ?10
+           WHERE cif = ?11`
+        ).bind(
+          c.name ?? null, c.nickname ?? null, c.phone ?? null, c.address ?? null,
+          c.riskLevel ?? null, c.debtType ?? null,
+          (c.lat != null && Number.isFinite(Number(c.lat))) ? Number(c.lat) : null,
+          (c.lng != null && Number.isFinite(Number(c.lng))) ? Number(c.lng) : null,
+          deleted, now, cif
+        ).run();
+      } else {
+        await env.BFR_DB.prepare(
+          `INSERT INTO customers (cif, name, nickname, phone, address, risk_level, debt_type, lat, lng, deleted, created_by, created_at, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)`
+        ).bind(
+          cif, c.name || '', c.nickname || '', c.phone || '', c.address || '',
+          c.riskLevel || 'unclassified', c.debtType ?? null,
+          (c.lat != null && Number.isFinite(Number(c.lat))) ? Number(c.lat) : null,
+          (c.lng != null && Number.isFinite(Number(c.lng))) ? Number(c.lng) : null,
+          deleted, c.createdBy || 'user', now
+        ).run();
+      }
+      synced++;
+    } catch (e) {
+      console.warn('sync customer failed', cif, e.message);
+    }
+  }
+  return synced;
 }

@@ -1,4 +1,5 @@
 // Admin Customer CRUD — /api/admin/customers-crud
+// D1-backed (single source of truth). Replaces the old KV customers:all/recycle.
 // GET: list active customers (admin only)
 // POST: create new customer (admin only)
 // PUT: update customer (admin only)
@@ -8,11 +9,6 @@
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 
-const KV_CUSTOMERS = 'customers:all';
-const KV_RECYCLE = 'customers:recycle';
-const KV_TAGS = 'customers:tags';
-const KV_AUDIT = 'audit:log';
-const KV_OVERLAY = 'gps:overlay';
 const RECYCLE_TTL_DAYS = 30;
 
 function json(data, status = 200) {
@@ -37,92 +33,97 @@ function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-async function log(env, user, action, detail) {
-  try {
-    if (!env.BFR_KV) return;
-    const raw = await env.BFR_KV.get(KV_AUDIT);
-    const logs = raw ? JSON.parse(raw) : [];
-    logs.push({
-      ts: new Date().toISOString(),
-      user: user.username || user.sub || 'unknown',
-      action,
-      detail,
-    });
-    // Keep last 500 entries
-    const trimmed = logs.slice(-500);
-    await env.BFR_KV.put(KV_AUDIT, JSON.stringify(trimmed));
-  } catch (e) {
-    console.warn('audit log failed:', e.message);
-  }
+// ===== D1 helpers =====
+
+function rowToCustomer(r) {
+  return {
+    id: 'db_' + r.cif,
+    cif: r.cif,
+    name: r.name,
+    nickname: r.nickname || '',
+    phone: r.phone || '',
+    address: r.address || '',
+    lat: r.lat != null ? Number(r.lat) : null,
+    lng: r.lng != null ? Number(r.lng) : null,
+    riskLevel: r.risk_level || 'unclassified',
+    debtType: r.debt_type || null,
+    zone: r.zone || '',
+    potential: r.potential || '',
+    photo: r.photo || '',
+    createdBy: r.created_by || '',
+    deleted: !!r.deleted,
+    deletedAt: r.deleted_at || null,
+    deletedBy: r.deleted_by || null,
+    tags: [],
+    createdAt: r.created_at || '',
+    updatedAt: r.updated_at || '',
+    geo_source: r.geo_source || '',
+    extra: {
+      amphoe: r.amphoe || '', tambon: r.tambon || '', province: r.province || '',
+      postcode: r.postcode || '', moo: r.moo || '', idCard: r.id_card || '', dob: r.dob || '',
+    },
+  };
 }
 
 async function getAll(env, includeDeleted = false) {
-  const raw = await env.BFR_KV.get(KV_CUSTOMERS);
-  const customers = raw ? JSON.parse(raw) : [];
-  return includeDeleted ? customers : customers.filter(c => !c.deleted);
+  if (!env.BFR_DB) return [];
+  const where = includeDeleted ? '' : 'WHERE deleted=0';
+  const { results } = await env.BFR_DB.prepare(`SELECT * FROM customers ${where} ORDER BY name ASC`).all();
+  return (results || []).map(rowToCustomer);
 }
 
 async function getRecycle(env) {
-  const raw = await env.BFR_KV.get(KV_RECYCLE);
-  return raw ? JSON.parse(raw) : [];
+  if (!env.BFR_DB) return [];
+  // Recycle = deleted customers
+  const { results } = await env.BFR_DB.prepare(
+    'SELECT * FROM customers WHERE deleted=1 ORDER BY deleted_at DESC OR updated_at DESC'
+  ).all();
+  return (results || []).map(rowToCustomer);
 }
 
 async function saveRecycle(env, recycle) {
-  // Auto-purge items older than RECYCLE_TTL_DAYS
-  const cutoff = Date.now() - (RECYCLE_TTL_DAYS * 24 * 60 * 60 * 1000);
-  const fresh = recycle.filter(r => new Date(r.deletedAt).getTime() > cutoff);
-  await env.BFR_KV.put(KV_RECYCLE, JSON.stringify(fresh));
-  return fresh;
+  return recycle; // D1 is source of truth; no-op (deleted flag in D1)
 }
 
-/** Rebuild the tags cache from all customers — called after any write that changes tags */
-/** Sync lat/lng changes into gps:overlay so the map sees them immediately */
-async function syncOverlay(env, cif, lat, lng, name) {
-  if (!cif) return;
+// Bump GPS overlay version so map polling picks it up
+async function bumpOverlay(env, cif, lat, lng, name) {
+  if (!env.BFR_KV) return;
   try {
-    const raw = await env.BFR_KV.get(KV_OVERLAY);
+    const raw = await env.BFR_KV.get('gps:overlay');
     const overlay = raw ? JSON.parse(raw) : {};
-    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+    if (cif && lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
       overlay[String(cif)] = { lat: Number(lat), lng: Number(lng), name: name || '', updatedAt: new Date().toISOString() };
-    } else {
-      delete overlay[String(cif)]; // lat/lng cleared → remove from overlay
+    } else if (cif) {
+      delete overlay[String(cif)];
     }
-    await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
+    await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
     await env.BFR_KV.put('meta:overlay-updated', new Date().toISOString());
-  } catch (e) {
-    console.warn('syncOverlay failed:', e.message);
-  }
+  } catch (e) { console.warn('bumpOverlay failed:', e.message); }
 }
 
-async function refreshTagsCache(env) {
+async function log(env, user, action, detail) {
   try {
-    const raw = await env.BFR_KV.get(KV_CUSTOMERS);
-    const customers = raw ? JSON.parse(raw) : [];
-    const tagsSet = new Set();
-    for (const c of customers) {
-      if (c.tags) c.tags.forEach(t => tagsSet.add(t));
-    }
-    await env.BFR_KV.put(KV_TAGS, JSON.stringify(Array.from(tagsSet).sort()));
-  } catch (e) {
-    console.warn('refreshTagsCache failed:', e.message);
-  }
+    if (!env.BFR_KV) return;
+    const raw = await env.BFR_KV.get('audit:log');
+    const logs = raw ? JSON.parse(raw) : [];
+    logs.push({ ts: new Date().toISOString(), user: user.username || user.sub || 'unknown', action, detail });
+    await env.BFR_KV.put('audit:log', JSON.stringify(logs.slice(-500)));
+  } catch (e) { console.warn('audit log failed:', e.message); }
 }
 
-// ===== GET /api/admin/customers-crud =====
-// Query params:
-//   page=N (default 1), per_page=N (default 50, max 500)
-//   q=text (search CIF/name/phone/address)
-//   hasGps=true|false
-//   risk=good|warning|bad|unclassified
-//   tag=tagname
-//   includeDeleted=true, includeRecycle=true
-// Returns paginated results + total count + allTags
+function esc(v) {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number') return String(v);
+  return "'" + String(v).replace(/'/g, "''") + "'";
+}
+
+// ===== GET =====
 export async function onRequestGet(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
   if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
+  if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
   const url = new URL(request.url);
   const includeDeleted = url.searchParams.get('includeDeleted') === 'true';
@@ -132,11 +133,9 @@ export async function onRequestGet(context) {
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
   const hasGps = url.searchParams.get('hasGps');
   const riskFilter = url.searchParams.get('risk');
-  const tagFilter = url.searchParams.get('tag');
 
   let customers = await getAll(env, includeDeleted);
 
-  // Server-side search & filter (to handle 10k+ records without loading all to client)
   if (q) {
     customers = customers.filter(c =>
       (c.cif && c.cif.toLowerCase().includes(q)) ||
@@ -147,15 +146,12 @@ export async function onRequestGet(context) {
     );
   }
   if (hasGps === 'true') {
-    customers = customers.filter(c => c.lat && c.lng && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng)));
+    customers = customers.filter(c => c.lat != null && Number.isFinite(c.lat));
   } else if (hasGps === 'false') {
-    customers = customers.filter(c => !(c.lat && c.lng && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng))));
+    customers = customers.filter(c => !(c.lat != null && Number.isFinite(c.lat)));
   }
   if (riskFilter && riskFilter !== 'all') {
     customers = customers.filter(c => (c.riskLevel || 'unclassified') === riskFilter);
-  }
-  if (tagFilter && tagFilter !== 'all') {
-    customers = customers.filter(c => (c.tags || []).includes(tagFilter));
   }
 
   const total = customers.length;
@@ -164,13 +160,7 @@ export async function onRequestGet(context) {
   const start = (safePage - 1) * perPage;
   const pageCustomers = customers.slice(start, start + perPage);
 
-  // Read allTags from dedicated KV cache (tiny, fast)
-  let allTags = [];
-  try {
-    const raw = await env.BFR_KV.get(KV_TAGS);
-    if (raw !== null) allTags = JSON.parse(raw);
-  } catch {}
-
+  const allTags = [];
   const recycle = includeRecycle ? await getRecycle(env) : [];
 
   return json({
@@ -185,51 +175,48 @@ export async function onRequestGet(context) {
   });
 }
 
-// ===== POST /api/admin/customers-crud =====
+// ===== POST =====
 export async function onRequestPost(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
   if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
+  if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
 
-  // Restore from recycle bin
+  // ---- Restore from recycle ----
   if (action === 'restore') {
     let body;
     try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
-    const { id } = body;
-    if (!id) return json({ success: false, error: 'ต้องระบุ id' }, 400);
-
-    const recycle = await getRecycle(env);
-    const idx = recycle.findIndex(c => c.id === id);
-    if (idx < 0) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
-
-    const restored = recycle.splice(idx, 1)[0];
-    delete restored.deleted;
-    delete restored.deletedAt;
-    restored.updatedAt = new Date().toISOString();
-
-    const all = await getAll(env, true);
-    all.push(restored);
-    await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
-    await saveRecycle(env, recycle);
-    await env.BFR_KV.put('meta:lastwrite', restored.updatedAt);
-    await log(env, auth.user, 'restore', { id: restored.id, name: restored.name });
-
-    // Re-add to gps:overlay if it has coords
-    if (restored.cif && restored.lat != null && restored.lng != null) {
-      await syncOverlay(env, restored.cif, restored.lat, restored.lng, restored.name);
+    const { cif } = body;
+    if (!cif) {
+      // fallback: try id (db_cif)
+      const idMatch = (body.id || '').match(/^db_(.+)$/);
+      if (!idMatch) return json({ success: false, error: 'ต้องระบุ cif หรือ id' }, 400);
+      const res = await env.BFR_DB.prepare('SELECT cif FROM customers WHERE cif=?1').bind(idMatch[1]).first();
+      if (!res) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
+      await env.BFR_DB.prepare(
+        'UPDATE customers SET deleted=0, deleted_at=NULL, deleted_by=NULL, updated_at=?1 WHERE cif=?2'
+      ).bind(new Date().toISOString(), idMatch[1]).run();
+      const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(idMatch[1]).first();
+      await log(env, auth.user, 'restore', { id: body.id, cif: idMatch[1], name: fresh?.name });
+      if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env, fresh.cif, fresh.lat, fresh.lng, fresh.name);
+      return json({ success: true, customer: rowToCustomer(fresh) });
     }
-
-    await refreshTagsCache(env);
-
-    return json({ success: true, customer: restored });
+    const res = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+    if (!res) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
+    await env.BFR_DB.prepare(
+      'UPDATE customers SET deleted=0, deleted_at=NULL, deleted_by=NULL, updated_at=?1 WHERE cif=?2'
+    ).bind(new Date().toISOString(), cif).run();
+    const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+    await log(env, auth.user, 'restore', { id: 'db_' + cif, cif, name: fresh?.name });
+    if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env, fresh.cif, fresh.lat, fresh.lng, fresh.name);
+    return json({ success: true, customer: rowToCustomer(fresh) });
   }
 
-  // Batch delete — soft delete multiple customers → recycle bin
+  // ---- Batch delete (soft) ----
   if (action === 'batch-delete') {
     let body;
     try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
@@ -237,197 +224,192 @@ export async function onRequestPost(context) {
     if (!Array.isArray(ids) || ids.length === 0) return json({ success: false, error: 'ต้องระบุ ids array' }, 400);
     if (ids.length > 200) return json({ success: false, error: 'ลบทีละไม่เกิน 200 รายการ' }, 400);
 
-    const all = await getAll(env, true);
-    const recycle = await getRecycle(env);
-    const deleted = [];
-    const deletedCifs = [];
+    const now = new Date().toISOString();
+    const deletedBy = auth.user.username || auth.user.sub || "unknown";
+    let deleted = [];
+    let deletedCifs = [];
 
     for (const id of ids) {
-      const idx = all.findIndex(c => c.id === id);
-      if (idx >= 0) {
-        const customer = all[idx];
-        if (customer.cif && customer.lat != null && customer.lng != null) {
-          deletedCifs.push(customer.cif);
-        }
-        customer.deleted = true;
-        customer.deletedAt = new Date().toISOString();
-        customer.deletedBy = auth.user.username || auth.user.sub;
-        customer.updatedAt = new Date().toISOString();
-        recycle.push(customer);
-        // Keep in customers:all with deleted:true (don't splice out)
+      const m = String(id).match(/^db_(.+)$/);
+      const cif = m ? m[1] : id;
+      const res = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+      if (res) {
+        await env.BFR_DB.prepare(
+          'UPDATE customers SET deleted=1, deleted_at=?1, deleted_by=?2, updated_at=?1 WHERE cif=?3'
+        ).bind(now, deletedBy, cif).run();
+        if (res.lat != null && res.lng != null) deletedCifs.push(cif);
         deleted.push(id);
       }
     }
-
-    await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
-    await saveRecycle(env, recycle);
-    const batchTime = new Date().toISOString();
-    await env.BFR_KV.put('meta:lastwrite', batchTime);
     await log(env, auth.user, 'batch-delete', { count: deleted.length, ids: deleted });
-
-    // Remove deleted customers from gps:overlay
+    // remove deleted from overlay
     if (deletedCifs.length > 0) {
       try {
-        const raw = await env.BFR_KV.get(KV_OVERLAY);
+        const raw = await env.BFR_KV.get('gps:overlay');
         const overlay = raw ? JSON.parse(raw) : {};
         for (const cif of deletedCifs) delete overlay[String(cif)];
-        await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
-        await env.BFR_KV.put('meta:overlay-updated', batchTime);
+        await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
+        await env.BFR_KV.put('meta:overlay-updated', now);
       } catch (e) { console.warn('batch overlay cleanup failed:', e.message); }
     }
-
     return json({ success: true, deleted, count: deleted.length, recycleDays: RECYCLE_TTL_DAYS });
   }
 
-  // Create new customer
+  // ---- Create new customer ----
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { cif, name, phone, address, lat, lng, nickname, riskLevel, debtType, tags } = body;
+  const { cif, name, phone, address, lat, lng, nickname, riskLevel, debtType } = body;
+  if (!cif || !name) return json({ success: false, error: 'ต้องระบุ CIF และ ชื่อ-นามสกุล' }, 400);
 
-  if (!cif || !name) {
-    return json({ success: false, error: 'ต้องระบุ CIF และ ชื่อ-นามสกุล' }, 400);
-  }
+  // Duplicate check
+  const dup = await env.BFR_DB.prepare('SELECT cif FROM customers WHERE cif=?1').bind(cif).first();
+  if (dup) return json({ success: false, error: `CIF ${cif} มีอยู่แล้วในระบบ` }, 409);
 
-  const all = await getAll(env, true);
+  const now = new Date().toISOString();
+  const createdBy = auth.user.username || auth.user.sub || "unknown";
+  const latV = lat ? parseFloat(lat) : null;
+  const lngV = lng ? parseFloat(lng) : null;
 
-  // Check duplicate CIF
-  if (all.find(c => c.cif === cif && !c.deleted)) {
-    return json({ success: false, error: `CIF ${cif} มีอยู่แล้วในระบบ` }, 409);
-  }
-
-  const newCustomer = {
-    id: genId(),
-    cif,
-    name,
-    nickname: nickname || '',
-    phone: phone || '',
-    address: address || '',
-    lat: lat ? parseFloat(lat) : null,
-    lng: lng ? parseFloat(lng) : null,
-    riskLevel: riskLevel || 'unclassified',
-    debtType: debtType || '',
-    tags: Array.isArray(tags) ? tags : [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: auth.user.username || auth.user.sub,
+  // INSERT using esc() — avoids D1 numbered-placeholder binding pitfalls
+  const esc = (v) => {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'number') return String(v);
+    return "'" + String(v).replace(/'/g, "''") + "'";
   };
-
-  all.push(newCustomer);
-  await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
-  await env.BFR_KV.put('meta:lastwrite', newCustomer.updatedAt);
-  await log(env, auth.user, 'create', { id: newCustomer.id, cif, name });
-
-  // Sync lat/lng to gps:overlay if provided
-  if (newCustomer.lat != null && newCustomer.lng != null) {
-    await syncOverlay(env, cif, newCustomer.lat, newCustomer.lng, name);
+  const insCols = ['cif','name','nickname','phone','address','lat','lng','risk_level','debt_type','deleted','created_by','created_at','updated_at'];
+  const insVals = [
+    esc(cif), esc(name), esc(nickname || ''), esc(phone || ''), esc(address || ''),
+    esc(latV), esc(lngV), esc(riskLevel || 'unclassified'), esc(debtType || null),
+    '0', esc(createdBy), esc(now), esc(now),
+  ];
+  try {
+    await env.BFR_DB.prepare(
+      `INSERT INTO customers (${insCols.join(',')}) VALUES (${insVals.join(',')})`
+    ).run();
+  } catch (e) {
+    console.error('admin create insert failed:', e.message);
+    return json({ success: false, error: 'Insert failed: ' + e.message }, 500);
   }
 
-  await refreshTagsCache(env);
+  const newCustomer = rowToCustomer({
+    cif, name, nickname: nickname || '', phone: phone || '', address: address || '',
+    lat: latV, lng: lngV, risk_level: riskLevel || 'unclassified', debt_type: debtType || null,
+    created_by: createdBy, created_at: now, updated_at: now, deleted: 0,
+  });
+
+  try {
+    await log(env, auth.user, 'create', { id: newCustomer.id, cif, name });
+    if (latV != null && lngV != null) await bumpOverlay(env, cif, latV, lngV, name);
+    await env.BFR_KV.put('meta:lastwrite', now);
+  } catch (e) {
+    console.error('admin create post-insert error:', e.message);
+  }
 
   return json({ success: true, customer: newCustomer }, 201);
 }
 
-// ===== PUT /api/admin/customers-crud =====
+// ===== PUT (update) =====
 export async function onRequestPut(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
   if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
+  if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
   const { id, ...updates } = body;
   if (!id) return json({ success: false, error: 'ต้องระบุ id' }, 400);
+  const m = String(id).match(/^db_(.+)$/);
+  const cif = m ? m[1] : id;
 
-  const all = await getAll(env, true);
-  const idx = all.findIndex(c => c.id === id);
-  if (idx < 0) return json({ success: false, error: 'ไม่พบลูกค้า' }, 404);
+  const exists = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+  if (!exists) return json({ success: false, error: 'ไม่พบลูกค้า' }, 404);
 
-  const allowed = ['name', 'nickname', 'phone', 'address', 'lat', 'lng', 'riskLevel', 'debtType', 'tags'];
+  const sets = [];
   const changed = [];
-  for (const key of allowed) {
-    if (key in updates && updates[key] !== all[idx][key]) {
-      changed.push(key);
-      all[idx][key] = updates[key];
-    }
+  const updater = auth.user.username || auth.user.sub || "unknown";
+  if (updates.name !== undefined) { sets.push('name=?1'); changed.push('name'); }
+  if (updates.nickname !== undefined) { sets.push('nickname=?2'); changed.push('nickname'); }
+  if (updates.phone !== undefined) { sets.push('phone=?3'); changed.push('phone'); }
+  if (updates.address !== undefined) { sets.push('address=?4'); changed.push('address'); }
+  if (updates.riskLevel !== undefined) { sets.push('risk_level=?5'); changed.push('riskLevel'); }
+  if (updates.debtType !== undefined) { sets.push('debt_type=?6'); changed.push('debtType'); }
+  if (updates.lat !== undefined && updates.lng !== undefined) {
+    sets.push('lat=?7'); sets.push('lng=?8');
+    changed.push('lat'); changed.push('lng');
   }
-  all[idx].updatedAt = new Date().toISOString();
-  all[idx].updatedBy = auth.user.username || auth.user.sub;
 
-  await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
-  await env.BFR_KV.put('meta:lastwrite', all[idx].updatedAt);
+  if (sets.length === 0) return json({ success: false, error: 'ไม่มีข้อมูลให้อัพเดท' }, 400);
+
+  const now = new Date().toISOString();
+  sets.push('updated_at=?9');
+  const params = [
+    updates.name ?? null, updates.nickname ?? null, updates.phone ?? null,
+    updates.address ?? null, updates.riskLevel ?? null, updates.debtType ?? null,
+    updates.lat !== undefined ? (updates.lat != null ? parseFloat(updates.lat) : null) : null,
+    updates.lng !== undefined ? (updates.lng != null ? parseFloat(updates.lng) : null) : null,
+    now,
+  ];
+
+  await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=${esc(cif)}`).bind(...params).run();
+
+  const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   await log(env, auth.user, 'update', { id, changed });
-
-  // Sync lat/lng to gps:overlay so map sees the change immediately
   if (changed.includes('lat') || changed.includes('lng')) {
-    await syncOverlay(env, all[idx].cif, all[idx].lat, all[idx].lng, all[idx].name);
+    await bumpOverlay(env, cif, fresh.lat, fresh.lng, fresh.name);
   }
+  await env.BFR_KV.put('meta:lastwrite', now);
 
-  // Refresh tags if tags changed
-  if (changed.includes('tags')) await refreshTagsCache(env);
-
-  return json({ success: true, customer: all[idx] });
+  return json({ success: true, customer: rowToCustomer(fresh) });
 }
 
-// ===== DELETE /api/admin/customers-crud?id=... =====
+// ===== DELETE =====
 export async function onRequestDelete(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
   if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
-  if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
+  if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
+  const id = url.searchParams.get('id');
+  if (!id) return json({ success: false, error: 'ต้องระบุ id' }, 400);
+  const m = String(id).match(/^db_(.+)$/);
+  const cif = m ? m[1] : id;
 
-  // Permanent purge from recycle
+  // Purge = permanent delete
   if (action === 'purge') {
-    const id = url.searchParams.get('id');
-    if (!id) return json({ success: false, error: 'ต้องระบุ id' }, 400);
-
-    const recycle = await getRecycle(env);
-    const idx = recycle.findIndex(c => c.id === id);
-    if (idx < 0) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
-
-    const removed = recycle.splice(idx, 1)[0];
-    await saveRecycle(env, recycle);
-    await env.BFR_KV.put('meta:lastwrite', new Date().toISOString());
-    await log(env, auth.user, 'purge', { id, cif: removed.cif, name: removed.name });
-
+    const res = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+    if (!res) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
+    await env.BFR_DB.prepare('DELETE FROM customers WHERE cif=?1').bind(cif).run();
+    await log(env, auth.user, 'purge', { id, cif, name: res.name });
+    if (res.lat != null && res.lng != null) await bumpOverlay(env, cif, null, null);
     return json({ success: true, purged: id });
   }
 
-  // Soft delete → recycle bin
-  const id = url.searchParams.get('id');
-  if (!id) return json({ success: false, error: 'ต้องระบุ id' }, 400);
+  // Soft delete
+  const exists = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
+  if (!exists) return json({ success: false, error: 'ไม่พบลูกค้า' }, 404);
 
-  const all = await getAll(env, true);
-  const idx = all.findIndex(c => c.id === id);
-  if (idx < 0) return json({ success: false, error: 'ไม่พบลูกค้า' }, 404);
-
-  const customer = all[idx];
-  customer.deleted = true;
-  customer.deletedAt = new Date().toISOString();
-  customer.deletedBy = auth.user.username || auth.user.sub;
-  customer.updatedAt = new Date().toISOString();
-
-  // Move to recycle bin
-  const recycle = await getRecycle(env);
-  recycle.push(customer);
-  await saveRecycle(env, recycle);
-
-  // Keep in customers:all with deleted:true flag (don't splice out)
-  // so the app's incremental sync can detect and process the deletion
-  await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
-  await env.BFR_KV.put('meta:lastwrite', customer.updatedAt);
-  await log(env, auth.user, 'delete', { id, cif: customer.cif, name: customer.name });
-
-  // Remove from gps:overlay if it had coords
-  if (customer.cif && customer.lat != null && customer.lng != null) {
-    await syncOverlay(env, customer.cif, null, null);
+  const now = new Date().toISOString();
+  const deletedBy = auth.user.username || auth.user.sub || "unknown";
+  try {
+    await env.BFR_DB.prepare(
+      'UPDATE customers SET deleted=1, deleted_at=?1, deleted_by=?2, updated_at=?1 WHERE cif=?3'
+    ).bind(now, deletedBy, cif).run();
+  } catch (e) {
+    return json({ success: false, error: 'Delete failed: ' + e.message }, 500);
+  }
+  try {
+    await log(env, auth.user, 'delete', { id, cif, name: exists.name });
+    if (exists.lat != null && exists.lng != null) await bumpOverlay(env, cif, null, null);
+    await env.BFR_KV.put('meta:lastwrite', now);
+  } catch (e) {
+    console.error('admin delete post error:', e.message);
   }
 
   return json({ success: true, deleted: id, recycleDays: RECYCLE_TTL_DAYS });

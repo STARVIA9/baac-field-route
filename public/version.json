@@ -1,5 +1,6 @@
 {
-  "version": "20260817.000001",
+  "version": "20260819.203957",
   "lastUpdate": "2026-08-17",
-  "changelog": "FEAT: Server-authoritative GPS — พิกัดที่อัพขึ้นเว็บเป็นข้อมูลหลัก ทับข้อมูลในเครื่องทุกเครื่อง (apply ตอน login + poll ทุก 15 วิ) + ปิด cache ไฟล์ข้อมูล"
+  "changelog": "FEAT: Server-authoritative GPS — พิกัดที่อัพขึ้นเว็บเป็นข้อมูลหลัก ทับข้อมูลในเครื่องทุกเครื่อง (apply ตอน login + poll ทุก 15 วิ) + ปิด cache ไฟล์ข้อมูล",
+  "updatedAt": "2026-08-19T20:39:57.492984Z"
 }
