@@ -209,6 +209,21 @@ export async function onRequestPost(context) {
   await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
   await log(env, auth.user, 'import', { mode, ...stats, total: incoming.length });
 
+  // Sync lat/lng changes to gps:overlay so map sees them
+  const overlaySync = {};
+  for (const c of all) {
+    if (c.cif && c.lat != null && c.lng != null && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng))) {
+      overlaySync[String(c.cif)] = { lat: Number(c.lat), lng: Number(c.lng), name: c.name || '', updatedAt: new Date().toISOString() };
+    }
+  }
+  try {
+    const raw = await env.BFR_KV.get('gps:overlay');
+    const overlay = raw ? JSON.parse(raw) : {};
+    const merged = { ...overlay, ...overlaySync };
+    await env.BFR_KV.put('gps:overlay', JSON.stringify(merged));
+    await env.BFR_KV.put('meta:overlay-updated', new Date().toISOString());
+  } catch (e) { console.warn('import overlay sync failed:', e.message); }
+
   // Rebuild tags cache after import (tags may have changed significantly)
   try {
     const tagsSet = new Set();

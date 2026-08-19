@@ -12,6 +12,7 @@ const KV_CUSTOMERS = 'customers:all';
 const KV_RECYCLE = 'customers:recycle';
 const KV_TAGS = 'customers:tags';
 const KV_AUDIT = 'audit:log';
+const KV_OVERLAY = 'gps:overlay';
 const RECYCLE_TTL_DAYS = 30;
 
 function json(data, status = 200) {
@@ -75,6 +76,24 @@ async function saveRecycle(env, recycle) {
 }
 
 /** Rebuild the tags cache from all customers — called after any write that changes tags */
+/** Sync lat/lng changes into gps:overlay so the map sees them immediately */
+async function syncOverlay(env, cif, lat, lng, name) {
+  if (!cif) return;
+  try {
+    const raw = await env.BFR_KV.get(KV_OVERLAY);
+    const overlay = raw ? JSON.parse(raw) : {};
+    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      overlay[String(cif)] = { lat: Number(lat), lng: Number(lng), name: name || '', updatedAt: new Date().toISOString() };
+    } else {
+      delete overlay[String(cif)]; // lat/lng cleared → remove from overlay
+    }
+    await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
+    await env.BFR_KV.put('meta:overlay-updated', new Date().toISOString());
+  } catch (e) {
+    console.warn('syncOverlay failed:', e.message);
+  }
+}
+
 async function refreshTagsCache(env) {
   try {
     const raw = await env.BFR_KV.get(KV_CUSTOMERS);
@@ -199,6 +218,12 @@ export async function onRequestPost(context) {
     await saveRecycle(env, recycle);
     await env.BFR_KV.put('meta:lastwrite', restored.updatedAt);
     await log(env, auth.user, 'restore', { id: restored.id, name: restored.name });
+
+    // Re-add to gps:overlay if it has coords
+    if (restored.cif && restored.lat != null && restored.lng != null) {
+      await syncOverlay(env, restored.cif, restored.lat, restored.lng, restored.name);
+    }
+
     await refreshTagsCache(env);
 
     return json({ success: true, customer: restored });
@@ -215,11 +240,15 @@ export async function onRequestPost(context) {
     const all = await getAll(env, true);
     const recycle = await getRecycle(env);
     const deleted = [];
+    const deletedCifs = [];
 
     for (const id of ids) {
       const idx = all.findIndex(c => c.id === id);
       if (idx >= 0) {
         const customer = all[idx];
+        if (customer.cif && customer.lat != null && customer.lng != null) {
+          deletedCifs.push(customer.cif);
+        }
         customer.deleted = true;
         customer.deletedAt = new Date().toISOString();
         customer.deletedBy = auth.user.username || auth.user.sub;
@@ -235,6 +264,17 @@ export async function onRequestPost(context) {
     const batchTime = new Date().toISOString();
     await env.BFR_KV.put('meta:lastwrite', batchTime);
     await log(env, auth.user, 'batch-delete', { count: deleted.length, ids: deleted });
+
+    // Remove deleted customers from gps:overlay
+    if (deletedCifs.length > 0) {
+      try {
+        const raw = await env.BFR_KV.get(KV_OVERLAY);
+        const overlay = raw ? JSON.parse(raw) : {};
+        for (const cif of deletedCifs) delete overlay[String(cif)];
+        await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
+        await env.BFR_KV.put('meta:overlay-updated', batchTime);
+      } catch (e) { console.warn('batch overlay cleanup failed:', e.message); }
+    }
 
     return json({ success: true, deleted, count: deleted.length, recycleDays: RECYCLE_TTL_DAYS });
   }
@@ -277,6 +317,12 @@ export async function onRequestPost(context) {
   await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
   await env.BFR_KV.put('meta:lastwrite', newCustomer.updatedAt);
   await log(env, auth.user, 'create', { id: newCustomer.id, cif, name });
+
+  // Sync lat/lng to gps:overlay if provided
+  if (newCustomer.lat != null && newCustomer.lng != null) {
+    await syncOverlay(env, cif, newCustomer.lat, newCustomer.lng, name);
+  }
+
   await refreshTagsCache(env);
 
   return json({ success: true, customer: newCustomer }, 201);
@@ -314,6 +360,11 @@ export async function onRequestPut(context) {
   await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
   await env.BFR_KV.put('meta:lastwrite', all[idx].updatedAt);
   await log(env, auth.user, 'update', { id, changed });
+
+  // Sync lat/lng to gps:overlay so map sees the change immediately
+  if (changed.includes('lat') || changed.includes('lng')) {
+    await syncOverlay(env, all[idx].cif, all[idx].lat, all[idx].lng, all[idx].name);
+  }
 
   // Refresh tags if tags changed
   if (changed.includes('tags')) await refreshTagsCache(env);
@@ -373,6 +424,11 @@ export async function onRequestDelete(context) {
   await env.BFR_KV.put(KV_CUSTOMERS, JSON.stringify(all));
   await env.BFR_KV.put('meta:lastwrite', customer.updatedAt);
   await log(env, auth.user, 'delete', { id, cif: customer.cif, name: customer.name });
+
+  // Remove from gps:overlay if it had coords
+  if (customer.cif && customer.lat != null && customer.lng != null) {
+    await syncOverlay(env, customer.cif, null, null);
+  }
 
   return json({ success: true, deleted: id, recycleDays: RECYCLE_TTL_DAYS });
 }
