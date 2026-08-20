@@ -188,10 +188,28 @@ const Customers = {
       if (db.potential) parts.push(`ศักยภาพ ${db.potential}`);
       if (parts.length) metaHTML = `<div class="popup-addr" style="font-size:11px;color:#0a8f3c;">${this.escapeHTML(parts.join(' · '))}</div>`;
     }
+    // Debt summary + contracts (หลายสัญญา)
+    let debtHTML = '';
+    if (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+      const debt = DebtDB.getByCif(c.cif);
+      if (debt) {
+        debtHTML = `
+          <div class="popup-debt">
+            ${DebtDB.summaryHTML(debt)}
+            <div id="debt-contracts-${this.escapeHTML(String(c.cif))}" class="debt-contracts">
+              ${DebtDB.contractsHTML(debt, false)}
+            </div>
+          </div>
+        `;
+      } else {
+        debtHTML = `<div class="popup-debt"><div class="debt-nodata">ไม่มีข้อมูลหนี้</div></div>`;
+      }
+    }
     return `
       <div class="popup-name">${this.escapeHTML(c.name)}</div>
       ${c.cif ? `<div class="popup-addr" style="font-size:11px;">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
       ${metaHTML}
+      ${debtHTML}
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
       ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
       <div class="popup-actions">
@@ -315,6 +333,19 @@ const Customers = {
           metaBadges.push(`<span class="meta-badge ${pClass}">${this.escapeHTML(db.potential)}</span>`);
         }
       }
+      // Debt mini-summary (ย่อ) สำหรับรายชื่อ
+      let debtMini = '';
+      if (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+        const debt = DebtDB.getByCif(c.cif);
+        if (debt) {
+          const urgent = debt.max_tier >= 2;
+          debtMini = `<div class="customer-debt ${urgent ? 'debt-urgent' : ''}" style="border-left-color:${DebtDB.tierColor(debt.max_tier)}">
+            <span>💰 ${DebtDB.fmtMoney(debt.total_debt)}</span>
+            <span>${debt.num_contracts} สัญญา</span>
+            <span>📅 ${DebtDB.fmtDate(debt.earliest_due) || '-'}</span>
+          </div>`;
+        }
+      }
       return `
         <div class="customer-card ${visited ? 'visited' : ''}">
           <div class="customer-avatar">${visited ? '✓' : '👤'}</div>
@@ -323,6 +354,7 @@ const Customers = {
             ${c.cif ? `<div class="customer-cif">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
             <div class="customer-address">${this.escapeHTML(c.address || 'ไม่มีที่อยู่')}</div>
             ${metaBadges.length ? `<div class="customer-meta">${metaBadges.join('')}</div>` : ''}
+            ${debtMini}
           </div>
           <div class="customer-actions">
             <button class="btn-small ${inRoute ? 'btn-route-active' : ''}" onclick="Customers.toggleRoute('${c.id}')" title="เพิ่มในเส้นทาง">

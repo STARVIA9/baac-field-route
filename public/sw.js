@@ -1,7 +1,7 @@
 // Service Worker — offline cache for BAAC Field Route
 // Strategy: NETWORK-FIRST for HTML/JS/CSS (always fresh), CACHE-FIRST for tiles/images
 
-const CACHE_NAME = "bfr-v20260819";
+const CACHE_NAME = "bfr-v20260820";
 const ASSETS = [
   '/',
   '/index.html',

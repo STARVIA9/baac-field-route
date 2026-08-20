@@ -148,6 +148,10 @@ const App = {
 
     // Load customer database (async, non-blocking)
     CustomerDB.load();
+    // Load debt database (ข้อมูลหนี้ Customer Indicator) — async, non-blocking
+    if (typeof DebtDB !== 'undefined') {
+      DebtDB.load();
+    }
 
     // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
     if (Storage.getCustomers().length === 0) {

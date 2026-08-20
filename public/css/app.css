@@ -2433,6 +2433,121 @@ body {
   color: var(--danger);
 }
 
+/* ===== Debt summary + contracts (ข้อมูลหนี้ Customer Indicator) ===== */
+.popup-debt {
+  margin: 6px 0 8px;
+}
+.debt-summary {
+  border-left: 4px solid var(--baac-green);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.debt-summary.debt-urgent {
+  background: #fdf0f0;
+}
+.debt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.debt-label {
+  color: var(--text-secondary);
+}
+.debt-val {
+  font-weight: 700;
+  text-align: right;
+}
+.debt-contracts {
+  margin-top: 2px;
+}
+.debt-contract {
+  border: 1px solid #e2e6e2;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.debt-contract-urgent {
+  border-color: #f0b4b4;
+  background: #fff9f9;
+}
+.debt-contract .dc-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.debt-contract .dc-no {
+  color: var(--text);
+}
+.debt-contract .dc-line {
+  font-size: 11px;
+  color: var(--text);
+  padding: 1px 0;
+}
+.debt-contract .dc-line .red-debt {
+  color: #b30000;
+}
+.debt-more {
+  width: 100%;
+  background: var(--baac-green-muted);
+  border: 1px solid var(--baac-green-light);
+  color: var(--baac-green-dark);
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+.debt-more:hover {
+  background: #d7edd9;
+}
+.debt-nodata {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+.meta-badge.red-debt {
+  background: #b30000;
+  color: #fff;
+}
+.meta-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.meta-badge.gray { background: #eef1ef; color: #4a554a; }
+.meta-badge.blue { background: #e8f0fa; color: #1e4e79; }
+.meta-badge.red { background: #fdecea; color: #b30000; }
+.meta-badge.yellow { background: #fdf6e3; color: #92610a; }
+.meta-badge.green { background: #e8f5ec; color: #067029; }
+
+/* ===== Mini debt line in customer list ===== */
+.customer-debt {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  border-left: 3px solid var(--baac-green);
+  padding-left: 8px;
+  margin-top: 6px;
+  background: var(--surface-sunken);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.customer-debt.debt-urgent {
+  background: #fdf0f0;
+}
+
 /* ===== Layer Toggle (roadmap ↔ satellite) ===== */
 .layer-toggle {
   display: flex !important;
