@@ -70,25 +70,37 @@ const DebtSummary = {
       `).join('');
     }
 
-    // ===== หนี้ถึงกำหนดรายเดือน =====
+    // ===== หนี้ถึงกำหนดรายเดือน (ปีบัญชีปัจจุบัน: มิ.ย.69 -> มี.ค.70) =====
     const monthBlock = document.getElementById('debt-month-block');
     if (monthBlock) {
-      const todayMM = DebtDB.dueMonthKey(new Date().toISOString().slice(0, 10));
+      // key ตัวเลข YYYYMM สำหรับช่วงปีบัญชี
+      const ykey = (mmyy) => { const p = String(mmyy).split('/'); return (+p[1]) * 100 + (+p[0]); };
+      const FY_START = ykey('06/2026');   // มิ.ย. 2569
+      const FY_END = ykey('03/2027');     // มี.ค. 2570
       const monthCount = {};
+      let fyTotal = 0;
       for (const r of data) {
         const k = DebtDB.dueMonthKey(r.earliest_due);
-        if (k && k >= todayMM) monthCount[k] = (monthCount[k] || 0) + 1;
+        if (!k) continue;
+        const kv = ykey(k);
+        if (kv >= FY_START && kv <= FY_END) {
+          monthCount[k] = (monthCount[k] || 0) + 1;
+          fyTotal++;
+        }
       }
-      const sortedMonths = Object.keys(monthCount).sort();
+      const sortedMonths = Object.keys(monthCount).sort((a, b) => ykey(a) - ykey(b));
       if (sortedMonths.length === 0) {
-        monthBlock.innerHTML = '<div class="ds-note">ไม่มีหนี้ถึงกำหนดในอนาคต</div>';
+        monthBlock.innerHTML = '<div class="ds-note">ไม่มีหนี้ถึงกำหนดในปีบัญชีนี้</div>';
       } else {
-        monthBlock.innerHTML = sortedMonths.slice(0, 8).map(k => `
+        // แถวรวม + รายเดือนช่วง มิ.ย.69-มี.ค.70
+        const header = `<div class="ds-row ds-total"><span class="ds-label">📊 เหลือทั้งปีบัญชี</span><span class="ds-val">${fyTotal.toLocaleString('th-TH')} ราย</span></div>`;
+        const rows = sortedMonths.map(k => `
           <div class="ds-row">
             <span class="ds-label">📅 ${DebtDB.fmtDate('01/' + k)}</span>
             <span class="ds-val">${monthCount[k].toLocaleString('th-TH')} ราย</span>
           </div>
         `).join('');
+        monthBlock.innerHTML = `${header}${rows}`;
       }
     }
 

@@ -2646,6 +2646,16 @@ body {
 .ds-label { color: var(--text); }
 .ds-val { font-weight: 600; }
 .ds-note { font-size: 12px; color: var(--text-muted); padding: 6px 0; }
+.ds-row.ds-total {
+  background: var(--baac-green-muted);
+  border: 1px solid var(--baac-green-light);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.ds-total .ds-label { color: var(--baac-green-dark); }
+.ds-total .ds-val { color: var(--baac-green-dark); font-size: 15px; }
 .ds-bar {
   height: 8px;
   background: #eef1ef;
