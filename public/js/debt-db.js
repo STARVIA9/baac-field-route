@@ -47,6 +47,14 @@ const DebtDB = {
     return th[parseInt(m[2]) - 1] + ' ' + (parseInt(m[3]) + 543);
   },
 
+  // key สำหรับกรองเดือน: 'MM/YYYY' (ใช้ใน dropdown)
+  dueMonthKey(d) {
+    if (!d) return '';
+    const m = String(d).match(/(\d+)\/(\d+)\/(\d+)/);
+    if (!m) return '';
+    return m[2] + '/' + m[3];
+  },
+
   // สีตามชั้นหนี้
   tierColor(t) {
     t = parseInt(t) || 0;

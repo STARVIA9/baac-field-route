@@ -150,7 +150,9 @@ const App = {
     CustomerDB.load();
     // Load debt database (ข้อมูลหนี้ Customer Indicator) — async, non-blocking
     if (typeof DebtDB !== 'undefined') {
-      DebtDB.load();
+      DebtDB.load().then(() => {
+        if (Customers.initDebtFilter) Customers.initDebtFilter();
+      }).catch(() => {});
     }
 
     // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
@@ -519,10 +521,14 @@ const App = {
     document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
     const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
     if (tab) tab.classList.add('active');
-    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit' };
+    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', debtsummary: 'sheet-debtsummary' };
     const pane = document.getElementById(idMap[name] || 'sheet-route');
     if (pane) pane.classList.add('active');
     if (name !== 'route') this.setSheetState('half');
+    // Render debt summary เมื่อเปิดแท็บสรุปหนี้
+    if (name === 'debtsummary' && typeof DebtDB !== 'undefined' && DebtDB._loaded && window.DebtSummary) {
+      DebtSummary.render();
+    }
   },
 
   // Render today's visits in the route pane

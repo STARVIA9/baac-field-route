@@ -5,6 +5,10 @@ const Customers = {
   markers: {},
   currentFilter: 'all',
   showOnlyGPS: false,  // Toggle: แสดงเฉพาะลูกค้าที่มีพิกัด
+  // Debt filters (ข้อมูลหนี้ Customer Indicator)
+  debtMonth: '',       // เดือนที่ถึงกำหนด (เช่น '08/2026') — ว่าง = ทุกเดือน
+  debtTier: '',        // ชั้นหนี้ (''=ทุกชั้น, '1'..'5')
+  omsomMode: '',       // ''=รวม, 'exclude'=กรอง อสม.ออก, 'only'=เฉพาะ อสม.
   _baseLayers: {},
   _currentBaseLayer: 'roadmap',
 
@@ -112,6 +116,24 @@ const Customers = {
     customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
       if (this.showOnlyGPS && (!c.lat || !c.lng)) return;
+      // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
+      if (this.debtMonth || this.debtTier || this.omsomMode) {
+        const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
+        if (this.debtMonth) {
+          // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
+          const due = debt ? DebtDB.dueMonthKey(debt.earliest_due) : '';
+          if (due !== this.debtMonth) return;
+        }
+        if (this.debtTier) {
+          const maxTier = debt ? (parseInt(debt.max_tier) || 0) : 0;
+          if (maxTier !== parseInt(this.debtTier)) return;
+        }
+        if (this.omsomMode) {
+          const isOmsom = debt ? debt.is_omsom : false;
+          if (this.omsomMode === 'exclude' && isOmsom) return;
+          if (this.omsomMode === 'only' && !isOmsom) return;
+        }
+      }
 
       const visited = !!visits[c.id];
       const riskClass = c.riskLevel || 'unclassified';
@@ -175,6 +197,47 @@ const Customers = {
         this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
       }
     }
+  },
+
+  // ===== Debt filter bar: เติมเดือน + ผูก event + re-render =====
+  initDebtFilter() {
+    const monthSel = document.getElementById('debt-month-filter');
+    const tierSel = document.getElementById('debt-tier-filter');
+    const omSel = document.getElementById('debt-omsom-filter');
+    const resetBtn = document.getElementById('debt-filter-reset');
+    if (!monthSel || typeof DebtDB === 'undefined') return;
+
+    // เติม dropdown เดือนจากข้อมูลหนี้ (เฉพาะเดือนตั้งแต่ปัจจุบันขึ้นไป)
+    if (DebtDB._loaded && monthSel.options.length <= 1) {
+      const todayMMYY = DebtDB.dueMonthKey(new Date().toISOString().slice(0,10));
+      const months = new Set();
+      DebtDB._byCif.forEach(r => {
+        const k = DebtDB.dueMonthKey(r.earliest_due);
+        if (k) months.add(k);
+      });
+      const sorted = [...months].filter(k => k >= todayMMYY).sort();
+      sorted.forEach(k => {
+        const o = document.createElement('option');
+        o.value = k;
+        o.textContent = DebtDB.fmtDate('01/' + k);
+        monthSel.appendChild(o);
+      });
+    }
+
+    const apply = () => {
+      this.debtMonth = monthSel.value;
+      this.debtTier = tierSel.value;
+      this.omsomMode = omSel.value;
+      this.renderAll();
+    };
+    monthSel.addEventListener('change', apply);
+    tierSel.addEventListener('change', apply);
+    omSel.addEventListener('change', apply);
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      monthSel.value = ''; tierSel.value = ''; omSel.value = '';
+      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = '';
+      this.renderAll();
+    });
   },
 
   // Popup HTML

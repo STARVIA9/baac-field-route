@@ -144,6 +144,29 @@
     <!-- Full-screen map container (Leaflet) -->
     <div id="map"></div>
 
+    <!-- Debt filter bar (floating over map) -->
+    <div class="map-debt-filter" id="map-debt-filter">
+      <div class="mdf-row">
+        <select id="debt-month-filter" class="mdf-select"><option value="">🗓️ ทุกเดือน</option></select>
+        <select id="debt-tier-filter" class="mdf-select">
+          <option value="">ทุกชั้นหนี้</option>
+          <option value="1">ชั้น 1</option>
+          <option value="2">ชั้น 2</option>
+          <option value="3">ชั้น 3</option>
+          <option value="4">ชั้น 4</option>
+          <option value="5">ชั้น 5</option>
+        </select>
+      </div>
+      <div class="mdf-row">
+        <select id="debt-omsom-filter" class="mdf-select" title="กลุ่ม อสม. (Market Code 3080/2838/2751)">
+          <option value="">รวม อสม.</option>
+          <option value="exclude">กรอง อสม. ออก</option>
+          <option value="only">ดูเฉพาะ อสม.</option>
+        </select>
+        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรอง">✕</button>
+      </div>
+    </div>
+
     <!-- Floating action buttons over map -->
     <div class="map-fab">
       <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
@@ -162,6 +185,7 @@
         <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
         <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
         <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
+        <button class="sheet-tab" data-sheet="debtsummary">📊 สรุปหนี้</button>
       </div>
 
       <div class="sheet-scroll">
@@ -309,6 +333,35 @@
           </div>
           <div class="visit-list" id="visit-list">
             <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+          </div>
+        </div>
+
+        <!-- Debt summary pane (ภาพรวมหนี้ทั้งสาขา) -->
+        <div class="sheet-content" id="sheet-debtsummary">
+          <div class="debt-summary-header">
+            <h2>📊 สรุปภาพรวมหนี้</h2>
+            <div class="debt-summary-sub" id="debt-summary-sub">กำลังโหลดข้อมูลหนี้...</div>
+          </div>
+          <div class="debt-overview-cards" id="debt-overview-cards"></div>
+
+          <div class="debt-block">
+            <h3>🎨 แยกตามกลุ่มสี (ศักยภาพ)</h3>
+            <div class="debt-block-body" id="debt-color-block"></div>
+          </div>
+
+          <div class="debt-block">
+            <h3>🏷️ แยกตามชั้นหนี้ ธปท.</h3>
+            <div class="debt-block-body" id="debt-tier-block"></div>
+          </div>
+
+          <div class="debt-block">
+            <h3>📅 หนี้ถึงกำหนด (รายเดือน)</h3>
+            <div class="debt-block-body" id="debt-month-block"></div>
+          </div>
+
+          <div class="debt-block">
+            <h3>📍 สถานะพิกัดของลูกค้าหนี้</h3>
+            <div class="debt-block-body" id="debt-geo-block"></div>
           </div>
         </div>
       </div><!-- /sheet-scroll -->
@@ -815,6 +868,7 @@
   <script src="js/customers.js?v=20260719"></script>
   <script src="js/customer-db.js?v=20260719"></script>
   <script src="js/debt-db.js?v=20260820"></script>
+  <script src="js/debt-summary.js?v=20260820"></script>
   <script src="js/tsp.js?v=20260719"></script>
   <script src="js/route.js?v=20260719"></script>
   <script src="js/visit.js?v=20260719"></script>
