@@ -78,6 +78,7 @@ const DebtSummary = {
       const FY_START = ykey('06/2026');   // มิ.ย. 2569
       const FY_END = ykey('03/2027');     // มี.ค. 2570
       const monthCount = {};
+      const monthOmsom = {};   // จำนวน อสม. ต่อเดือน
       let fyTotal = 0, fyOmsom = 0;
       for (const r of data) {
         const k = DebtDB.dueMonthKey(r.earliest_due);
@@ -86,14 +87,17 @@ const DebtSummary = {
         if (kv >= FY_START && kv <= FY_END) {
           monthCount[k] = (monthCount[k] || 0) + 1;
           fyTotal++;
-          if (r.is_omsom) fyOmsom++;
+          if (r.is_omsom) {
+            fyOmsom++;
+            monthOmsom[k] = (monthOmsom[k] || 0) + 1;
+          }
         }
       }
       const sortedMonths = Object.keys(monthCount).sort((a, b) => ykey(a) - ykey(b));
       if (sortedMonths.length === 0) {
         monthBlock.innerHTML = '<div class="ds-note">ไม่มีหนี้ถึงกำหนดในปีบัญชีนี้</div>';
       } else {
-        // แถวรวม (แยก อสม.) + รายเดือนช่วง มิ.ย.69-มี.ค.70
+        // แถวรวม (แยก อสม.) + รายเดือนช่วง มิ.ย.69-มี.ค.70 (วงเล็บจำนวน อสม.)
         const header = `
           <div class="ds-row ds-total"><span class="ds-label">📊 เหลือทั้งปีบัญชี</span><span class="ds-val">${fyTotal.toLocaleString('th-TH')} ราย</span></div>
           <div class="ds-row"><span class="ds-label">👤 ลูกค้าทั่วไป</span><span class="ds-val">${(fyTotal - fyOmsom).toLocaleString('th-TH')} ราย</span></div>
@@ -102,7 +106,7 @@ const DebtSummary = {
         const rows = sortedMonths.map(k => `
           <div class="ds-row">
             <span class="ds-label">📅 ${DebtDB.fmtDate('01/' + k)}</span>
-            <span class="ds-val">${monthCount[k].toLocaleString('th-TH')} ราย</span>
+            <span class="ds-val">${monthCount[k].toLocaleString('th-TH')} ราย${monthOmsom[k] ? ` (อสม. ${monthOmsom[k].toLocaleString('th-TH')})` : ''}</span>
           </div>
         `).join('');
         monthBlock.innerHTML = `${header}${rows}`;
