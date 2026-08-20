@@ -207,9 +207,8 @@ const Customers = {
     const resetBtn = document.getElementById('debt-filter-reset');
     if (!monthSel || typeof DebtDB === 'undefined') return;
 
-    // เติม dropdown เดือนจากข้อมูลหนี้ (เฉพาะเดือนตั้งแต่ปัจจุบันขึ้นไป, เรียงตามเวลา)
+    // เติม dropdown เดือนจากข้อมูลหนี้ (เรียงตามเวลา — แสดงทุกเดือนที่มีข้อมูล)
     if (DebtDB._loaded && monthSel.options.length <= 1) {
-      const todayMMYY = DebtDB.dueMonthKey(new Date().toISOString().slice(0,10));
       const months = new Set();
       DebtDB._byCif.forEach(r => {
         const k = DebtDB.dueMonthKey(r.earliest_due);
@@ -220,9 +219,7 @@ const Customers = {
         const p = String(mmyy).split('/');
         return (+p[1]) * 100 + (+p[0]);   // 'MM/YYYY' -> YYYY*100+MM
       };
-      const sorted = [...months]
-        .filter(k => sortKey(k) >= sortKey(todayMMYY))
-        .sort((a, b) => sortKey(a) - sortKey(b));
+      const sorted = [...months].sort((a, b) => sortKey(a) - sortKey(b));
       sorted.forEach(k => {
         const o = document.createElement('option');
         o.value = k;
