@@ -255,7 +255,7 @@ const Customers = {
       if (db.potential) parts.push(`ศักยภาพ ${db.potential}`);
       if (parts.length) metaHTML = `<div class="popup-addr" style="font-size:11px;color:#0a8f3c;">${this.escapeHTML(parts.join(' · '))}</div>`;
     }
-    // Debt summary + contracts (หลายสัญญา)
+    // Debt summary + contracts (หลายสัญญา) — แสดงทุกสัญญาเต็ม
     let debtHTML = '';
     if (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) {
       const debt = DebtDB.getByCif(c.cif);
@@ -263,9 +263,7 @@ const Customers = {
         debtHTML = `
           <div class="popup-debt">
             ${DebtDB.summaryHTML(debt)}
-            <div id="debt-contracts-${this.escapeHTML(String(c.cif))}" class="debt-contracts">
-              ${DebtDB.contractsHTML(debt, false)}
-            </div>
+            ${DebtDB.contractsHTML(debt, true)}
           </div>
         `;
       } else {
