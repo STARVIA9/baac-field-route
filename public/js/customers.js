@@ -4,11 +4,11 @@ const Customers = {
   map: null,
   markers: {},
   currentFilter: 'all',
-  showOnlyGPS: false,  // Toggle: แสดงเฉพาะลูกค้าที่มีพิกัด
   // Debt filters (ข้อมูลหนี้ Customer Indicator)
   debtMonth: '',       // เดือนที่ถึงกำหนด (เช่น '08/2026') — ว่าง = ทุกเดือน
   debtTier: '',        // ชั้นหนี้ (''=ทุกชั้น, '1'..'5')
   omsomMode: '',       // ''=รวม, 'exclude'=กรอง อสม.ออก, 'only'=เฉพาะ อสม.
+  m15Mode: '',         // ''=ทุก 15เดือน, 'Y'=มี 15เดือน, 'none'=ไม่มี 15เดือน
   _baseLayers: {},
   _currentBaseLayer: 'roadmap',
 
@@ -38,24 +38,42 @@ const Customers = {
     // Add layer toggle control (top-right)
     this._addLayerControl();
 
-    // Map click to add customer
-    this.map.on('click', (e) => {
-      // Pick mode: re-open modal with prefilled lat/lng
+    // Map long-press to add customer (ต้องจิ้มค้าง ~600ms ถึงจะขึ้นเพิ่มพิกัด)
+    const LONG_PRESS_MS = 600;
+    let pressTimer = null;
+    let pressLatLng = null;
+    const handleLongPress = (latlng) => {
+      if (!latlng) return;
       if (window._pickMode) {
         window._pickMode = false;
-        // Pre-fill draft if any
         const draft = sessionStorage.getItem('add-customer-draft');
         const draftData = draft ? JSON.parse(draft) : {};
-        draftData.lat = e.latlng.lat.toFixed(6);
-        draftData.lng = e.latlng.lng.toFixed(6);
+        draftData.lat = latlng.lat.toFixed(6);
+        draftData.lng = latlng.lng.toFixed(6);
         sessionStorage.setItem('add-customer-draft', JSON.stringify(draftData));
         App.restoreAddCustomerModal();
         return;
       }
-      document.getElementById('new-lat').value = e.latlng.lat.toFixed(6);
-      document.getElementById('new-lng').value = e.latlng.lng.toFixed(6);
-      App.openAddCustomerModal();
-    });
+      // แสดงตัวเลือก: ปักหมุดลูกค้าเดิม หรือ เพิ่มลูกค้าใหม่
+      this._showPinOptions(latlng.lat, latlng.lng);
+    };
+    const startPress = (latlng) => {
+      pressLatLng = latlng;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => { pressTimer = null; handleLongPress(pressLatLng); }, LONG_PRESS_MS);
+    };
+    const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+    // Desktop: กดค้างเมาส์ซ้าย
+    this.map.on('mousedown', (e) => { if (e.originalEvent && e.originalEvent.button !== 0) return; startPress(e.latlng); });
+    this.map.on('mouseup', cancelPress);
+    this.map.on('mousemove', (e) => { if (pressTimer && pressLatLng && e.latlng && e.latlng.distanceTo(pressLatLng) > 12) cancelPress(); });
+    this.map.on('mouseout', cancelPress);
+    // Mobile: จิ้มค้าง
+    this.map.on('touchstart', (e) => { if (e.latlng) startPress(e.latlng); });
+    this.map.on('touchend', cancelPress);
+    this.map.on('touchmove', cancelPress);
+    // Fallback: คลิกขวา (desktop) / long-press ระบบ (mobile บางรุ่นยิง contextmenu)
+    this.map.on('contextmenu', (e) => { clearTimeout(pressTimer); pressTimer = null; handleLongPress(e.latlng); });
   },
 
   // ===== Color scheme for circleMarker (no DOM elements) =====
@@ -92,6 +110,20 @@ const Customers = {
       routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
     }
 
+    // === Display-only jitter for exactly-overlapping pins ===
+    // Deterministic hash-based jitter: same CIF always gets same offset (stable across renders)
+    const jitter = (v, seed) => {
+      // Simple hash: multiply seed by prime, take fractional part
+      const h = ((seed * 2654435761) >>> 0) / 4294967296; // 0..1
+      return v + (h - 0.5) * 0.00006;
+    };
+    const coordKeys = {};   // "lat,lng" -> จำนวนหมุดที่ซ้อนกัน ณ จุดนั้น
+    for (const c of customers) {
+      if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
+      const key = c.lat.toFixed(6) + ',' + c.lng.toFixed(6);
+      coordKeys[key] = (coordKeys[key] || 0) + 1;
+    }
+
     // Cluster layer (only if leaflet.markercluster loaded); circleMarkers go here on canvas.
     const clusterable = typeof L.markerClusterGroup === 'function';
     const cluster = clusterable
@@ -115,9 +147,8 @@ const Customers = {
 
     customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
-      if (this.showOnlyGPS && (!c.lat || !c.lng)) return;
       // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
-      if (this.debtMonth || this.debtTier || this.omsomMode) {
+      if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode) {
         const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
         if (this.debtMonth) {
           // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
@@ -133,6 +164,11 @@ const Customers = {
           if (this.omsomMode === 'exclude' && isOmsom) return;
           if (this.omsomMode === 'only' && !isOmsom) return;
         }
+        if (this.m15Mode) {
+          const has15 = debt && debt.contracts && debt.contracts.some(c=>c.m15==='Y' || (c.m15_amt||0)>0);
+          if (this.m15Mode === 'Y' && !has15) return;
+          if (this.m15Mode === 'none' && has15) return;
+        }
       }
 
       const visited = !!visits[c.id];
@@ -143,7 +179,17 @@ const Customers = {
       const fill = visited ? '#16a34a' : colors.fill;
       const stroke = visited ? '#16a34a' : colors.stroke;
 
-      const marker = L.circleMarker([c.lat, c.lng], {
+      // แยกหมุดที่ซ้อนกันพอดี: ถ้าจุดนี้มีหมุดซ้อน >1 → ขยับหมุดตัวถัดๆ ไปด้วย jitter
+      // เฉพาะตอนแสดงผล (jitter แบบ deterministic ตามคิว) เพื่อให้เห็นหมุดครบทุกตัว
+      let mLat = c.lat, mLng = c.lng;
+      if (coordKeys[c.lat.toFixed(6) + ',' + c.lng.toFixed(6)] > 1) {
+        // Use CIF numeric value as seed for deterministic jitter
+        const seed = parseInt(c.cif, 10) || parseInt(c.id.replace(/\D/g, ''), 10) || 0;
+        mLat = jitter(c.lat, seed);
+        mLng = jitter(c.lng, seed + 7919); // different prime offset for lng
+      }
+
+      const marker = L.circleMarker([mLat, mLng], {
         radius: inRoute ? 11 : 8,
         fillColor: fill,
         color: stroke,
@@ -204,6 +250,7 @@ const Customers = {
     const monthSel = document.getElementById('debt-month-filter');
     const tierSel = document.getElementById('debt-tier-filter');
     const omSel = document.getElementById('debt-omsom-filter');
+    const m15Sel = document.getElementById('debt-15m-filter');
     const resetBtn = document.getElementById('debt-filter-reset');
     if (!monthSel || typeof DebtDB === 'undefined') return;
 
@@ -232,14 +279,16 @@ const Customers = {
       this.debtMonth = monthSel.value;
       this.debtTier = tierSel.value;
       this.omsomMode = omSel.value;
+      this.m15Mode = m15Sel ? m15Sel.value : '';
       this.renderAll();
     };
     monthSel.addEventListener('change', apply);
     tierSel.addEventListener('change', apply);
     omSel.addEventListener('change', apply);
+    if (m15Sel) m15Sel.addEventListener('change', apply);
     if (resetBtn) resetBtn.addEventListener('click', () => {
-      monthSel.value = ''; tierSel.value = ''; omSel.value = '';
-      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = '';
+      monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value='';
+      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode='';
       this.renderAll();
     });
   },
@@ -257,17 +306,23 @@ const Customers = {
     }
     // Debt summary + contracts (หลายสัญญา) — แสดงทุกสัญญาเต็ม
     let debtHTML = '';
-    if (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) {
-      const debt = DebtDB.getByCif(c.cif);
-      if (debt) {
-        debtHTML = `
+    if (c.cif && typeof DebtDB !== 'undefined') {
+      if (!DebtDB._loaded) {
+        // ยังโหลดข้อมูลหนี้ไม่เสร็จ — โชว์สถานะ ไม่ใช่ "ไม่มีข้อมูล"
+        const label = DebtDB._loading ? '⏳ กำลังโหลดข้อมูลหนี้...' : 'ข้อมูลหนี้โหลดไม่สำเร็จ';
+        debtHTML = `<div class="popup-debt"><div class="debt-nodata">${label}</div></div>`;
+      } else {
+        const debt = DebtDB.getByCif(c.cif);
+        if (debt) {
+          debtHTML = `
           <div class="popup-debt">
             ${DebtDB.summaryHTML(debt)}
             ${DebtDB.contractsHTML(debt, true)}
           </div>
         `;
-      } else {
-        debtHTML = `<div class="popup-debt"><div class="debt-nodata">ไม่มีข้อมูลหนี้</div></div>`;
+        } else {
+          debtHTML = `<div class="popup-debt"><div class="debt-nodata">ไม่มีข้อมูลหนี้</div></div>`;
+        }
       }
     }
     return `
@@ -278,9 +333,9 @@ const Customers = {
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
       ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
       <div class="popup-actions">
-        <button class="popup-nav" onclick="Customers.navigate('${c.lat}','${c.lng}')">🧭 นำทาง</button>
-        <button class="popup-edit" onclick="Customers.edit('${c.id}')">✏️ แก้ไข</button>
-        <button class="popup-del" onclick="Customers.del('${c.id}')">🗑️</button>
+        <button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>
+        <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
+        <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️</button>
       </div>
     `;
   },
@@ -349,6 +404,157 @@ const Customers = {
     }
   },
 
+  // ===== Pin existing customer on map (fast GPS update) =====
+  _showPinOptions(lat, lng) {
+    // ลบ panel เดิมถ้ามี
+    const old = document.getElementById('pin-options-panel');
+    if (old) old.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'pin-options-panel';
+    panel.className = 'pin-options-panel';
+    panel.innerHTML = `
+      <div class="pin-options-header">
+        📍 ปักหมุดที่ ${lat.toFixed(5)}, ${lng.toFixed(5)}
+        <button class="pin-close" onclick="document.getElementById('pin-options-panel').remove()">×</button>
+      </div>
+      <div class="pin-options-body">
+        <button class="pin-btn pin-btn-existing" onclick="Customers._startPinExisting(${lat}, ${lng})">
+          🔍 ค้นหาลูกค้าเดิม → ปักหมุด
+        </button>
+        <button class="pin-btn pin-btn-new" onclick="Customers._addNewAtLocation(${lat}, ${lng})">
+          ➕ เพิ่มลูกค้าใหม่
+        </button>
+      </div>
+    `;
+    document.body.appendChild(panel);
+  },
+
+  // เพิ่มลูกค้าใหม่ ณ ตำแหน่งที่เลือก (เปิด modal เดิม)
+  _addNewAtLocation(lat, lng) {
+    document.getElementById('pin-options-panel')?.remove();
+    const latEl = document.getElementById('new-lat');
+    const lngEl = document.getElementById('new-lng');
+    if (latEl) latEl.value = lat.toFixed(6);
+    if (lngEl) lngEl.value = lng.toFixed(6);
+    App.openAddCustomerModal();
+  },
+
+  // ค้นหาลูกค้าเดิม → ปักหมุดตรงๆ
+  _startPinExisting(lat, lng) {
+    document.getElementById('pin-options-panel')?.remove();
+
+    const old = document.getElementById('pin-search-panel');
+    if (old) old.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'pin-search-panel';
+    panel.className = 'pin-options-panel';
+    panel.innerHTML = `
+      <div class="pin-options-header">
+        🔍 เลือกลูกค้าที่ต้องการปักหมุด
+        <button class="pin-close" onclick="document.getElementById('pin-search-panel').remove()">×</button>
+      </div>
+      <div class="pin-search-input-wrap">
+        <input type="text" id="pin-search-input" placeholder="พิมพ์ CIF หรือ ชื่อ..." autocomplete="off">
+      </div>
+      <div id="pin-search-results" class="pin-search-results"></div>
+    `;
+    document.body.appendChild(panel);
+
+    const input = document.getElementById('pin-search-input');
+    const results = document.getElementById('pin-search-results');
+    input.focus();
+
+    let debounce = null;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        const q = input.value.trim().toLowerCase();
+        if (q.length < 2) { results.innerHTML = ''; return; }
+
+        const customers = Storage.getActiveCustomers();
+        const matches = customers.filter(c => {
+          const name = (c.name || '').toLowerCase();
+          const cif = (c.cif || '').toLowerCase();
+          const nick = (c.nickname || '').toLowerCase();
+          return name.includes(q) || cif.includes(q) || nick.includes(q);
+        }).slice(0, 20);
+
+        if (matches.length === 0) {
+          results.innerHTML = '<div class="pin-search-hint">❌ ไม่พบ</div>';
+          return;
+        }
+
+        results.innerHTML = matches.map(c => {
+          const hasGps = c.lat && c.lng;
+          return `
+            <div class="pin-search-item" data-id="${this.escapeAttr(c.id)}" data-cif="${this.escapeAttr(c.cif || '')}">
+              <div class="pin-search-name">${this.escapeHTML(c.name)}</div>
+              <div class="pin-search-meta">
+                CIF: ${this.escapeHTML(c.cif || '-')}
+                ${hasGps ? ' · 📍 มีพิกัด' : ' · ⚠️ ไม่มีพิกัด'}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        results.querySelectorAll('.pin-search-item').forEach(el => {
+          el.addEventListener('click', () => {
+            const id = el.dataset.id;
+            const cif = el.dataset.cif;
+            this._confirmPin(id, cif, lat, lng);
+          });
+        });
+      }, 200);
+    });
+  },
+
+  // ยืนยันการปักหมุด → ยิง PUT ตรง
+  async _confirmPin(id, cif, lat, lng) {
+    const c = Storage.getCustomers().find(x => x.id === id);
+    if (!c) return Utils.toast('ไม่พบลูกค้า', 'error');
+
+    const oldGps = c.lat && c.lng ? `(${Number(c.lat).toFixed(5)}, ${Number(c.lng).toFixed(5)})` : 'ยังไม่มี';
+    if (!confirm(`📍 ปักหมุด "${c.name}"?\n\nพิกัดเดิม: ${oldGps}\nพิกัดใหม่: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)) return;
+
+    // ปิด panel ค้นหา
+    document.getElementById('pin-search-panel')?.remove();
+
+    Utils.toast('⏳ กำลังบันทึกพิกัด...');
+
+    try {
+      // ยิง PUT ตรงไปที่ /api/customers/:cif (ไม่ต้อง sync ทั้งหมด)
+      const token = Auth.getToken();
+      const res = await fetch(`/api/customers/${encodeURIComponent(c.cif)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ lat, lng }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      // อัปเดต local storage
+      c.lat = lat;
+      c.lng = lng;
+      c.updatedAt = new Date().toISOString();
+      Storage.saveCustomers(Storage.getCustomers());
+
+      // อัปเดต marker บนแผนที่
+      this.renderAll();
+
+      Utils.toast(`📍 ปักหมุด "${c.name}" สำเร็จ!`);
+    } catch (err) {
+      Utils.toast('❌ บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
   // Render customer list (Customers tab)
   renderList() {
     const list = document.getElementById('customers-list');
@@ -373,6 +579,10 @@ const Customers = {
         return haystack.includes(searchQuery);
       });
     }
+
+    // Sort
+    const sortBy = document.getElementById('customer-sort')?.value || 'name';
+    customers = this._sortCustomers(customers, sortBy);
 
     document.getElementById('customer-count').textContent = customers.length;
 
@@ -400,15 +610,20 @@ const Customers = {
       }
       // Debt mini-summary (ย่อ) สำหรับรายชื่อ
       let debtMini = '';
-      if (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) {
-        const debt = DebtDB.getByCif(c.cif);
-        if (debt) {
-          const urgent = debt.max_tier >= 2;
-          debtMini = `<div class="customer-debt ${urgent ? 'debt-urgent' : ''}" style="border-left-color:${DebtDB.tierColor(debt.max_tier)}">
+      if (c.cif && typeof DebtDB !== 'undefined') {
+        if (!DebtDB._loaded) {
+          // ยังโหลดข้อมูลหนี้ไม่เสร็จ — โชว์สถานะ loading ย่อ
+          debtMini = `<div class="customer-debt debt-loading"><span>⏳ กำลังโหลดข้อมูลหนี้...</span></div>`;
+        } else {
+          const debt = DebtDB.getByCif(c.cif);
+          if (debt) {
+            const urgent = debt.max_tier >= 2;
+            debtMini = `<div class="customer-debt ${urgent ? 'debt-urgent' : ''}" style="border-left-color:${DebtDB.tierColor(debt.max_tier)}">
             <span>💰 ${DebtDB.fmtMoney(debt.total_debt)}</span>
             <span>${debt.num_contracts} สัญญา</span>
             <span>📅 ${DebtDB.fmtDate(debt.earliest_due) || '-'}</span>
           </div>`;
+          }
         }
       }
       return `
@@ -450,7 +665,28 @@ const Customers = {
     App.updateRouteUI();
   },
 
-  // ===== Base layer toggle (roadmap ↔ satellite) + GPS-only filter =====
+  // Sort customers by different criteria
+  _sortCustomers(customers, sortBy) {
+    const sorted = [...customers];
+    switch (sortBy) {
+      case 'name':
+        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+        break;
+      case 'cif':
+        sorted.sort((a, b) => (a.cif || '').localeCompare(b.cif || ''));
+        break;
+      case 'risk':
+        const riskOrder = { bad: 0, warning: 1, good: 2, unclassified: 3 };
+        sorted.sort((a, b) => (riskOrder[a.riskLevel] ?? 3) - (riskOrder[b.riskLevel] ?? 3));
+        break;
+      case 'recent':
+        sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+        break;
+    }
+    return sorted;
+  },
+
+  // ===== Base layer toggle (roadmap ↔ satellite) =====
   _addLayerControl() {
     // Custom control as a DOM element (Leaflet way)
     const LayerToggle = L.Control.extend({
@@ -459,18 +695,13 @@ const Customers = {
         div.innerHTML = `
           <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
           <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
-          <button class="layer-btn gps-btn" data-layer="gps" title="แสดงเฉพาะลูกค้าที่มีพิกัด GPS">📍</button>
         `;
         L.DomEvent.disableClickPropagation(div);
         div.querySelectorAll('.layer-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             L.DomEvent.stop(e);
             const layer = btn.dataset.layer;
-            if (layer === 'gps') {
-              Customers.toggleGPSOnly();
-            } else {
-              Customers.switchBaseLayer(layer);
-            }
+            Customers.switchBaseLayer(layer);
           });
         });
         return div;
@@ -572,25 +803,11 @@ const Customers = {
     // Add new
     this._baseLayers[layerName].addTo(this.map);
     this._currentBaseLayer = layerName;
-    // Update button states (skip gps-btn — independent toggle)
-    const buttons = document.querySelectorAll('.layer-toggle .layer-btn:not(.gps-btn)');
+    // Update button states
+    const buttons = document.querySelectorAll('.layer-toggle .layer-btn');
     buttons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.layer === layerName);
     });
-  },
-
-  // ===== Toggle GPS-only filter (independent from base layer) =====
-  toggleGPSOnly() {
-    this.showOnlyGPS = !this.showOnlyGPS;
-    const btn = document.querySelector('.layer-toggle .gps-btn');
-    if (btn) btn.classList.toggle('active', this.showOnlyGPS);
-    // Re-render with new filter
-    this.renderAll();
-    if (typeof Utils !== 'undefined' && Utils.toast) {
-      Utils.toast(this.showOnlyGPS
-        ? '📍 แสดงเฉพาะลูกค้าที่มีพิกัด'
-        : '🗺️ แสดงลูกค้าทั้งหมด');
-    }
   },
 
   // Render everything
@@ -603,6 +820,11 @@ const Customers = {
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  },
+
+  // Escape for use inside HTML attribute values (single/double quotes + ampersand)
+  escapeAttr(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   },
 };
 

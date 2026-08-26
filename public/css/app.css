@@ -3290,6 +3290,16 @@ body {
 .customer-debt.debt-urgent {
   background: #fdf0f0;
 }
+/* สถานะกำลังโหลดข้อมูลหนี้ */
+.customer-debt.debt-loading {
+  color: var(--text-muted);
+  font-style: italic;
+  animation: debtPulse 1.6s ease-in-out infinite;
+}
+@keyframes debtPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
 
 /* ===== Map debt filter bar (floating over map) ===== */
 .map-debt-filter {

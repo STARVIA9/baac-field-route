@@ -27,6 +27,8 @@ const App = {
     // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
+    // แจ้งเตือนถ้าเพิ่งกดปุ่มอัปเดตแล้ว reload เสร็จ
+    this._notifyUpdateCompleted();
     try {
       if (Auth.isLoggedIn()) {
         Auth.showApp();
@@ -36,6 +38,18 @@ const App = {
       }
     } catch (e) {
       console.warn('[App.init] afterLogin error:', e?.message);
+    }
+  },
+
+  // ===== แจ้งเตือน "อัปเดตเสร็จแล้ว" หลัง reload จากปุ่ม 🔄 =====
+  _notifyUpdateCompleted() {
+    const flag = sessionStorage.getItem('bfr_update_done');
+    if (!flag) return;
+    sessionStorage.removeItem('bfr_update_done');
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      setTimeout(() => {
+        Utils.toast('✅ อัปเดตเว็บเป็นเวอร์ชันใหม่เรียบร้อย', 'success');
+      }, 800);
     }
   },
 
@@ -51,18 +65,95 @@ const App = {
     }
   },
 
+  // ===== Show current version in header label =====
+  _renderVersionLabel(ver) {
+    const el = document.getElementById('version-label');
+    if (!el) return;
+    el.textContent = `v${ver}`;
+    // กดที่ label = อัปเดตเป็นเวอร์ชันล่าสุดทันที
+    if (!el.dataset.bound) {
+      el.dataset.bound = '1';
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => App.applyUpdate());
+    }
+  },
+
+  // ===== Initialize header components =====
+  _initHeader() {
+    // Set user avatar initial
+    const user = Auth.getUser();
+    if (user && user.name) {
+      const initial = user.name.charAt(0).toUpperCase();
+      const avatarEl = document.getElementById('avatar-initial');
+      if (avatarEl) avatarEl.textContent = initial;
+    }
+
+    // More menu toggle
+    const moreBtn = document.getElementById('more-menu-btn');
+    const moreDropdown = document.getElementById('more-menu-dropdown');
+    if (moreBtn && moreDropdown) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moreDropdown.classList.toggle('active');
+      });
+      
+      // Close on outside click
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.header-more-menu')) {
+          moreDropdown.classList.remove('active');
+        }
+      });
+      
+      // Close on item click
+      moreDropdown.querySelectorAll('.more-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+          moreDropdown.classList.remove('active');
+        });
+      });
+    }
+
+    // Sync badge click
+    const syncBadge = document.getElementById('sync-badge-header');
+    if (syncBadge) {
+      syncBadge.addEventListener('click', () => {
+        if (typeof Storage !== 'undefined' && Storage.retrySync) {
+          Storage.retrySync();
+        }
+      });
+    }
+  },
+
   async checkForUpdate() {
     const serverVer = await this.fetchServerVersion();
     if (!serverVer) return false;
     const stored = localStorage.getItem('app_version') || '0';
     const btn = document.getElementById('refresh-btn');
+    const label = document.getElementById('version-label');
     if (serverVer !== stored && this._knownVersion !== null) {
       // New version detected (don't show on first load)
       if (btn) {
         btn.classList.add('has-update');
-        btn.title = `เวอร์ชันใหม่พร้อมใช้งาน! (กดเพื่ออัพเดท)`;
+        btn.title = `เวอร์ชันใหม่ ${serverVer} พร้อมใช้งาน! (กดเพื่ออัพเดท)`;
       }
-      // Auto-notify with banner (auto-reload after 8 seconds)
+      if (label) {
+        label.textContent = `v${serverVer}`;
+        label.classList.add('has-update');
+        label.title = 'เวอร์ชันใหม่พร้อมใช้งาน — กดเพื่ออัปเดต';
+      }
+      // ===== AUTO-UPDATE: สั่ง SW ใหม่เข้าควบคุมทันที =====
+      // ไม่ต้องรอให้ผู้ใช้กดปุ่ม — เว็บอัปเดตตัวเองอัตโนมัติ
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          if (reg.waiting) {
+            // SW ใหม่กำลังรอ → สั่งเข้าควบคุมทันที
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } else {
+            // ตรวจหา SW ใหม่
+            reg.update();
+          }
+        });
+      }
+      // Auto-notify with banner (auto-reload after 8 seconds — fallback ถ้า SW ไม่ reload)
       if (!this._updateNotified && typeof Utils !== 'undefined') {
         this._updateNotified = true;
         this._showUpdateToast(serverVer);
@@ -71,7 +162,12 @@ const App = {
     }
     if (btn) {
       btn.classList.remove('has-update');
-      btn.title = 'รีเฟรชข้อมูล + เคลียร์ cache';
+      btn.title = 'กดเพื่ออัปเดตเว็บเป็นเวอร์ชันล่าสุด (เคลียร์ cache)';
+    }
+    if (label) {
+      label.classList.remove('has-update');
+      label.textContent = `v${stored}`;
+      label.title = 'เวอร์ชันปัจจุบันของเว็บ';
     }
     return false;
   },
@@ -119,21 +215,37 @@ const App = {
       if (v) {
         this._knownVersion = v;
         localStorage.setItem('app_version', v);
+        this._renderVersionLabel(v);
       }
     });
-    // Check every 5 minutes
+    // Check every 60 seconds (เร็วขึ้นจาก 5 นาที)
     if (this._versionCheckTimer) clearInterval(this._versionCheckTimer);
-    this._versionCheckTimer = setInterval(() => this.checkForUpdate(), 5 * 60 * 1000);
+    this._versionCheckTimer = setInterval(() => this.checkForUpdate(), 60 * 1000);
     // Also re-check when tab regains focus
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) this.checkForUpdate();
     });
+    // ===== AUTO-UPDATE: เมื่อ SW ใหม่เข้าควบคุม → reload อัตโนมัติ =====
+    // ไม่ต้องรอให้ผู้ใช้กดปุ่ม — เว็บอัปเดตตัวเองทันที
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // SW ใหม่เข้าควบคุมแล้ว → reload หน้า (ใช้ flag กัน reload ซ้ำ)
+        if (!this._swReloading) {
+          this._swReloading = true;
+          sessionStorage.setItem('bfr_update_done', '1');
+          window.location.reload();
+        }
+      });
+    }
   },
 
   // After login — load data
   async afterLogin() {
     // Phase 1: Migrate old customers to new schema (riskLevel + debtType)
     Storage.migrateCustomers();
+
+    // Initialize header components (avatar, more menu, sync badge)
+    this._initHeader();
 
     Customers.initMap();
     // Initial load: fit bounds to all customers so the user sees the full picture
@@ -152,6 +264,8 @@ const App = {
     if (typeof DebtDB !== 'undefined') {
       DebtDB.load().then(() => {
         if (Customers.initDebtFilter) Customers.initDebtFilter();
+        // re-render ให้ popup/รายชื่อที่โชว์ "กำลังโหลด..." อัปเดตเป็นข้อมูลจริง
+        if (Customers.renderAll) Customers.renderAll();
       }).catch(() => {});
     }
 
@@ -242,84 +356,76 @@ const App = {
     this.updateRouteUI();
   },
 
-  // Attach all event handlers
+  // Attach all event handlers (null-safe — missing elements won't crash the rest)
   attachEvents() {
+    const $ = (id) => document.getElementById(id);
+    const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
+
     // Login form (username/password)
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    on('login-form', 'submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('login-username').value.trim();
       const password = document.getElementById('login-password').value;
       const errEl = document.getElementById('login-error');
       errEl.textContent = '';
       const btn = document.getElementById('login-btn');
-      btn.disabled = true;
-      btn.textContent = 'กำลังเข้าสู่ระบบ...';
+      
+      // Show loading state
+      setLoginLoading(btn, true);
+      
       const ok = await Auth.login(username, password);
       if (ok) {
+        // Save remember me preference
+        saveRememberMe(username);
         await this.afterLogin();
       } else {
         errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
       }
-      btn.disabled = false;
+      
+      // Hide loading state
+      setLoginLoading(btn, false);
       btn.textContent = 'เข้าสู่ระบบ';
     });
 
     // PIN fallback toggle
-    document.getElementById('toggle-pin-login').addEventListener('click', () => {
+    on('toggle-pin-login', 'click', () => {
       const pinForm = document.getElementById('pin-form');
       const toggleBtn = document.getElementById('toggle-pin-login');
+      if (!pinForm || !toggleBtn) return;
       pinForm.classList.toggle('hidden');
       toggleBtn.textContent = pinForm.classList.contains('hidden') ? 'เข้าสู่ระบบด้วย PIN' : 'ซ่อน PIN';
+      if (!pinForm.classList.contains('hidden')) {
+        setTimeout(() => { const pi = document.getElementById('pin-input'); if (pi) pi.focus(); }, 100);
+      }
     });
 
     // PIN form (legacy fallback)
-    document.getElementById('pin-form').addEventListener('submit', async (e) => {
+    on('pin-form', 'submit', async (e) => {
       e.preventDefault();
       const pin = document.getElementById('pin-input').value;
       const errEl = document.getElementById('pin-error');
       errEl.textContent = '';
       const btn = document.getElementById('pin-btn');
-      btn.disabled = true;
-      btn.textContent = 'กำลังเข้าสู่ระบบ...';
+      setLoginLoading(btn, true);
       const ok = await Auth.loginPIN(pin);
-      if (ok) {
-        await this.afterLogin();
-      } else {
-        errEl.textContent = 'PIN ไม่ถูกต้อง';
-      }
-      btn.disabled = false;
+      if (ok) { await this.afterLogin(); } else { errEl.textContent = 'PIN ไม่ถูกต้อง'; }
+      setLoginLoading(btn, false);
       btn.textContent = 'เข้าสู่ระบบ (PIN)';
     });
 
     // Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      if (confirm('ออกจากระบบ?')) Auth.logout();
-    });
+    on('logout-btn', 'click', () => { if (confirm('ออกจากระบบ?')) Auth.logout(); });
 
-    // Admin: User management button
-    document.getElementById('admin-users-btn').addEventListener('click', () => {
-      this.openAdminUsers();
-    });
+    // Admin buttons
+    on('admin-users-btn', 'click', () => this.openAdminUsers());
+    on('admin-data-btn', 'click', () => { window.location.href = '/admin.html'; });
 
-    // Admin: Data manager (go to /admin.html)
-    document.getElementById('admin-data-btn').addEventListener('click', () => {
-      window.location.href = '/admin.html';
-    });
-
-    // Change password button
-    document.getElementById('change-password-btn').addEventListener('click', () => {
-      this.openChangePassword();
-    });
-    document.getElementById('close-change-password').addEventListener('click', () => {
-      document.getElementById('change-password-modal').classList.add('hidden');
-    });
-    document.getElementById('change-password-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'change-password-modal') e.target.classList.add('hidden');
-    });
-    document.getElementById('change-password-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.submitChangePassword();
-    });
+    // Change password
+    on('change-password-btn', 'click', () => this.openChangePassword());
+    on('close-change-password', 'click', () => { const m = document.getElementById('change-password-modal'); if (m) m.classList.add('hidden'); });
+    on('change-password-modal', 'click', (e) => { if (e.target.id === 'change-password-modal') e.target.classList.add('hidden'); });
+    on('change-password-form-standalone', 'submit', (e) => { e.preventDefault(); this.submitChangePasswordStandalone(); });
+    on('change-password-form', 'submit', (e) => { e.preventDefault(); this.submitChangePassword(); });
 
     // === Sheet tabs ===
     document.querySelectorAll('.sheet-tab').forEach(t => {
@@ -342,25 +448,28 @@ const App = {
       customerSearch.addEventListener('input', Utils.debounce(() => Customers.renderList(), 150));
     }
 
+    // Customer sort
+    const customerSort = document.getElementById('customer-sort');
+    if (customerSort) {
+      customerSort.addEventListener('change', () => Customers.renderList());
+    }
+
     // FAB buttons
-    document.getElementById('fab-add-customer').addEventListener('click', () => this.openAddCustomerModal());
-    document.getElementById('fab-my-location').addEventListener('click', () => this.useGPS());
+    on('fab-add-customer', 'click', () => this.openAddCustomerModal());
+    on('fab-my-location', 'click', () => this.useGPS());
 
     // Modal close
-    document.getElementById('close-add-modal').addEventListener('click', () => this.closeAddCustomerModal());
-    document.getElementById('add-customer-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'add-customer-modal') this.closeAddCustomerModal();
-    });
+    on('close-add-modal', 'click', () => this.closeAddCustomerModal());
+    on('add-customer-modal', 'click', (e) => { if (e.target.id === 'add-customer-modal') this.closeAddCustomerModal(); });
 
     // GPS button
-    document.getElementById('btn-use-gps').addEventListener('click', () => this.useGPS(true));
+    on('btn-use-gps', 'click', () => this.useGPS(true));
 
     // Pick on main map
-    const pickBtn = document.getElementById('btn-pick-on-main-map');
-    if (pickBtn) pickBtn.addEventListener('click', () => this.pickOnMainMap());
+    on('btn-pick-on-main-map', 'click', () => this.pickOnMainMap());
 
     // Add customer form
-    document.getElementById('add-customer-form').addEventListener('submit', (e) => {
+    on('add-customer-form', 'submit', (e) => {
       e.preventDefault();
       this.saveCustomer(e.target);
     });
@@ -374,48 +483,37 @@ const App = {
     this._initDBSearch();
 
     // Visit modal
-    document.getElementById('close-visit-modal').addEventListener('click', () => Visit.closeLog());
-    document.getElementById('btn-cancel-visit').addEventListener('click', () => Visit.closeLog());
-    document.getElementById('visit-log-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      Visit.submit(e.target);
-    });
-    document.getElementById('visit-log-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'visit-log-modal') Visit.closeLog();
-    });
-    // Phase 5: GPS capture button
-    const gpsBtn = document.getElementById('btn-capture-gps');
-    if (gpsBtn) gpsBtn.addEventListener('click', () => Visit.captureGPS());
+    on('close-visit-modal', 'click', () => Visit.closeLog());
+    on('btn-cancel-visit', 'click', () => Visit.closeLog());
+    on('visit-log-form', 'submit', (e) => { e.preventDefault(); Visit.submit(e.target); });
+    on('visit-log-modal', 'click', (e) => { if (e.target.id === 'visit-log-modal') Visit.closeLog(); });
+    on('btn-capture-gps', 'click', () => Visit.captureGPS());
 
     // Route: start mode
-    document.getElementById('route-start-mode').addEventListener('change', (e) => {
-      document.getElementById('custom-start').classList.toggle('hidden', e.target.value !== 'custom');
-    });
+    on('route-start-mode', 'change', (e) => { const cs = document.getElementById('custom-start'); if (cs) cs.classList.toggle('hidden', e.target.value !== 'custom'); });
 
     // Calculate route
-    document.getElementById('btn-calculate-route').addEventListener('click', () => this.calculateRoute());
+    on('btn-calculate-route', 'click', () => this.calculateRoute());
 
     // Open Google Maps
-    document.getElementById('btn-open-gmaps').addEventListener('click', () => Route.openGoogleMaps());
+    on('btn-open-gmaps', 'click', () => Route.openGoogleMaps());
 
     // Save route
-    document.getElementById('btn-save-route').addEventListener('click', () => Route.saveRoute());
+    on('btn-save-route', 'click', () => Route.saveRoute());
 
-    // Phase 7-9: Report modal
-    document.getElementById('report-btn').addEventListener('click', () => Report.open());
-    // Help modal — show user how to use the app
-    document.getElementById('help-btn').addEventListener('click', () => App.openHelp());
-    document.getElementById('close-help-modal').addEventListener('click', () => App.closeHelp());
-    document.getElementById('btn-close-help').addEventListener('click', () => App.closeHelp());
-    document.getElementById('close-report-modal').addEventListener('click', () => Report.close());
-    document.getElementById('report-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'report-modal') Report.close();
-    });
-    document.getElementById('report-range').addEventListener('change', () => Report.setRange(document.getElementById('report-range').value));
-    document.getElementById('btn-generate-report').addEventListener('click', () => Report.generate());
-    document.getElementById('btn-export-html').addEventListener('click', () => Report.exportHTML());
-    document.getElementById('btn-export-csv').addEventListener('click', () => Report.exportCSV());
-    document.getElementById('btn-export-share').addEventListener('click', () => Report.shareText());
+    // Report + Help modals
+    on('report-btn', 'click', () => Report.open());
+    on('help-btn', 'click', () => App.openHelp());
+    on('close-help-modal', 'click', () => App.closeHelp());
+    on('btn-close-help', 'click', () => App.closeHelp());
+    on('close-report-modal', 'click', () => Report.close());
+    on('report-modal', 'click', (e) => { if (e.target.id === 'report-modal') Report.close(); });
+    on('report-range', 'change', () => { const rr = document.getElementById('report-range'); if (rr) Report.setRange(rr.value); });
+    on('btn-generate-report', 'click', () => Report.generate());
+    on('btn-export-html', 'click', () => Report.exportHTML());
+    on('btn-export-pdf', 'click', () => Report.exportPDF());
+    on('btn-export-csv', 'click', () => Report.exportCSV());
+    on('btn-export-share', 'click', () => Report.shareText());
   },
 
   // ===== Bottom Sheet (Map-as-Canvas) =====
@@ -450,8 +548,8 @@ const App = {
     };
 
     const onStart = (e) => {
-      // Only handle can start drag — content never drags the sheet
-      if (!e.target.closest('#sheet-handle')) return;
+      // ลากได้ทั้งแถบ handle (ส่วนหัวปัจจุบัน) — คลิกตรงไหนก็ลากได้ ไม่แน่นเกินไป
+      if (!e.target.closest('.sheet-handle')) return;
       isDragging = true;
       startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
       startTranslate = _readTransform(sheet);
@@ -497,9 +595,14 @@ const App = {
     if (!sheet) return;
     ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
     if (state && state !== 'default') sheet.classList.add('sheet-' + state);
-    // Hide FABs when sheet is full
+    // Hide FABs when sheet is open (peek/half/full) — ป้องกันทับแผงข้อมูล
     const fab = document.querySelector('.map-fab');
-    if (fab) fab.style.display = (state === 'full') ? 'none' : '';
+    if (fab) fab.style.display = (!state || state === 'collapsed') ? '' : 'none';
+    
+    // Haptic feedback on state change (if supported)
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
   },
 
   // Legacy switchTab — adapts to new map-as-canvas layout
@@ -1503,6 +1606,189 @@ const App = {
         errEl.textContent = err.message || 'เปลี่ยน PIN ไม่สำเร็จ';
       }
     };
+
+    // ===== Data Export (CSV) =====
+    const exportBtn = document.getElementById('btn-export-customers');
+    if (exportBtn) {
+      exportBtn.onclick = () => this.exportCustomersCSV();
+    }
+
+    // ===== Debt Import: อัปโหลด Customer Indicator =====
+    this.initDebtImport();
+  },
+
+  // ===== Debt Import: อัปโหลด Customer Indicator =====
+  initDebtImport() {
+    const uploadBtn = document.getElementById('debt-upload-btn');
+    const fileInput = document.getElementById('debt-file-input');
+    const fileName = document.getElementById('debt-file-name');
+    const progress = document.getElementById('debt-progress');
+    const progressText = document.getElementById('debt-progress-text');
+    const result = document.getElementById('debt-result');
+    const resultStats = document.getElementById('debt-result-stats');
+    const resultTime = document.getElementById('debt-result-time');
+    const lastUpdate = document.getElementById('debt-last-update-time');
+
+    if (!uploadBtn || !fileInput) return;
+
+    // โหลดวันที่อัปเดตหนี้ล่าสุด
+    this.loadDebtLastUpdate();
+
+    // ปุ่มเลือกไฟล์
+    uploadBtn.onclick = () => fileInput.click();
+    
+    // เมื่อเลือกไฟล์
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      
+      fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+      
+      // ซ่อนผลลัพธ์เก่า + แสดง progress
+      result.style.display = 'none';
+      progress.style.display = 'block';
+      progressText.textContent = 'กำลังอัปโหลดไฟล์...';
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = '⏳ กำลังประมวลผล...';
+      
+      try {
+        // สร้าง FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        progressText.textContent = 'กำลังอัปโหลดและประมวลผลข้อมูลหนี้...';
+        
+        // ส่งไปยัง API
+        const token = Auth.getToken();
+        const res = await fetch('/api/debt-import', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+        }
+        
+        // แสดงผลลัพธ์
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        
+        resultStats.innerHTML = `
+          📋 สัญญาทั้งหมด: <strong>${data.total_contracts.toLocaleString()}</strong> รายการ<br>
+          👥 CIF ไม่ซ้ำ: <strong>${data.unique_cifs.toLocaleString()}</strong> ราย<br>
+          ✅ อัปเดตสำเร็จ: <strong>${data.updated.toLocaleString()}</strong> ราย<br>
+          ${data.added > 0 ? `🆕 สร้างใหม่: <strong>${data.added.toLocaleString()}</strong> ราย<br>` : ''}
+          ${data.not_found > 0 ? `⚠️ ไม่พบ CIF ในระบบ: <strong>${data.not_found.toLocaleString()}</strong> ราย` : ''}
+        `;
+        
+        resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
+        
+        // อัปเดตวันที่ล่าสุด
+        if (lastUpdate) {
+          lastUpdate.textContent = new Date(data.debt_updated_at).toLocaleString('th-TH');
+        }
+        
+        Utils.toast(`📊 อัปเดตหนี้สำเร็จ ${data.updated} ราย${data.added > 0 ? ` +${data.added} ใหม่` : ''}`);
+        
+        // รีเฟรชข้อมูลลูกค้าบนแผนที่
+        if (typeof Customers !== 'undefined' && Customers.renderAll) {
+          setTimeout(() => Customers.renderAll(), 500);
+        }
+        
+      } catch (err) {
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        resultStats.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
+        resultTime.textContent = '';
+        Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ', 'error');
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '📂 เลือกไฟล์ Customer Indicator';
+        fileInput.value = ''; // reset file input
+      }
+    };
+  },
+
+  // ===== Debt Import: โหลดวันที่อัปเดตหนี้ล่าสุด =====
+  async loadDebtLastUpdate() {
+    const lastUpdate = document.getElementById('debt-last-update-time');
+    if (!lastUpdate) return;
+    
+    try {
+      // ดึงข้อมูลลูกค้า 1 รายเพื่อเช็ค debt_updated_at
+      const token = Auth.getToken();
+      const res = await fetch('/api/customers?limit=1', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      
+      if (data.success && data.customers && data.customers.length > 0) {
+        const debtUpdated = data.customers[0].debt_updated_at;
+        if (debtUpdated) {
+          lastUpdate.textContent = new Date(debtUpdated).toLocaleString('th-TH');
+        } else {
+          lastUpdate.textContent = 'ยังไม่เคยอัปเดต';
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load debt last update:', err);
+      lastUpdate.textContent = '-';
+    }
+  },
+
+  // ===== Export Customers as CSV =====
+  exportCustomersCSV() {
+    const customers = Storage.getActiveCustomers();
+    if (!customers.length) {
+      Utils.toast('⚠️ ไม่มีข้อมูลลูกค้าให้ export', 'error');
+      return;
+    }
+
+    // Build CSV
+    const headers = ['CIF', 'ชื่อ', 'ชื่อเล่น', 'เบอร์โทร', 'ที่อยู่', 'Latitude', 'Longitude', 'ระดับความเสี่ยง', 'ประเภทหนี้', 'สร้างโดย', 'วันที่สร้าง'];
+    const rows = customers.map(c => [
+      c.cif || '',
+      c.name || '',
+      c.nickname || '',
+      c.phone || '',
+      c.address || '',
+      c.lat || '',
+      c.lng || '',
+      c.riskLevel || '',
+      c.debtType || '',
+      c.createdBy || '',
+      c.createdAt || '',
+    ]);
+
+    // Escape CSV values
+    const escapeCSV = (val) => {
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // Download
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `baac-customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    Utils.toast(`📊 Export ${customers.length} ลูกค้าเป็น CSV แล้ว`);
   },
 
   // ===== Admin: Load user list =====
@@ -1556,9 +1842,9 @@ const App = {
   // ===== Change Password (self-service for all users) =====
   openChangePassword() {
     const modal = document.getElementById('change-password-modal');
-    document.getElementById('change-password-form').reset();
-    document.getElementById('cp-error').textContent = '';
-    document.getElementById('cp-success').style.display = 'none';
+    document.getElementById('change-password-form-standalone').reset();
+    document.getElementById('cp-error-standalone').textContent = '';
+    document.getElementById('cp-success-standalone').style.display = 'none';
     modal.classList.remove('hidden');
   },
 
@@ -1602,6 +1888,43 @@ const App = {
     } finally {
       btn.disabled = false;
       btn.textContent = 'เปลี่ยนรหัสผ่าน';
+    }
+  },
+
+  // Standalone change password (for non-admin users via header button)
+  async submitChangePasswordStandalone() {
+    const errEl = document.getElementById('cp-error-standalone');
+    const successEl = document.getElementById('cp-success-standalone');
+    errEl.textContent = '';
+    successEl.style.display = 'none';
+
+    const currentPassword = document.getElementById('cp-current-standalone').value;
+    const newPassword = document.getElementById('cp-new-standalone').value;
+    const confirmPassword = document.getElementById('cp-confirm-standalone').value;
+
+    if (newPassword !== confirmPassword) {
+      errEl.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน';
+      return;
+    }
+    if (newPassword.length < 4) {
+      errEl.textContent = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร';
+      return;
+    }
+
+    try {
+      const res = await API.post('/api/change-password', { currentPassword, newPassword });
+      if (res.success) {
+        successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
+        successEl.style.display = 'block';
+        document.getElementById('cp-current-standalone').value = '';
+        document.getElementById('cp-new-standalone').value = '';
+        document.getElementById('cp-confirm-standalone').value = '';
+        Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
+      } else {
+        errEl.textContent = res.error || 'เปลี่ยนรหัสไม่สำเร็จ';
+      }
+    } catch (err) {
+      errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
     }
   },
 
@@ -1691,6 +2014,8 @@ const App = {
       // 3) Pull fresh server version before reload
       const newVer = await this.fetchServerVersion();
       if (newVer) localStorage.setItem('app_version', newVer);
+      // ตั้ง flag ให้หน้าใหม่รู้ว่าเพิ่งอัปเดตเสร็จ — จะได้แจ้งเตือนหลัง reload
+      sessionStorage.setItem('bfr_update_done', newVer || '1');
 
       // 4) Show toast + reload bypassing HTTP cache
       if (typeof Utils !== 'undefined' && Utils.toast) {
@@ -1780,35 +2105,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ===== Refresh button binding (sync retry + hard refresh) =====
+  // ===== Refresh button binding — กดเดียว = อัปเดตเป็นเวอร์ชันล่าสุดจริง =====
   const btn = document.getElementById('refresh-btn');
   if (btn) {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
-      if (btn.classList.contains('has-update')) {
-        App.applyUpdate();
-      } else {
-        // Try sync first (fast) — if data is stuck locally, this pushes to server
-        btn.classList.add('spinning');
-        const result = await Storage.retrySync();
-        btn.classList.remove('spinning');
-        if (result && result.success) {
-          const c = result.counts || {};
-          if (typeof Utils !== 'undefined') {
-            Utils.toast(`🔄 Sync สำเร็จ — ${c.customers ?? '?'} ลูกค้า, ${c.visits ?? '?'} visits`);
-          }
-        } else if (result && result.error) {
-          if (typeof Utils !== 'undefined') {
-            Utils.toast(`⚠️ Sync ล้มเหลว: ${result.error} — ข้อมูลยังอยู่ในเครื่องนี้`, 'error');
-          }
-        } else {
-          if (typeof Utils !== 'undefined') {
-            Utils.toast('🔁 รีเฟรชข้อมูลจากเซิร์ฟเวอร์...');
-          }
+      btn.classList.add('spinning');
+      try {
+        if (btn.classList.contains('has-update')) {
+          // มีเวอร์ชันใหม่จาก watcher → อัปเดตทันที (ล้าง SW/cache + reload)
+          App.applyUpdate();
+          return;
         }
-        Customers.renderAll();
-        if (typeof Visit !== 'undefined') Visit.render();
-        if (typeof App !== 'undefined') App.updateRouteUI();
+        // ยังไม่มี has-update: กดปุ๊บ = ดึงเวอร์ชันล่าสุดเสมอ
+        // 1) push ข้อมูลเครื่องขึ้นเว็บก่อน (กันข้อมูลหายตอน reload)
+        try {
+          const result = await Storage.retrySync();
+          if (result && result.success) {
+            const c = result.counts || {};
+            if (typeof Utils !== 'undefined') {
+              Utils.toast(`🔄 Sync สำเร็จ — ${c.customers ?? '?'} ลูกค้า, ${c.visits ?? '?'} visits`);
+            }
+          } else if (result && result.error) {
+            if (typeof Utils !== 'undefined') {
+              Utils.toast(`⚠️ Sync ล้มเหลว: ${result.error} — ข้อมูลยังอยู่ในเครื่องนี้`, 'error');
+            }
+          }
+        } catch (err) {
+          console.warn('retrySync failed, continuing to refresh:', err);
+        }
+        // 2) hard refresh — เคลียร์ service worker + cache แล้วโหลดเวอร์ชันใหม่ล่าสุด
+        App.hardRefresh();
+      } finally {
+        btn.classList.remove('spinning');
       }
     });
     // Long-press (or hold 1s) = full hard refresh
