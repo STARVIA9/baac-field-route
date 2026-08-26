@@ -11,13 +11,15 @@ const DebtDB = {
     if (this._loading) return false;
     this._loading = true;
     try {
-      const res = await fetch('/debt-data.json');
+      // โหลดจาก API (อ่าน KV ที่อัปเดตล่าสุดจาก /api/debt-import → fallback static เดิม)
+      const res = await fetch('/api/debt-data');
       if (!res.ok) throw new Error('Failed to load debt data');
       const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('debt data not array');
       this._byCif = new Map();
       for (const r of data) this._byCif.set(r.cif, r);
       this._loaded = true;
-      console.log(`[DebtDB] Loaded ${data.length} customers`);
+      console.log(`[DebtDB] Loaded ${data.length} customers` + (res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : ''));
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
       this._byCif = new Map();
@@ -101,9 +103,28 @@ const DebtDB = {
     if (!debt || !debt.contracts || debt.contracts.length === 0) return '';
     const shown = showAll ? debt.contracts : debt.contracts.slice(0, 3);
     const hasMore = debt.contracts.length > 3 && !showAll;
+    const fmtBaht = (n) => Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0})+' บาท';
     const rows = shown.map((c, i) => {
       const t = parseInt(c.t) || 0;
       const urgent = t >= 2;
+      // 15 เดือน badges
+      let m15line = '';
+      if (c.m15 === 'Y') m15line += '<div class="dc-line" style="color:#92400e">⏳ <b>15 เดือน: ต้องชำระ</b></div>';
+      if (c.m15_amt > 0) m15line += `<div class="dc-line" style="color:#b91c1c">💸 15เดือน 31มี.ค.70 ขั้นต่ำ ${fmtBaht(c.m15_amt)}</div>`;
+      // พักหนี้ — แสดงเฉพาะรหัสที่มีตัวอักษร (SP/EP ฯลฯ) ไม่เอา ''/0/1/2/3
+      let subLine = '';
+      if (c.sub && !['','0','1','2','3'].includes(String(c.sub).trim()) && /[A-Za-z]/.test(c.sub)) {
+        subLine = `<div class="dc-line" style="color:#0f766e">🛟 พักหนี้ (${this.escapeHTML(c.sub)})</div>`;
+      }
+      // คาดการณ์
+      let fore='';
+      if (c.f08==='Y' || c.f09==='Y' || c.f10==='Y'){
+        const parts=[];
+        if(c.f08==='Y') parts.push(`ส.ค.69${c.p08>0?' '+fmtBaht(c.p08):''}`);
+        if(c.f09==='Y') parts.push(`ก.ย.69${c.p09>0?' '+fmtBaht(c.p09):''}`);
+        if(c.f10==='Y') parts.push(`ต.ค.69${c.p10>0?' '+fmtBaht(c.p10):''}`);
+        fore = `<div class="dc-line" style="color:#7c3aed">🔮 คาด 15เดือน: ${parts.join(' · ')}</div>`;
+      }
       return `
         <div class="debt-contract ${urgent ? 'debt-contract-urgent' : ''}">
           <div class="dc-head">
@@ -114,6 +135,9 @@ const DebtDB = {
           <div class="dc-line">💰 ${this.fmtMoney(c.d)}</div>
           <div class="dc-line">📅 ถึง ${this.fmtDate(c.due) || '-'}</div>
           ${c.reserve ? `<div class="dc-line">🛡️ กันสำรอง ${this.escapeHTML(c.reserve)}%</div>` : ''}
+          ${m15line}
+          ${subLine}
+          ${fore}
         </div>
       `;
     }).join('');
