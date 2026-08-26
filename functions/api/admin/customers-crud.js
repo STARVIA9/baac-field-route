@@ -65,11 +65,73 @@ function rowToCustomer(r) {
   };
 }
 
-async function getAll(env, includeDeleted = false) {
-  if (!env.BFR_DB) return [];
-  const where = includeDeleted ? '' : 'WHERE deleted=0';
-  const { results } = await env.BFR_DB.prepare(`SELECT * FROM customers ${where} ORDER BY name ASC`).all();
-  return (results || []).map(rowToCustomer);
+async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit = 5000, offset = 0 } = {}) {
+  if (!env.BFR_DB) return { customers: [], total: 0 };
+  const conditions = [];
+  const params = [];
+  let paramIdx = 1;
+
+  if (!includeDeleted) conditions.push('deleted=0');
+  if (q) {
+    conditions.push(`(LOWER(name) LIKE ?${paramIdx} OR LOWER(cif) LIKE ?${paramIdx} OR phone LIKE ?${paramIdx} OR LOWER(address) LIKE ?${paramIdx} OR LOWER(nickname) LIKE ?${paramIdx})`);
+    params.push('%' + q.toLowerCase() + '%');
+    paramIdx++;
+  }
+  if (hasGps === 'true') {
+    conditions.push('lat IS NOT NULL AND lng IS NOT NULL');
+  } else if (hasGps === 'false') {
+    conditions.push('(lat IS NULL OR lng IS NULL)');
+  }
+  if (riskFilter && riskFilter !== 'all') {
+    conditions.push(`COALESCE(risk_level, 'unclassified') = ?${paramIdx}`);
+    params.push(riskFilter);
+    paramIdx++;
+  }
+  // ===== กรองหนี้ (คล้ายการกรองในแผนที่) =====
+  if (debtClass && debtClass !== 'all') {
+    if (debtClass === 'none') {
+      conditions.push(`(debt_class IS NULL OR debt_class = '')`);
+    } else {
+      conditions.push(`debt_class = ?${paramIdx}`);
+      params.push(String(debtClass));
+      paramIdx++;
+    }
+  }
+  if (debt15m && debt15m !== 'all') {
+    conditions.push(`overdue_15m = ?${paramIdx}`);
+    params.push(debt15m === 'Y' ? 'Y' : 'N');
+    paramIdx++;
+  }
+  if (hasDebt && hasDebt !== 'all') {
+    if (hasDebt === 'yes') {
+      conditions.push(`(debt_balance IS NOT NULL AND debt_balance > 0)`);
+    } else if (hasDebt === 'no') {
+      conditions.push(`(debt_balance IS NULL OR debt_balance = 0)`);
+    }
+  }
+  if (debtMonth && debtMonth !== 'all') {
+    // debtMonth = 'MM/YYYY' — เทียบกับ next_due (DD/MM/YYYY) ด้วย substring
+    const m = String(debtMonth).match(/^(\d{2})\/(\d{4})$/);
+    if (m) {
+      conditions.push(`next_due LIKE ?${paramIdx}`);
+      params.push(`%/${m[1]}/${m[2]}`);
+      paramIdx++;
+    }
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  // Count total
+  const countRes = await env.BFR_DB.prepare(`SELECT COUNT(*) n FROM customers ${where}`).bind(...params).first();
+  const total = countRes?.n || 0;
+
+  // Fetch page
+  params.push(limit, offset);
+  const { results } = await env.BFR_DB.prepare(
+    `SELECT * FROM customers ${where} ORDER BY name ASC LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`
+  ).bind(...params).all();
+
+  return { customers: (results || []).map(rowToCustomer), total };
 }
 
 async function getRecycle(env) {
@@ -86,17 +148,11 @@ async function saveRecycle(env, recycle) {
 }
 
 // Bump GPS overlay version so map polling picks it up
-async function bumpOverlay(env, cif, lat, lng, name) {
+// R4 FIX: Don't read-modify-write KV overlay — GET /api/gps-overlay reads from D1.
+// Just bump the timestamp so clients know to refetch.
+async function bumpOverlay(env) {
   if (!env.BFR_KV) return;
   try {
-    const raw = await env.BFR_KV.get('gps:overlay');
-    const overlay = raw ? JSON.parse(raw) : {};
-    if (cif && lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
-      overlay[String(cif)] = { lat: Number(lat), lng: Number(lng), name: name || '', updatedAt: new Date().toISOString() };
-    } else if (cif) {
-      delete overlay[String(cif)];
-    }
-    await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
     await env.BFR_KV.put('meta:overlay-updated', new Date().toISOString());
   } catch (e) { console.warn('bumpOverlay failed:', e.message); }
 }
@@ -133,32 +189,27 @@ export async function onRequestGet(context) {
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
   const hasGps = url.searchParams.get('hasGps');
   const riskFilter = url.searchParams.get('risk');
+  const debtClass = url.searchParams.get('debtClass') || 'all';
+  const debt15m = url.searchParams.get('debt15m') || 'all';
+  const hasDebt = url.searchParams.get('hasDebt') || 'all';
+  const debtMonth = url.searchParams.get('debtMonth') || 'all';
 
-  let customers = await getAll(env, includeDeleted);
+  const offset = (page - 1) * perPage;
+  const { customers, total } = await getAll(env, {
+    includeDeleted, q, hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit: perPage, offset,
+  });
 
-  if (q) {
-    customers = customers.filter(c =>
-      (c.cif && c.cif.toLowerCase().includes(q)) ||
-      (c.name && c.name.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.includes(q)) ||
-      (c.address && c.address.toLowerCase().includes(q)) ||
-      (c.nickname && c.nickname.toLowerCase().includes(q))
-    );
-  }
-  if (hasGps === 'true') {
-    customers = customers.filter(c => c.lat != null && Number.isFinite(c.lat));
-  } else if (hasGps === 'false') {
-    customers = customers.filter(c => !(c.lat != null && Number.isFinite(c.lat)));
-  }
-  if (riskFilter && riskFilter !== 'all') {
-    customers = customers.filter(c => (c.riskLevel || 'unclassified') === riskFilter);
-  }
-
-  const total = customers.length;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(page, totalPages);
-  const start = (safePage - 1) * perPage;
-  const pageCustomers = customers.slice(start, start + perPage);
+
+  // เดือนครบกำหนดจาก D1 (ตรงกับ filter debtMonth) — substr('30/09/2026',4,7) = '09/2026'
+  const debtMonths = [];
+  try {
+    const mRes = await env.BFR_DB.prepare(
+      `SELECT DISTINCT substr(next_due, 4, 7) m FROM customers WHERE deleted = 0 AND next_due != '' AND next_due IS NOT NULL ORDER BY m DESC`
+    ).all();
+    debtMonths.push(...(mRes.results || []).map(r => r.m).filter(Boolean));
+  } catch (e) { console.warn('debtMonths failed:', e.message); }
 
   const allTags = [];
   const recycle = includeRecycle ? await getRecycle(env) : [];
@@ -169,9 +220,10 @@ export async function onRequestGet(context) {
     page: safePage,
     perPage,
     totalPages,
-    customers: pageCustomers,
+    customers,
     recycle,
     allTags,
+    debtMonths,
   });
 }
 
@@ -202,7 +254,7 @@ export async function onRequestPost(context) {
       ).bind(new Date().toISOString(), idMatch[1]).run();
       const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(idMatch[1]).first();
       await log(env, auth.user, 'restore', { id: body.id, cif: idMatch[1], name: fresh?.name });
-      if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env, fresh.cif, fresh.lat, fresh.lng, fresh.name);
+      if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env);
       return json({ success: true, customer: rowToCustomer(fresh) });
     }
     const res = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
@@ -212,7 +264,7 @@ export async function onRequestPost(context) {
     ).bind(new Date().toISOString(), cif).run();
     const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
     await log(env, auth.user, 'restore', { id: 'db_' + cif, cif, name: fresh?.name });
-    if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env, fresh.cif, fresh.lat, fresh.lng, fresh.name);
+    if (fresh && fresh.lat != null && fresh.lng != null) await bumpOverlay(env);
     return json({ success: true, customer: rowToCustomer(fresh) });
   }
 
@@ -242,15 +294,11 @@ export async function onRequestPost(context) {
       }
     }
     await log(env, auth.user, 'batch-delete', { count: deleted.length, ids: deleted });
-    // remove deleted from overlay
+    // R4 FIX: Just bump overlay timestamp — GET reads from D1 directly
     if (deletedCifs.length > 0) {
       try {
-        const raw = await env.BFR_KV.get('gps:overlay');
-        const overlay = raw ? JSON.parse(raw) : {};
-        for (const cif of deletedCifs) delete overlay[String(cif)];
-        await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
         await env.BFR_KV.put('meta:overlay-updated', now);
-      } catch (e) { console.warn('batch overlay cleanup failed:', e.message); }
+      } catch (e) { console.warn('batch overlay bump failed:', e.message); }
     }
     return json({ success: true, deleted, count: deleted.length, recycleDays: RECYCLE_TTL_DAYS });
   }
@@ -271,21 +319,15 @@ export async function onRequestPost(context) {
   const latV = lat ? parseFloat(lat) : null;
   const lngV = lng ? parseFloat(lng) : null;
 
-  // INSERT using esc() — avoids D1 numbered-placeholder binding pitfalls
-  const esc = (v) => {
-    if (v === null || v === undefined) return 'NULL';
-    if (typeof v === 'number') return String(v);
-    return "'" + String(v).replace(/'/g, "''") + "'";
-  };
-  const insCols = ['cif','name','nickname','phone','address','lat','lng','risk_level','debt_type','deleted','created_by','created_at','updated_at'];
-  const insVals = [
-    esc(cif), esc(name), esc(nickname || ''), esc(phone || ''), esc(address || ''),
-    esc(latV), esc(lngV), esc(riskLevel || 'unclassified'), esc(debtType || null),
-    '0', esc(createdBy), esc(now), esc(now),
-  ];
+  // INSERT using prepared statement with .bind()
   try {
     await env.BFR_DB.prepare(
-      `INSERT INTO customers (${insCols.join(',')}) VALUES (${insVals.join(',')})`
+      `INSERT INTO customers (cif, name, nickname, phone, address, lat, lng, risk_level, debt_type, deleted, created_by, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10, ?11, ?11)`
+    ).bind(
+      cif, name, nickname || '', phone || '', address || '',
+      latV, lngV, riskLevel || 'unclassified', debtType || null,
+      createdBy, now
     ).run();
   } catch (e) {
     console.error('admin create insert failed:', e.message);
@@ -300,7 +342,7 @@ export async function onRequestPost(context) {
 
   try {
     await log(env, auth.user, 'create', { id: newCustomer.id, cif, name });
-    if (latV != null && lngV != null) await bumpOverlay(env, cif, latV, lngV, name);
+    if (latV != null && lngV != null) await bumpOverlay(env);
     await env.BFR_KV.put('meta:lastwrite', now);
   } catch (e) {
     console.error('admin create post-insert error:', e.message);
@@ -330,36 +372,49 @@ export async function onRequestPut(context) {
 
   const sets = [];
   const changed = [];
-  const updater = auth.user.username || auth.user.sub || "unknown";
-  if (updates.name !== undefined) { sets.push('name=?1'); changed.push('name'); }
-  if (updates.nickname !== undefined) { sets.push('nickname=?2'); changed.push('nickname'); }
-  if (updates.phone !== undefined) { sets.push('phone=?3'); changed.push('phone'); }
-  if (updates.address !== undefined) { sets.push('address=?4'); changed.push('address'); }
-  if (updates.riskLevel !== undefined) { sets.push('risk_level=?5'); changed.push('riskLevel'); }
-  if (updates.debtType !== undefined) { sets.push('debt_type=?6'); changed.push('debtType'); }
+  const bindParams = [];
+  let paramIdx = 1;
+
+  const fieldMap = {
+    name: 'name', nickname: 'nickname', phone: 'phone', address: 'address',
+    riskLevel: 'risk_level', debtType: 'debt_type',
+  };
+
+  for (const [key, col] of Object.entries(fieldMap)) {
+    if (updates[key] !== undefined) {
+      sets.push(`${col}=?${paramIdx}`);
+      bindParams.push(updates[key] || '');
+      changed.push(key);
+      paramIdx++;
+    }
+  }
+
   if (updates.lat !== undefined && updates.lng !== undefined) {
-    sets.push('lat=?7'); sets.push('lng=?8');
-    changed.push('lat'); changed.push('lng');
+    const latV = updates.lat != null ? parseFloat(updates.lat) : null;
+    const lngV = updates.lng != null ? parseFloat(updates.lng) : null;
+    sets.push(`lat=?${paramIdx}`);
+    bindParams.push(latV);
+    paramIdx++;
+    sets.push(`lng=?${paramIdx}`);
+    bindParams.push(lngV);
+    paramIdx++;
+    changed.push('lat', 'lng');
   }
 
   if (sets.length === 0) return json({ success: false, error: 'ไม่มีข้อมูลให้อัพเดท' }, 400);
 
   const now = new Date().toISOString();
-  sets.push('updated_at=?9');
-  const params = [
-    updates.name ?? null, updates.nickname ?? null, updates.phone ?? null,
-    updates.address ?? null, updates.riskLevel ?? null, updates.debtType ?? null,
-    updates.lat !== undefined ? (updates.lat != null ? parseFloat(updates.lat) : null) : null,
-    updates.lng !== undefined ? (updates.lng != null ? parseFloat(updates.lng) : null) : null,
-    now,
-  ];
+  sets.push(`updated_at=?${paramIdx}`);
+  bindParams.push(now);
+  paramIdx++;
 
-  await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=${esc(cif)}`).bind(...params).run();
+  bindParams.push(cif);
+  await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=?${paramIdx}`).bind(...bindParams).run();
 
   const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   await log(env, auth.user, 'update', { id, changed });
   if (changed.includes('lat') || changed.includes('lng')) {
-    await bumpOverlay(env, cif, fresh.lat, fresh.lng, fresh.name);
+    await bumpOverlay(env);
   }
   await env.BFR_KV.put('meta:lastwrite', now);
 
@@ -387,7 +442,7 @@ export async function onRequestDelete(context) {
     if (!res) return json({ success: false, error: 'ไม่พบในถังขยะ' }, 404);
     await env.BFR_DB.prepare('DELETE FROM customers WHERE cif=?1').bind(cif).run();
     await log(env, auth.user, 'purge', { id, cif, name: res.name });
-    if (res.lat != null && res.lng != null) await bumpOverlay(env, cif, null, null);
+    if (res.lat != null && res.lng != null) await bumpOverlay(env);
     return json({ success: true, purged: id });
   }
 
@@ -406,7 +461,7 @@ export async function onRequestDelete(context) {
   }
   try {
     await log(env, auth.user, 'delete', { id, cif, name: exists.name });
-    if (exists.lat != null && exists.lng != null) await bumpOverlay(env, cif, null, null);
+    if (exists.lat != null && exists.lng != null) await bumpOverlay(env);
     await env.BFR_KV.put('meta:lastwrite', now);
   } catch (e) {
     console.error('admin delete post error:', e.message);

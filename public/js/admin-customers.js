@@ -43,6 +43,20 @@ const Admin = {
     this.startPolling();
   },
 
+  // เติม dropdown เดือนครบกำหนดจาก backend (ตรงกับตัวกรอง debtMonth)
+  fillDebtMonthDropdown(debtMonths) {
+    const monthSel = document.getElementById('filter-debt-month');
+    if (!monthSel) return;
+    if (!Array.isArray(debtMonths) || debtMonths.length === 0) return;
+    if (monthSel.options.length > 1) return; // เติมแล้ว
+    debtMonths.forEach(k => {
+      const o = document.createElement('option');
+      o.value = k; // 'MM/YYYY'
+      o.textContent = DebtDB.fmtDate('01/' + k);
+      monthSel.appendChild(o);
+    });
+  },
+
   bindEvents() {
     document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
     document.getElementById('btn-logout').addEventListener('click', () => Auth.logout());
@@ -60,6 +74,11 @@ const Admin = {
     document.getElementById('filter-gps').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('filter-risk').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('filter-tag').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('filter-debt-tier').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('filter-debt-15m').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('filter-has-debt').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('filter-debt-month').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('btn-debt-filter-reset').addEventListener('click', () => this.resetDebtFilters());
 
     document.getElementById('prev-page').addEventListener('click', () => this.changePage(-1));
     document.getElementById('next-page').addEventListener('click', () => this.changePage(1));
@@ -108,6 +127,10 @@ const Admin = {
       const gpsFilter = document.getElementById('filter-gps').value;
       const riskFilter = document.getElementById('filter-risk').value;
       const tagFilter = document.getElementById('filter-tag').value;
+      const debtClass = document.getElementById('filter-debt-tier').value;
+      const debt15m = document.getElementById('filter-debt-15m').value;
+      const hasDebt = document.getElementById('filter-has-debt').value;
+      const debtMonth = document.getElementById('filter-debt-month').value;
 
       let url = `/api/admin/customers-crud?page=${this.page}&per_page=${this.pageSize}`;
       if (q) url += '&q=' + encodeURIComponent(q);
@@ -115,6 +138,10 @@ const Admin = {
       else if (gpsFilter === 'no') url += '&hasGps=false';
       if (riskFilter && riskFilter !== 'all') url += '&risk=' + encodeURIComponent(riskFilter);
       if (tagFilter && tagFilter !== 'all') url += '&tag=' + encodeURIComponent(tagFilter);
+      if (debtClass && debtClass !== 'all') url += '&debtClass=' + encodeURIComponent(debtClass);
+      if (debt15m && debt15m !== 'all') url += '&debt15m=' + encodeURIComponent(debt15m);
+      if (hasDebt && hasDebt !== 'all') url += '&hasDebt=' + encodeURIComponent(hasDebt);
+      if (debtMonth && debtMonth !== 'all') url += '&debtMonth=' + encodeURIComponent(debtMonth);
 
       const data = await API.get(url);
       if (data.success) {
@@ -124,6 +151,7 @@ const Admin = {
         this.totalPages = data.totalPages || 1;
         this.allTags = data.allTags || [];
         this.updateTagFilter();
+        this.fillDebtMonthDropdown(data.debtMonths);
         this.renderTable();
         this.updateSyncBadge('ok');
       }
@@ -174,6 +202,16 @@ const Admin = {
   },
 
   applyFilters() {
+    this.page = 1;
+    this.applyLocalFilters();
+  },
+
+  // ล้างตัวกรองหนี้ทั้งหมด (เหมือนปุ่ม ✕ บนแผนที่)
+  resetDebtFilters() {
+    ['filter-debt-tier', 'filter-debt-15m', 'filter-has-debt', 'filter-debt-month'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = 'all';
+    });
     this.page = 1;
     this.applyLocalFilters();
   },
