@@ -7,12 +7,141 @@
   <title>BAAC Field Route · วางแผนเส้นทางอัจฉริยะ</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <link rel="stylesheet" href="css/app.css?v=20260719">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="css/app.css?v=20260826f" as="style">
+  <link rel="preload" href="js/app.js?v=20260826f" as="script">
+  
+  <!-- Critical CSS inline for above-the-fold content -->
+  <style>
+    /* Critical CSS — Login page above-the-fold */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .landing-page { min-height: 100vh; background: #fff; color: #1a1a1a; overflow-x: hidden; }
+    .lp-hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 60px 24px 40px;
+      background: linear-gradient(135deg, #f0faf4 0%, #e8f5e9 30%, #fff 70%, #f8fdf9 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .lp-hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 50%, rgba(10, 143, 60, 0.03) 0%, transparent 50%),
+                  radial-gradient(circle at 70% 80%, rgba(10, 143, 60, 0.02) 0%, transparent 40%);
+      animation: heroFloat 20s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes heroFloat {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(2%, -1%) rotate(1deg); }
+      66% { transform: translate(-1%, 2%) rotate(-1deg); }
+    }
+    .lp-hero-inner { max-width: 480px; position: relative; z-index: 1; }
+    .lp-logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #0a8f3c 0%, #067029 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(10, 143, 60, 0.25);
+    }
+    .lp-logo svg { width: 48px; height: 48px; fill: white; }
+    .lp-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(10, 143, 60, 0.08);
+      color: #0a8f3c;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 24px;
+      margin-bottom: 28px;
+      border: 1px solid rgba(10, 143, 60, 0.12);
+    }
+    .lp-title {
+      font-size: 52px;
+      font-weight: 800;
+      line-height: 1.05;
+      color: #0a8f3c;
+      margin: 0 0 8px;
+      letter-spacing: -1.5px;
+    }
+    .lp-title-accent {
+      display: block;
+      font-size: 56px;
+      background: linear-gradient(135deg, #0a8f3c 0%, #067029 50%, #044d1c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .lp-subtitle {
+      font-size: 18px;
+      color: #555;
+      line-height: 1.6;
+      margin: 0 0 36px;
+    }
+    .lp-cta {
+      background: linear-gradient(135deg, #0a8f3c 0%, #067029 100%);
+      color: #fff;
+      border: none;
+      padding: 16px 40px;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(10, 143, 60, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton 1.5s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    @keyframes skeleton {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+  
+  <!-- Non-critical CSS (loaded async) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="css/app.css?v=20260826f">
+  
+  <!-- Non-critical JS (defer) -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script>
 </head>
 <body>
   <!-- Login Screen -->
@@ -21,10 +150,37 @@
     <!-- Hero -->
     <section class="lp-hero">
       <div class="lp-hero-inner">
+        <!-- BAAC Logo -->
+        <div class="lp-logo">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+          </svg>
+        </div>
+
         <div class="lp-badge">ธ.ก.ส. สาขาวังท่าช้าง</div>
-        <h1 class="lp-title fade-up">BAAC<br>Field Route</h1>
+        <h1 class="lp-title fade-up">BAAC<br><span class="lp-title-accent">Field Route</span></h1>
         <p class="lp-subtitle fade-up">วางแผนเส้นทางอัจฉริยะ<br>สำหรับพนักงานสินเชื่อ</p>
-        <button class="lp-cta fade-up" onclick="document.getElementById('login-screen').classList.add('login-mode')">เข้าสู่ระบบ</button>
+
+        <!-- Trust indicators -->
+        <div class="lp-trust fade-up">
+          <div class="lp-trust-item">
+            <span class="trust-icon">🔒</span>
+            <span>ปลอดภัย</span>
+          </div>
+          <div class="lp-trust-item">
+            <span class="trust-icon">📱</span>
+            <span>ใช้ได้ทุกอุปกรณ์</span>
+          </div>
+          <div class="lp-trust-item">
+            <span class="trust-icon">🌐</span>
+            <span>Offline ได้</span>
+          </div>
+        </div>
+
+        <button class="lp-cta fade-up" onclick="document.getElementById('login-screen').classList.add('login-mode')">
+          <span>เข้าสู่ระบบ</span>
+          <span class="cta-icon">→</span>
+        </button>
       </div>
       <div class="lp-hero-scroll">
         <span class="lp-scroll-hint fade-up">เลื่อนลงเพื่อดูฟีเจอร์</span>
@@ -36,42 +192,43 @@
     <section class="lp-features">
       <div class="lp-features-inner">
         <h2 class="lp-section-title fade-up">ทำอะไรได้บ้าง</h2>
+        <p class="lp-section-subtitle fade-up">เครื่องมือครบครันสำหรับพนักงานสินเชื่อภาคสนาม</p>
         <div class="lp-feature-grid">
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">🗺️</div>
             <h3>แผนที่อัจฉริยะ</h3>
-            <p>ดูตำแหน่งลูกค้าทั้งหมดบนแผนที่แบบ real-time เลือกลูกค้าที่ต้องการเยี่ยมวันนี้</p>
+            <p>ดูตำแหน่งลูกค้าทั้งหมดบนแผนที่แบบ real-time</p>
           </div>
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">🛣️</div>
             <h3>เส้นทางอัตโนมัติ</h3>
-            <p>คำนวณเส้นทางที่สั้นที่สุดด้วย OSRM จัดลำดับให้เสร็จ ประหยัดเวลาและน้ำมัน</p>
+            <p>คำนวณเส้นทางที่สั้นที่สุดด้วย OSRM</p>
           </div>
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">📍</div>
             <h3>ค้นหาลูกค้า</h3>
-            <p>พิมพ์ CIF ชื่อ หรือเบอร์โทร ค้นหาได้ทันที ไม่ต้องเลื่อนหาให้เสียเวลา</p>
+            <p>พิมพ์ CIF ชื่อ หรือเบอร์โทร ค้นหาได้ทันที</p>
           </div>
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">📊</div>
             <h3>สรุปรายงาน</h3>
-            <p>ดูจำนวนลูกค้า ระยะทาง เวลาที่ใช้ สรุปครบจบในหน้าเดียว</p>
+            <p>ดูจำนวนลูกค้า ระยะทาง เวลาที่ใช้ ครบจบในหน้าเดียว</p>
           </div>
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">🚗</div>
             <h3>คำนวณน้ำมัน</h3>
-            <p>เลือกประเภทรถ กระบะ รถเก๋ง หรือมอเตอร์ไซค์ ระบบคำนวณให้อัตโนมัติ</p>
+            <p>เลือกประเภทรถ ระบบคำนวณค่าน้ำมันให้อัตโนมัติ</p>
           </div>
 
           <div class="lp-feature fade-up">
             <div class="lp-feature-icon">🔄</div>
             <h3>ซิงค์อัตโนมัติ</h3>
-            <p>ข้อมูลบันทึกและซิงค์ระหว่างอุปกรณ์แบบ real-time ไม่ต้องกลัวข้อมูลหาย</p>
+            <p>ข้อมูลบันทึกและซิงค์ระหว่างอุปกรณ์แบบ real-time</p>
           </div>
 
         </div>
@@ -89,15 +246,33 @@
     <div class="lp-login-overlay">
       <div class="lp-login-card">
         <button class="lp-login-close" onclick="document.getElementById('login-screen').classList.remove('login-mode')">✕</button>
-        <div class="login-logo">🗺️</div>
-        <h1>BAAC Field Route</h1>
-        <p class="login-sub">เข้าสู่ระบบ</p>
+        
+        <!-- Login Logo -->
+        <div style="text-align:center;margin-bottom:24px">
+          <div class="lp-logo" style="width:64px;height:64px;margin:0 auto 16px;border-radius:16px">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+          </div>
+          <h1 style="font-size:22px;font-weight:700;color:#0a8f3c;margin:0 0 4px">BAAC Field Route</h1>
+          <p style="font-size:14px;color:#666;margin:0">เข้าสู่ระบบ</p>
+        </div>
 
         <form id="login-form" autocomplete="off">
           <label for="login-username">ชื่อผู้ใช้</label>
           <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
+          
           <label for="login-password">รหัสผ่าน</label>
-          <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+          <div class="password-input-wrap">
+            <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+            <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)" title="แสดง/ซ่อนรหัสผ่าน">👁️</button>
+          </div>
+
+          <label class="login-remember">
+            <input type="checkbox" id="remember-me" checked>
+            <span>จดจำฉัน</span>
+          </label>
+
           <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
           <p class="login-error" id="login-error"></p>
         </form>
@@ -122,22 +297,64 @@
     <!-- Overlay Header (always floats over map) -->
     <header class="app-header app-header-overlay">
       <div class="app-logo">
-        <span class="logo-icon">🗺️</span>
+        <span class="logo-icon"><i data-lucide="map-pin" class="icon"></i></span>
         <span class="logo-text">BAAC Field Route</span>
       </div>
       <div class="app-header-center" id="header-status">
         <span id="route-progress"></span>
       </div>
       <div class="app-user">
+        <!-- User avatar with initial -->
+        <div class="user-avatar" id="user-avatar" title="บัญชีผู้ใช้">
+          <span class="avatar-initial" id="avatar-initial">?</span>
+        </div>
         <span id="user-name">กำลังโหลด...</span>
-        <button class="btn-icon" id="change-password-btn" title="เปลี่ยนรหัสผ่าน">🔑</button>
-        <button class="btn-icon admin-only" id="admin-users-btn" title="จัดการระบบ" aria-label="Users" style="display:none">👥</button>
-        <button class="btn-icon admin-only" id="admin-data-btn" title="จัดการข้อมูลลูกค้า" aria-label="Data" style="display:none">🔧</button>
-        <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help">❓</button>
-        <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report">📊</button>
-        <button class="btn-icon" id="refresh-btn" title="รีเฟรชข้อมูล + เคลียร์ cache" aria-label="Refresh">🔄</button>
-        <button class="btn-icon" id="update-db-btn" title="อัพเดทข้อมูลลูกค้าจากฐานข้อมูลกลาง" aria-label="Update DB" style="font-size:18px">⬇️</button>
-        <button class="btn-icon" id="logout-btn" title="ออกจากระบบ">⎋</button>
+        
+        <!-- Sync status badge -->
+        <div class="sync-badge" id="sync-badge-header" title="สถานะซิงค์">
+          <span class="sync-icon">☁️</span>
+        </div>
+        
+        <!-- Quick actions (always visible) -->
+        <button class="btn-icon" id="report-btn" title="รายงานติดตามหนี้" aria-label="Report"><i data-lucide="bar-chart-3" class="icon"></i></button>
+        <button class="btn-icon" id="help-btn" title="วิธีใช้งานเว็บ" aria-label="Help"><i data-lucide="circle-help" class="icon"></i></button>
+        
+        <!-- More menu (dropdown on mobile) -->
+        <div class="header-more-menu">
+          <button class="btn-icon" id="more-menu-btn" title="เมนูเพิ่มเติม" aria-label="More">
+            <i data-lucide="more-vertical" class="icon"></i>
+          </button>
+          <div class="more-menu-dropdown" id="more-menu-dropdown">
+            <button class="more-menu-item" id="change-password-btn">
+              <i data-lucide="key-round" class="icon"></i>
+              <span>เปลี่ยนรหัสผ่าน</span>
+            </button>
+            <button class="more-menu-item admin-only" id="admin-users-btn" style="display:none">
+              <i data-lucide="settings" class="icon"></i>
+              <span>จัดการระบบ</span>
+            </button>
+            <button class="more-menu-item admin-only" id="admin-data-btn" style="display:none">
+              <i data-lucide="database" class="icon"></i>
+              <span>จัดการข้อมูล</span>
+            </button>
+            <button class="more-menu-item" id="update-db-btn">
+              <i data-lucide="download" class="icon"></i>
+              <span>อัพเดทข้อมูล</span>
+            </button>
+            <div class="more-menu-divider"></div>
+            <div class="more-menu-info">
+              <span class="version-label" id="version-label">…</span>
+            </div>
+            <button class="more-menu-item" id="refresh-btn">
+              <i data-lucide="refresh-cw" class="icon"></i>
+              <span>รีเฟรชเว็บ</span>
+            </button>
+            <button class="more-menu-item more-menu-danger" id="logout-btn">
+              <i data-lucide="log-out" class="icon"></i>
+              <span>ออกจากระบบ</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -163,14 +380,19 @@
           <option value="exclude">กรอง อสม. ออก</option>
           <option value="only">ดูเฉพาะ อสม.</option>
         </select>
+        <select id="debt-15m-filter" class="mdf-select" title="กรอง 15 เดือน">
+          <option value="">หนี้ทั้งหมด</option>
+          <option value="Y">⏳ มี 15 เดือน</option>
+          <option value="none">✓ ไม่มี 15 เดือน</option>
+        </select>
         <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรอง">✕</button>
       </div>
     </div>
 
     <!-- Floating action buttons over map -->
     <div class="map-fab">
-      <button class="fab fab-primary" id="fab-add-customer" title="เพิ่มลูกค้า">＋</button>
-      <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน">📍</button>
+      <button class="fab fab-main" id="fab-add-customer" title="เพิ่มลูกค้าใหม่"><i data-lucide="plus" class="icon"></i></button>
+      <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน"><i data-lucide="locate" class="icon"></i></button>
     </div>
 
     <!-- ===== Bottom Sheet ===== -->
@@ -181,11 +403,11 @@
 
       <!-- Sheet section tabs (fixed, don't scroll) -->
       <div class="sheet-tabs">
-        <button class="sheet-tab active" data-sheet="route">🧭 เส้นทาง</button>
-        <button class="sheet-tab" data-sheet="customers">👥 ลูกค้า</button>
-        <button class="sheet-tab" data-sheet="plan">🗺️ วางแผน</button>
-        <button class="sheet-tab" data-sheet="visit">📋 เข้าพบ</button>
-        <button class="sheet-tab" data-sheet="debtsummary">📊 สรุปหนี้</button>
+        <button class="sheet-tab active" data-sheet="route"><i data-lucide="navigation" class="icon"></i> เส้นทาง</button>
+        <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
+        <button class="sheet-tab" data-sheet="plan"><i data-lucide="map" class="icon"></i> วางแผน</button>
+        <button class="sheet-tab" data-sheet="visit"><i data-lucide="clipboard-check" class="icon"></i> เข้าพบ</button>
+        <button class="sheet-tab" data-sheet="debtsummary"><i data-lucide="wallet" class="icon"></i> สรุปหนี้</button>
       </div>
 
       <div class="sheet-scroll">
@@ -208,11 +430,21 @@
           <div class="customers-search">
             <input type="search" id="customer-search" placeholder="🔍 ค้นหาด้วยชื่อ, CIF, เบอร์โทร, ที่อยู่..." autocomplete="off">
           </div>
-          <div class="customers-filters">
-            <button class="filter active" data-filter="all">ทั้งหมด</button>
-            <button class="filter" data-filter="today">วันนี้</button>
-            <button class="filter" data-filter="pending">รอเยี่ยม</button>
-            <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
+          <div class="customers-toolbar">
+            <div class="customers-filters">
+              <button class="filter active" data-filter="all">ทั้งหมด</button>
+              <button class="filter" data-filter="today">วันนี้</button>
+              <button class="filter" data-filter="pending">รอเยี่ยม</button>
+              <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
+            </div>
+            <div class="customers-sort">
+              <select id="customer-sort" class="sort-select">
+                <option value="name">เรียงตามชื่อ</option>
+                <option value="cif">เรียงตาม CIF</option>
+                <option value="risk">เรียงตามความเสี่ยง</option>
+                <option value="recent">ล่าสุด</option>
+              </select>
+            </div>
           </div>
           <div class="customers-list" id="customers-list">
             <p class="empty-state">ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม</p>
@@ -363,6 +595,11 @@
             <h3>📍 สถานะพิกัดของลูกค้าหนี้</h3>
             <div class="debt-block-body" id="debt-geo-block"></div>
           </div>
+
+          <div class="debt-block">
+            <h3>⏳ 15 เดือน (ดอกเบี้ยค้าง 15 เดือน)</h3>
+            <div class="debt-block-body" id="debt-15m-block"></div>
+          </div>
         </div>
       </div><!-- /sheet-scroll -->
     </div><!-- /bottom-sheet -->
@@ -408,11 +645,11 @@
         <div class="form-row form-row-2">
           <div>
             <label>Latitude</label>
-            <input type="text" name="lat" id="new-lat" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+            <input type="text" name="lat" id="new-lat" inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
           </div>
           <div>
             <label>Longitude</label>
-            <input type="text" name="lng" id="new-lng" required inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+            <input type="text" name="lng" id="new-lng" inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
           </div>
         </div>
         <div class="form-row form-row-2">
@@ -478,7 +715,34 @@
       <form id="visit-log-form">
         <div class="form-row">
           <label>ผลการเข้าพบ *</label>
-          <select name="status" required>
+          <!-- Quick status buttons -->
+          <div class="quick-status-grid">
+            <button type="button" class="quick-status-btn quick-status-visited" data-status="visited" onclick="Visit.setQuickStatus('visited')">
+              <span class="qs-icon">✅</span>
+              <span class="qs-label">เยี่ยมสำเร็จ</span>
+            </button>
+            <button type="button" class="quick-status-btn quick-status-interested" data-status="interested" onclick="Visit.setQuickStatus('interested')">
+              <span class="qs-icon">💚</span>
+              <span class="qs-label">ลูกค้าสนใจ</span>
+            </button>
+            <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
+              <span class="qs-icon">❌</span>
+              <span class="qs-label">ไม่พบ</span>
+            </button>
+            <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
+              <span class="qs-icon">🚪</span>
+              <span class="qs-label">ไม่อยู่</span>
+            </button>
+            <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
+              <span class="qs-icon">📅</span>
+              <span class="qs-label">นัดใหม่</span>
+            </button>
+            <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
+              <span class="qs-icon">🚫</span>
+              <span class="qs-label">ไม่สนใจ</span>
+            </button>
+          </div>
+          <select name="status" required class="hidden" id="visit-status-select">
             <option value="visited">✅ เยี่ยมสำเร็จ - พบลูกค้า</option>
             <option value="no_answer">❌ ไม่พบลูกค้า</option>
             <option value="not_home">🚪 ไม่อยู่บ้าน</option>
@@ -564,6 +828,7 @@
       </div>
       <div class="export-buttons hidden" id="export-buttons">
         <button type="button" class="btn-secondary" id="btn-export-html">📄 HTML (พิมพ์)</button>
+        <button type="button" class="btn-primary" id="btn-export-pdf">📑 PDF</button>
         <button type="button" class="btn-secondary" id="btn-export-csv">📊 CSV (Excel)</button>
         <button type="button" class="btn-secondary" id="btn-export-share">📱 Share / Copy</button>
       </div>
@@ -724,6 +989,8 @@
           <button class="admin-tab active" data-admin-tab="users">👥 ผู้ใช้</button>
           <button class="admin-tab" data-admin-tab="branches">🏢 สาขา</button>
           <button class="admin-tab" data-admin-tab="pin">🔐 PIN</button>
+          <button class="admin-tab" data-admin-tab="password">🔑 รหัสผ่าน</button>
+          <button class="admin-tab" data-admin-tab="debt">📊 อัปเดตหนี้</button>
         </div>
 
         <!-- Tab: Users -->
@@ -773,6 +1040,17 @@
             </button>
             <p class="login-error" id="import-static-error" style="display:none"></p>
             <p style="display:none;color:#0a8f3c;font-size:13px;margin-top:8px" id="import-static-success"></p>
+          </div>
+
+          <!-- Export customers as CSV -->
+          <div class="admin-export-section" style="margin-top:16px;padding:16px;background:#f8f9fa;border-radius:8px;border:1px solid #e0e0e0">
+            <h3>📤 ส่งออกข้อมูลลูกค้า</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px;font-size:13px">
+              Export ข้อมูลลูกค้าทั้งหมดเป็นไฟล์ CSV (เปิดใน Excel ได้)
+            </p>
+            <button type="button" class="btn-secondary" id="btn-export-customers">
+              📊 Export ลูกค้าเป็น CSV
+            </button>
           </div>
         </div>
 
@@ -824,6 +1102,71 @@
             </form>
           </div>
         </div>
+
+        <!-- Tab: เปลี่ยนรหัสผ่าน -->
+        <div class="admin-tab-pane" id="admin-tab-password">
+          <div class="admin-pin-section">
+            <h3>🔑 เปลี่ยนรหัสผ่าน</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px">เปลี่ยนรหัสผ่านสำหรับเข้าสู่ระบบของคุณ</p>
+            <form id="change-password-form">
+              <div class="form-group" style="margin-bottom:14px">
+                <label for="cp-current">รหัสผ่านปัจจุบัน</label>
+                <input type="password" id="cp-current" placeholder="รหัสผ่านเดิม" required minlength="4">
+              </div>
+              <div class="form-group" style="margin-bottom:14px">
+                <label for="cp-new">รหัสผ่านใหม่</label>
+                <input type="password" id="cp-new" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
+              </div>
+              <div class="form-group" style="margin-bottom:14px">
+                <label for="cp-confirm">ยืนยันรหัสผ่านใหม่</label>
+                <input type="password" id="cp-confirm" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
+              </div>
+              <button type="submit" class="btn-primary" id="btn-change-password">เปลี่ยนรหัสผ่าน</button>
+              <p class="login-error" id="cp-error"></p>
+              <p class="text-muted" id="cp-success" style="color:var(--baac-green);display:none"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab: อัปเดตหนี้ -->
+        <div class="admin-tab-pane" id="admin-tab-debt">
+          <div class="debt-import-section">
+            <h3>📊 อัปเดตสถานะหนี้</h3>
+            <p class="text-muted" style="text-align:left;margin-bottom:12px">
+              อัปโหลดไฟล์ Customer Indicator (CSV) เพื่ออัปเดตข้อมูลหนี้ของลูกค้าในระบบ
+              <br><small>ไฟล์ CSV จากระบบ BAAC (TIS-620 encoding) — ระบบจะจับคู่ CIF อัตโนมัติ</small>
+            </p>
+            
+            <div class="debt-upload-area" id="debt-upload-area">
+              <input type="file" id="debt-file-input" accept=".csv,.CSV" style="display:none">
+              <button type="button" class="btn-primary" id="debt-upload-btn" style="background:var(--baac-green)">
+                📂 เลือกไฟล์ Customer Indicator
+              </button>
+              <p class="text-muted" id="debt-file-name" style="margin-top:8px;font-size:13px">ยังไม่ได้เลือกไฟล์</p>
+            </div>
+            
+            <div id="debt-progress" style="display:none;margin-top:16px">
+              <div style="background:#e8f5e9;border-radius:8px;padding:12px;margin-bottom:12px">
+                <p style="margin:0;font-weight:600;color:var(--baac-green-dark)">⏳ กำลังประมวลผล...</p>
+                <p class="text-muted" id="debt-progress-text" style="margin:4px 0 0;font-size:13px">กำลังอัปโหลดไฟล์...</p>
+              </div>
+            </div>
+            
+            <div id="debt-result" style="display:none;margin-top:16px">
+              <div style="background:#f0f9f4;border-radius:8px;padding:16px;border:1px solid #b6e2c5">
+                <h4 style="margin:0 0 12px;color:var(--baac-green-dark)">✅ อัปเดตสำเร็จ</h4>
+                <div id="debt-result-stats" style="font-size:14px;line-height:1.8"></div>
+                <p class="text-muted" id="debt-result-time" style="margin:12px 0 0;font-size:12px"></p>
+              </div>
+            </div>
+            
+            <div id="debt-last-update" style="margin-top:16px;padding-top:12px;border-top:1px solid #e8e8e8">
+              <p class="text-muted" style="font-size:13px">
+                📅 อัปเดตหนี้ล่าสุด: <strong id="debt-last-update-time">-</strong>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -836,22 +1179,22 @@
         <button class="btn-icon modal-close" id="close-change-password">✕</button>
       </div>
       <div class="modal-body">
-        <form id="change-password-form">
+        <form id="change-password-form-standalone">
           <div class="form-group" style="margin-bottom:14px">
-            <label for="cp-current">รหัสผ่านปัจจุบัน</label>
-            <input type="password" id="cp-current" placeholder="รหัสผ่านเดิม" required minlength="4">
+            <label for="cp-current-standalone">รหัสผ่านปัจจุบัน</label>
+            <input type="password" id="cp-current-standalone" placeholder="รหัสผ่านเดิม" required minlength="4">
           </div>
           <div class="form-group" style="margin-bottom:14px">
-            <label for="cp-new">รหัสผ่านใหม่</label>
-            <input type="password" id="cp-new" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
+            <label for="cp-new-standalone">รหัสผ่านใหม่</label>
+            <input type="password" id="cp-new-standalone" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
           </div>
           <div class="form-group" style="margin-bottom:14px">
-            <label for="cp-confirm">ยืนยันรหัสผ่านใหม่</label>
-            <input type="password" id="cp-confirm" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
+            <label for="cp-confirm-standalone">ยืนยันรหัสผ่านใหม่</label>
+            <input type="password" id="cp-confirm-standalone" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
           </div>
-          <button type="submit" class="btn-primary" id="btn-change-password">เปลี่ยนรหัสผ่าน</button>
-          <p class="login-error" id="cp-error"></p>
-          <p class="text-muted" id="cp-success" style="color:var(--baac-green);display:none"></p>
+          <button type="submit" class="btn-primary">เปลี่ยนรหัสผ่าน</button>
+          <p class="login-error" id="cp-error-standalone"></p>
+          <p class="text-muted" id="cp-success-standalone" style="color:var(--baac-green);display:none"></p>
         </form>
       </div>
     </div>
@@ -860,23 +1203,23 @@
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="js/utils.js?v=20260719"></script>
-  <script src="js/auth.js?v=20260719"></script>
-  <script src="js/api.js?v=20260719"></script>
-  <script src="js/storage.js?v=20260719"></script>
-  <script src="js/fuel.js?v=20260719"></script>
-  <script src="js/customers.js?v=20260719"></script>
-  <script src="js/customer-db.js?v=20260719"></script>
-  <script src="js/debt-db.js?v=20260820"></script>
-  <script src="js/debt-summary.js?v=20260820"></script>
-  <script src="js/tsp.js?v=20260719"></script>
-  <script src="js/route.js?v=20260719"></script>
-  <script src="js/visit.js?v=20260719"></script>
-  <script src="js/report.js?v=20260719"></script>
-  <script src="js/app.js?v=20260719"></script>
+  <script src="js/utils.js?v=20260826f"></script>
+  <script src="js/auth.js?v=20260826f"></script>
+  <script src="js/api.js?v=20260826f"></script>
+  <script src="js/storage.js?v=20260826f"></script>
+  <script src="js/fuel.js?v=20260826f"></script>
+  <script src="js/customers.js?v=20260826f"></script>
+  <script src="js/customer-db.js?v=20260826f"></script>
+  <script src="js/debt-db.js?v=20260826f"></script>
+  <script src="js/debt-summary.js?v=20260826f"></script>
+  <script src="js/tsp.js?v=20260826f"></script>
+  <script src="js/route.js?v=20260826f"></script>
+  <script src="js/visit.js?v=20260826f"></script>
+  <script src="js/report.js?v=20260826f"></script>
+  <script src="js/app.js?v=20260826f"></script>
 
   <script>
-    // Landing page scroll reveal
+    // ===== Landing page scroll reveal =====
     document.addEventListener('DOMContentLoaded', () => {
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry, i) => {
@@ -892,7 +1235,109 @@
       }, { threshold: 0.15 });
 
       document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+      // Initialize Lucide SVG icons
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
+
+    // ===== Password toggle function =====
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+  
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'ซ่อนรหัสผ่าน';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'แสดงรหัสผ่าน';
+      }
+    }
+
+    // ===== Login loading state =====
+    function setLoginLoading(btn, loading) {
+      if (!btn) return;
+      if (loading) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+      } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    // ===== Remember me functionality =====
+    function saveRememberMe(username) {
+      const remember = document.getElementById('remember-me');
+      if (remember && remember.checked) {
+        localStorage.setItem('bfr_remember_user', username);
+        localStorage.setItem('bfr_remember_me', 'true');
+      } else {
+        localStorage.removeItem('bfr_remember_user');
+        localStorage.removeItem('bfr_remember_me');
+      }
+    }
+
+    function loadRememberMe() {
+      const remember = localStorage.getItem('bfr_remember_me') === 'true';
+      const username = localStorage.getItem('bfr_remember_user');
+  
+      if (remember && username) {
+        const usernameInput = document.getElementById('login-username');
+        const rememberCheckbox = document.getElementById('remember-me');
+        if (usernameInput) usernameInput.value = username;
+        if (rememberCheckbox) rememberCheckbox.checked = true;
+      }
+    }
+
+    // Load remembered username on page load
+    document.addEventListener('DOMContentLoaded', loadRememberMe);
+
+    // ===== Offline indicator =====
+    function updateOnlineStatus() {
+      let indicator = document.getElementById('offline-indicator');
+  
+      if (!navigator.onLine) {
+        if (!indicator) {
+          indicator = document.createElement('div');
+          indicator.id = 'offline-indicator';
+          indicator.className = 'offline-indicator';
+          indicator.textContent = 'ไม่มีอินเทอร์เน็ต — ใช้ข้อมูลในเครื่อง';
+          document.body.appendChild(indicator);
+        }
+        indicator.style.display = 'flex';
+      } else {
+        if (indicator) {
+          indicator.style.display = 'none';
+        }
+      }
+    }
+
+    // Listen for online/offline events
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    // Check on page load
+    document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+
+    // ===== Service Worker message handler =====
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SYNC_CUSTOMERS') {
+          // Trigger customer sync
+          if (typeof Storage !== 'undefined' && Storage.sync) {
+            Storage.sync();
+          }
+        } else if (event.data && event.data.type === 'SYNC_VISITS') {
+          // Trigger visit sync
+          if (typeof Storage !== 'undefined' && Storage.sync) {
+            Storage.sync();
+          }
+        }
+      });
+    }
   </script>
 </body>
 </html>
