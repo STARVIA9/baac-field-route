@@ -3942,6 +3942,26 @@ html {
   .modal-card { background: #2f312a; border-color: #44483d; }
   .modal-header h2, .modal-header h3 { color: #f1f1e9; }
 
+  /* popup แผนที่ (Leaflet) — ตัวการตัวอักษรกลืนบนมือถือ */
+  .leaflet-popup-content-wrapper { background: #2f312a; color: #f1f1e9; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .leaflet-popup-tip { background: #2f312a; }
+  .leaflet-popup-content { color: #f1f1e9; }
+  .leaflet-container a { color: #6ee7a0; }
+  .popup-name { color: #6ee7a0; }
+  .popup-debt .debt-label { color: #c4c8bb; }
+  .popup-debt .debt-val { color: #f1f1e9; }
+  .popup-addr { color: #8a8e82; }
+
+  /* การ์ดสัญญาใน popup แผนที่ */
+  .debt-summary { background: #242b24; }
+  .debt-summary .debt-val { color: #f1f1e9; }
+  .debt-summary.debt-urgent { background: #3a2424; }
+  .debt-contract { border-color: #44483d; }
+  .debt-contract .dc-no { color: #f1f1e9; }
+  .debt-contract .dc-line { color: #d5d9cc; }
+  .debt-contract-urgent { border-color: #7a4a4a; background: #332222; }
+  .meta-badge.gray { background: #3a3c34; color: #c4c8bb; }
+
   .btn-secondary { background: #2f312a; border-color: var(--baac-green); }
 
   .customer-card { background: #2f312a; border-color: #44483d; }
