@@ -51,6 +51,7 @@ const Admin = {
     document.getElementById('btn-add').addEventListener('click', () => this.openAdd());
     document.getElementById('btn-import').addEventListener('click', () => this.openImport());
     document.getElementById('btn-gps-import').addEventListener('click', () => this.openGpsImport());
+    document.getElementById('btn-debt-import').addEventListener('click', () => this.openDebtImport());
     document.getElementById('btn-export').addEventListener('click', () => this.openExport());
     document.getElementById('btn-recycle').addEventListener('click', () => this.openRecycle());
     document.getElementById('btn-batch-delete').addEventListener('click', () => this.handleBatchDelete());
@@ -76,6 +77,8 @@ const Admin = {
     document.getElementById('save-edit').addEventListener('click', () => this.saveEdit());
 
     document.getElementById('close-recycle').addEventListener('click', () => this.closeRecycle());
+    document.getElementById('close-debt').addEventListener('click', () => this.closeDebtCard());
+    document.getElementById('close-debt-footer').addEventListener('click', () => this.closeDebtCard());
   },
 
   async handleLogin(e) {
@@ -205,6 +208,7 @@ const Admin = {
 
     tbody.querySelectorAll('[data-action="edit"]').forEach(b => b.addEventListener('click', () => this.openEdit(b.dataset.id)));
     tbody.querySelectorAll('[data-action="delete"]').forEach(b => b.addEventListener('click', () => this.handleDelete(b.dataset.id)));
+    tbody.querySelectorAll('[data-action="debt"]').forEach(b => b.addEventListener('click', () => this.openDebtCard(b.dataset.cif)));
   },
 
   renderRow(c) {
@@ -228,6 +232,7 @@ const Admin = {
         <td><small>${updatedAt}</small></td>
         <td>
           <div class="row-actions">
+            <button data-action="debt" data-cif="${this.escapeAttr(c.cif || '')}" title="ดูการ์ดหนี้">💰</button>
             <button data-action="edit" data-id="${c.id}">✏️</button>
             <button data-action="delete" data-id="${c.id}" class="danger">🗑️</button>
           </div>
@@ -455,6 +460,45 @@ const Admin = {
     }
   },
 
+  // ===== Debt card (การ์ดหนี้ — ดูสัญญาลูกค้า) =====
+  async openDebtCard(cif) {
+    if (!cif) return Utils.toast('ลูกค้านี้ไม่มี CIF', 'warning');
+    const c = this.customers.find(x => String(x.cif) === String(cif));
+    if (!c) return Utils.toast('ไม่พบลูกค้า', 'error');
+
+    const body = document.getElementById('debt-card-body');
+    const title = document.getElementById('debt-modal-title');
+    title.textContent = `💰 การ์ดหนี้ · ${c.name || cif}`;
+    body.innerHTML = '<p class="empty-state" style="padding:24px;">กำลังโหลดข้อมูลหนี้...</p>';
+    document.getElementById('debt-modal').classList.add('visible');
+
+    // โหลด DebtDB ถ้ายังไม่โหลด (fetch /debt-data.json ครั้งเดียว)
+    try {
+      if (!window.DebtDB) throw new Error('ระบบข้อมูลหนี้ไม่พร้อม');
+      await DebtDB.load();
+      const debt = DebtDB.getByCif(cif);
+      if (!debt || !debt.contracts || debt.contracts.length === 0) {
+        body.innerHTML = '<div class="empty-state" style="padding:24px;"><h3>ไม่มีข้อมูลหนี้</h3><p>ลูกค้ารายนี้ยังไม่มีสัญญาในไฟล์ Customer Indicator</p></div>';
+        return;
+      }
+      body.innerHTML = `
+        <div class="debt-card-head">
+          <div class="dc-name">${this.escapeHtml(c.name || '')}</div>
+          <div class="dc-cif">CIF: ${this.escapeHtml(cif)}</div>
+        </div>
+        ${DebtDB.summaryHTML(debt)}
+        ${DebtDB.contractsHTML(debt, true)}
+      `;
+    } catch (err) {
+      console.error('openDebtCard failed:', err);
+      body.innerHTML = `<div class="empty-state" style="padding:24px;"><h3>โหลดข้อมูลหนี้ไม่สำเร็จ</h3><p>${this.escapeHtml(err.message)}</p></div>`;
+    }
+  },
+
+  closeDebtCard() {
+    document.getElementById('debt-modal').classList.remove('visible');
+  },
+
   // ===== Import =====
   openImport() {
     const input = document.createElement('input');
@@ -553,6 +597,36 @@ const Admin = {
     input.accept = '.csv,.xlsx,.xls';
     input.onchange = (e) => this.handleGpsFile(e.target.files[0]);
     input.click();
+  },
+
+  // ===== Debt Import (อัปโหลด Customer Indicator → อัปเดตหนี้) =====
+  openDebtImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.CSV';
+    input.onchange = (e) => this.handleDebtFile(e.target.files[0]);
+    input.click();
+  },
+
+  async handleDebtFile(file) {
+    if (!file) return;
+    Utils.toast('⏳ กำลังอัปโหลดและประมวลผลข้อมูลหนี้...');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = Auth.getToken();
+      const res = await fetch('/api/debt-import', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+      Utils.toast(`📊 อัปเดตหนี้สำเร็จ: ${data.updated} รายอัปเดต${data.added > 0 ? ` +${data.added} รายใหม่` : ''} (จาก ${data.unique_cifs} CIF)`, 'success');
+      this.loadAll();
+    } catch (err) {
+      Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ: ' + err.message, 'error');
+    }
   },
 
   async handleGpsFile(file) {

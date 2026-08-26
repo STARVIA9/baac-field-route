@@ -200,7 +200,157 @@ table.data-table td .gps-no { color: #94a3b8; }
 }
 .empty-state h3 { color: #64748b; margin-bottom: 8px; }
 
+/* === Help section === */
+.help-section {
+  margin: 0 16px 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.help-toggle {
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #15803d;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-toggle::-webkit-details-marker { display: none; }
+.help-toggle::before { content: '▶'; font-size: 10px; transition: transform 0.2s; }
+.help-section[open] .help-toggle::before { transform: rotate(90deg); }
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+.help-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+.help-icon { font-size: 24px; margin-bottom: 6px; }
+.help-title { font-weight: 700; font-size: 14px; color: #1a202c; margin-bottom: 8px; }
+.help-desc { font-size: 12px; color: #475569; line-height: 1.6; }
+.help-desc code {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #0f172a;
+}
+
+/* === Debt card (การ์ดหนี้ — popup ในตาราง) === */
+.debt-card-head {
+  margin-bottom: 10px;
+}
+.debt-card-head .dc-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a202c;
+}
+.debt-card-head .dc-cif {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.debt-summary {
+  border-left: 4px solid #0a8f3c;
+  background: #f5faf6;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.debt-summary.debt-urgent {
+  background: #fdf0f0;
+}
+.debt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.debt-label {
+  color: #64748b;
+}
+.debt-val {
+  font-weight: 700;
+  text-align: right;
+}
+/* แสดง ~3 สัญญา แล้ว scroll ดูเพิ่ม (มือถือไม่ให้ยาวเกินจอ) */
+.debt-contracts {
+  margin-top: 2px;
+  max-height: 365px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+.debt-contract {
+  border: 1px solid #e2e6e2;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.debt-contract-urgent {
+  border-color: #f0b4b4;
+  background: #fff9f9;
+}
+.debt-contract .dc-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.debt-contract .dc-line {
+  font-size: 11px;
+  color: #1a202c;
+  padding: 1px 0;
+}
+.debt-nodata {
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 4px 0;
+}
+.meta-badge.red-debt {
+  background: #b30000;
+  color: #fff;
+}
+.meta-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.meta-badge.gray { background: #eef1ef; color: #4a554a; }
+
 @media (max-width: 768px) {
+  .app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .app-header h1 {
+    font-size: 15px;
+    width: 100%;
+  }
+  .app-header .badge {
+    display: none;
+  }
+  .app-header .spacer {
+    display: none;
+  }
+  .app-header button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
   .toolbar { padding: 8px; }
   .toolbar input.search { min-width: 0; flex: 1; }
   .table-wrap { margin: 8px; overflow-x: auto; }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>จัดการข้อมูลลูกค้า · BAAC Field Route</title>
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-  <link rel="stylesheet" href="css/admin.css?v=20260722">
+  <link rel="stylesheet" href="css/admin.css?v=20260826d">
 </head>
 <body>
 
@@ -40,6 +40,7 @@
       <button id="btn-export">📤 Export</button>
       <button id="btn-import">📥 Import</button>
       <button id="btn-gps-import">📍 อัพพิกัด</button>
+      <button id="btn-debt-import">📊 อัปเดตหนี้</button>
       <button id="btn-add" class="primary">➕ เพิ่มลูกค้า</button>
       <button id="btn-back">← แผนที่</button>
       <button id="btn-logout">ออก</button>
@@ -68,6 +69,59 @@
       <button id="btn-recycle">🗑️ ถังขยะ</button>
       <span id="count-display" style="font-size:13px; color:#64748b;"></span>
     </div>
+
+    <!-- Help: How to use each upload button -->
+    <details class="help-section">
+      <summary class="help-toggle">📖 คู่มือการอัปโหลดข้อมูล</summary>
+      <div class="help-grid">
+        <div class="help-card">
+          <div class="help-icon">📥</div>
+          <div class="help-title">Import ลูกค้า</div>
+          <div class="help-desc">
+            <b>ไฟล์:</b> .csv, .json, .xlsx, .xls<br>
+            <b>คอลัมน์ที่ต้องมี:</b><br>
+            <code>cif</code> — เลข CIF (ห้ามซ้ำ)<br>
+            <code>name</code> — ชื่อ-นามสกุล<br>
+            <b>คอลัมน์เสริม:</b><br>
+            <code>nickname, phone, address, lat, lng, riskLevel, tags</code><br>
+            <b>โหมด:</b> append (ข้ามซ้ำ) / upsert (อัพเดท) / replace (ลบทั้งหมดแล้วใส่ใหม่)
+          </div>
+        </div>
+        <div class="help-card">
+          <div class="help-icon">📍</div>
+          <div class="help-title">อัพพิกัด GPS</div>
+          <div class="help-desc">
+            <b>ไฟล์:</b> .csv, .xlsx, .xls<br>
+            <b>คอลัมน์ที่ต้องมี:</b><br>
+            <code>cif</code> — เลข CIF (ใช้ match กับลูกค้าเดิม)<br>
+            <code>พิกัด</code> — "lat lng" (เว้นวรรค) หรือ "lat, lng"<br>
+            <b>หรือแยก 2 คอลัมน์:</b><br>
+            <code>lat</code> + <code>lng</code> (หรือ latitude/longitude, ละติจูด/ลองจิจูด)<br>
+            <b>ผลลัพธ์:</b> ลูกค้าเดิม → อัพเดทพิกัด / CIF ใหม่ → สร้างใหม่
+          </div>
+        </div>
+        <div class="help-card">
+          <div class="help-icon">📊</div>
+          <div class="help-title">อัปเดตหนี้</div>
+          <div class="help-desc">
+            <b>ไฟล์:</b> .csv (Customer Indicator จาก ธ.ก.ส.)<br>
+            <b>คอลัมน์:</b> ระบบอ่านอัตโนมัติจากไฟล์ TIS-620<br>
+            <b>ต้องมี:</b> CIF + ข้อมูลหนี้ (ชั้นหนี้, ยอดคงเหลือ, วันครบกำหนด)<br>
+            <b>ผลลัพธ์:</b> อัปเดตข้อมูลหนี้ 9 คอลัมน์ในระบบ<br>
+            <b>หมายเหตุ:</b> 1 CIF มีได้หลายสัญญา ระบบจัดการให้อัตโนมัติ
+          </div>
+        </div>
+        <div class="help-card">
+          <div class="help-icon">📤</div>
+          <div class="help-title">Export ข้อมูล</div>
+          <div class="help-desc">
+            <b>ส่งออกเป็น:</b> CSV หรือ JSON<br>
+            <b>เลือก field ได้:</b> cif, name, phone, address, lat, lng, riskLevel, tags ฯลฯ<br>
+            <b>กรองได้:</b> เฉพาะที่มี GPS / ไม่มี GPS / ตามคำค้นหา
+          </div>
+        </div>
+      </div>
+    </details>
 
     <!-- Table -->
     <div class="table-wrap">
@@ -200,11 +254,26 @@
     </div>
   </div>
 
+  <!-- Debt card modal (ดูการ์ดหนี้) -->
+  <div class="modal-overlay" id="debt-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="debt-modal-title">💰 การ์ดหนี้</h2>
+        <button class="modal-close" id="close-debt">×</button>
+      </div>
+      <div class="modal-body" id="debt-card-body"></div>
+      <div class="modal-footer">
+        <button id="close-debt-footer">ปิด</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast container -->
   <div class="toast-container" id="toast-container"></div>
 
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/admin-customers.js?v=20260722"></script>
+  <script src="js/debt-db.js?v=20260826d"></script>
+  <script src="js/admin-customers.js?v=20260826d"></script>
 </body>
 </html>
