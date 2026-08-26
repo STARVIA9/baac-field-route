@@ -7,6 +7,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 
 :root {
+  color-scheme: light dark;
   /* === Material 3 Color Tokens (BAAC Green) === */
   --md-primary: #0a8f3c;
   --md-on-primary: #ffffff;
@@ -4076,6 +4077,10 @@ html {
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
+  .map-debt-filter { background: #24261f; border-color: #44483d; }
+  .map-debt-filter .mdf-select { background: #2f312a; border-color: #44483d; color: #f1f1e9; }
+  .map-debt-filter .mdf-reset { background: #2f312a; border-color: #44483d; color: #ff6b6b; }
+  .map-debt-filter .mdf-reset:hover { background: #3a2424; }
   .pin-options-panel { background: #1e1e2e; }
   .pin-options-header { background: #1a2e1a; color: #86efac; border-bottom-color: #2d4a2d; }
   .pin-btn { background: #2a2a3e; border-color: #3a3a5a; }
