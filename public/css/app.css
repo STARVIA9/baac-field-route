@@ -4192,77 +4192,52 @@ html {
   .pin-search-meta { color: #9ca3af; }
 }
 
-/* ===== Floating Map Search Bar (Google Maps-style) ===== */
-.map-search-bar {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 710;
-  width: calc(100% - 32px);
-  max-width: 420px;
-}
-.msb-input-wrap {
+/* ===== Search row inside map-debt-filter (unified panel) ===== */
+.mdf-search-row {
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.97);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border-radius: 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  padding: 0 14px;
   gap: 8px;
-  border: 1.5px solid transparent;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 4px 2px 2px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 4px;
 }
-.msb-input-wrap:focus-within {
-  border-color: var(--baac-green);
-  box-shadow: 0 2px 16px rgba(10,143,60,0.15);
-}
-.msb-icon { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
-.msb-input-wrap input {
+.mdf-search-icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+.mdf-search-row input {
   flex: 1;
   border: none;
   outline: none;
   background: transparent;
   font-family: inherit;
-  font-size: 15px;
-  padding: 11px 0;
+  font-size: 14px;
+  padding: 6px 0;
   color: var(--text);
   min-width: 0;
 }
-.msb-input-wrap input::placeholder { color: var(--text-muted); }
-.msb-clear {
+.mdf-search-row input::placeholder { color: var(--text-muted); }
+.mdf-search-clear {
   background: none;
   border: none;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: 2px 4px;
   flex-shrink: 0;
   line-height: 1;
 }
-.msb-clear:hover { color: var(--text); }
+.mdf-search-clear:hover { color: var(--text); }
+
+/* Results dropdown (inside filter panel) */
 .msb-results {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 6px;
-  background: rgba(255,255,255,0.98);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-  max-height: 320px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 4px;
+  max-height: 240px;
   overflow-y: auto;
-  overflow-x: hidden;
 }
 .msb-result-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 10px 10px;
   cursor: pointer;
   border-bottom: 1px solid var(--border-light);
   transition: background 0.1s;
@@ -4277,37 +4252,29 @@ html {
 }
 .msb-result-info { flex: 1; min-width: 0; }
 .msb-result-name {
-  font-size: 14px; font-weight: 500; color: var(--text);
+  font-size: 13px; font-weight: 500; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.msb-result-meta { font-size: 12px; color: var(--text-muted); }
+.msb-result-meta { font-size: 11px; color: var(--text-muted); }
 .msb-no-results {
-  padding: 20px 16px;
+  padding: 14px 10px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
-  .msb-input-wrap { background: rgba(36,38,31,0.97); border-color: rgba(255,255,255,0.08); }
-  .msb-input-wrap:focus-within { border-color: var(--baac-green); }
-  .msb-input-wrap input { color: #f1f1e9; }
-  .msb-input-wrap input::placeholder { color: #aab2aa; }
-  .msb-results { background: rgba(36,38,31,0.98); }
+  .mdf-search-row { border-bottom-color: rgba(255,255,255,0.08); }
+  .mdf-search-row input { color: #f1f1e9; }
+  .mdf-search-row input::placeholder { color: #aab2aa; }
+  .mdf-search-clear { color: #aab2aa; }
+  .mdf-search-clear:hover { color: #f1f1e9; }
+  .mdf-search-icon { color: #aab2aa; }
+  .msb-results { border-bottom-color: rgba(255,255,255,0.08); }
   .msb-result-item { border-bottom-color: rgba(255,255,255,0.06); }
   .msb-result-item:hover { background: rgba(255,255,255,0.06); }
   .msb-result-name { color: #f1f1e9; }
   .msb-result-meta { color: #aab2aa; }
   .msb-no-results { color: #aab2aa; }
-  .msb-clear { color: #aab2aa; }
-  .msb-clear:hover { color: #f1f1e9; }
-  .msb-icon { color: #aab2aa; }
-}
-
-/* Mobile: ขยับลงมาไม่ให้ชน header */
-@media (max-width: 480px) {
-  .map-search-bar { top: 8px; width: calc(100% - 20px); }
-  .msb-input-wrap { padding: 0 10px; }
-  .msb-input-wrap input { font-size: 14px; padding: 10px 0; }
 }

@@ -1,6 +1,6 @@
 {
-  "version": "20260828.180000",
+  "version": "20260828.181500",
   "lastUpdate": "2026-08-28",
-  "changelog": "✨ Floating search bar บนแผนที่ (Google Maps-style) — ค้นหาด้วยชื่อ/CIF/เบอร์ แล้ว flyTo + popup",
-  "updatedAt": "2026-08-28T18:00:00.000Z"
+  "changelog": "🔧 รวม search bar เข้าใน filter panel (แผงเดียว) — ไม่ทับซ้อนกันบนมือถือ",
+  "updatedAt": "2026-08-28T18:15:00.000Z"
 }

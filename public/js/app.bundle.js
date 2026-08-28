@@ -4605,7 +4605,7 @@ const MapSearch = {
 
     // Close results when clicking outside
     document.addEventListener('click', (e) => {
-      const bar = document.getElementById('map-search-bar');
+      const bar = document.getElementById('map-debt-filter');
       if (bar && !bar.contains(e.target)) this._hideResults();
     });
 
