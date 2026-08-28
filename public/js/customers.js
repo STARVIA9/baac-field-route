@@ -15,21 +15,26 @@ const Customers = {
   // Init map
   initMap() {
     if (this.map) return;
-    // Default: BAAC สาขาวังท่าช้าง (single source of truth in app.js)
-    const office = window.OFFICE_LOCATION || { lat: 13.7563, lng: 100.5018 };
+    // Default view: จังหวัดปราจีนบุรี (zoom 12 — เห็นภาพรวมทั้งจังหวัด)
+    // Q1: เปิดมาที่ ต.วังท่าช้าง (บริเวณสาขา BAAC) zoom 13 — เห็นทั้งตำบล
+    const office0 = window.OFFICE_LOCATION || { lat: 13.7760801, lng: 101.8907475 };
     this.map = L.map('map', {
       preferCanvas: true,  // Render vector layers on <canvas> — GPU accelerated, NO DOM per marker
-    }).setView([office.lat, office.lng], 12);
+      maxZoom: 20,
+      zoomControl: false,  // B: ปิด topleft (โดนแผงตัวกรองบัง) → custom zoom control ล่างขวา
+    }).setView([office0.lat, office0.lng], 13);
 
     // Define 2 base layers: roadmap + satellite
     this._baseLayers = {
       roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
-        maxZoom: 19,
+        maxZoom: 20,
+        maxNativeZoom: 19,   // 19+ = stretch tiles (ภาพเบลอนิดแต่ยังพอดูได้)
       }),
       satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: '© Esri World Imagery',
-        maxZoom: 19,
+        maxZoom: 20,
+        maxNativeZoom: 19,
       }),
     };
     this._baseLayers.roadmap.addTo(this.map);
@@ -37,6 +42,19 @@ const Customers = {
 
     // Add layer toggle control (top-right)
     this._addLayerControl();
+
+    // T1.1: แจ้งเตือนเมื่อซูมถึงระดับละเอียดสุด (tile ถูกยืดจาก level 19)
+    let _maxZoomNotified = false;
+    this.map.on('zoomend', () => {
+      const z = this.map.getZoom();
+      if (z >= 20) {
+        if (!_maxZoomNotified) {
+          Utils.toast('🔍 ซูมละเอียดสุดแล้ว (ภาพจากระดับ 19 ถูกขยาย)', '', 2500);
+          _maxZoomNotified = true;
+          setTimeout(() => { _maxZoomNotified = false; }, 10000);
+        }
+      }
+    });
 
     // Map long-press to add customer (ต้องจิ้มค้าง ~600ms ถึงจะขึ้นเพิ่มพิกัด)
     const LONG_PRESS_MS = 600;
@@ -86,8 +104,32 @@ const Customers = {
 
   // Render all markers on map — L.circleMarker + Canvas (ZERO DOM per marker)
   // Clustered so zoomed-out mobile doesn't render/overlap 178 dots.
+  // Smart rebuild: skips full teardown if data hasn't changed.
+  _lastMarkerHash: null,
   renderMarkers(routeOrder, opts = {}) {
     if (!this.map) return;
+
+    // Compute hash of current state to skip unnecessary rebuilds
+    const customers = Storage.getActiveCustomers();
+    const visits = Storage.getVisits();
+    let hash = '';
+    for (const c of customers) {
+      if (Number.isFinite(c.lat)) {
+        hash += c.id + ':' + c.lat.toFixed(4) + ',' + c.lng.toFixed(4) + ':' + (visits[c.id] ? '1' : '0') + ';';
+      }
+    }
+    if (routeOrder) hash += '|route:' + routeOrder.join(',');
+    if (this.debtMonth) hash += '|dm:' + this.debtMonth;
+    if (this.debtTier) hash += '|dt:' + this.debtTier;
+    if (this.omsomMode) hash += '|om:' + this.omsomMode;
+    if (this.m15Mode) hash += '|m15:' + this.m15Mode;
+    this._zoneFilter = document.getElementById('customer-zone')?.value || '';
+    if (this._zoneFilter) hash += '|zone:' + this._zoneFilter;
+
+    // Skip rebuild if nothing changed (saves ~200-500ms on polling)
+    if (!opts.force && hash === this._lastMarkerHash) return;
+    this._lastMarkerHash = hash;
+
     // Clear existing
     Object.values(this.markers).forEach(m => this.map.removeLayer(m));
     this.markers = {};
@@ -102,8 +144,6 @@ const Customers = {
       this._routeNumLayer = null;
     }
 
-    const customers = Storage.getActiveCustomers();
-    const visits = Storage.getVisits();
     // Build order map: id -> order number (1-based)
     const orderMap = {};
     if (routeOrder && routeOrder.length) {
@@ -171,6 +211,12 @@ const Customers = {
         }
       }
 
+      // Zone filter (T3): ซ่อน marker นอกเขตที่เลือก
+      if (this._zoneFilter) {
+        const dbz = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+        if (!dbz || String(dbz.zone) !== String(this._zoneFilter)) return;
+      }
+
       const visited = !!visits[c.id];
       const riskClass = c.riskLevel || 'unclassified';
       const inRoute = orderMap[c.id] != null;
@@ -199,7 +245,7 @@ const Customers = {
         pane: 'markerPane',
       });
 
-      marker.bindPopup(this.popupHTML(c));
+      marker.bindPopup(() => this.popupHTML(c));
       marker.on('click', () => {
         if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
       });
@@ -275,11 +321,30 @@ const Customers = {
       });
     }
 
+    // T3: zone filter บนแผนที่ (sync กับ dropdown ในแท็บลูกค้า)
+    const mapZoneSel = document.getElementById('map-zone-filter');
+    const tabZoneSel = document.getElementById('customer-zone');
+    if (mapZoneSel && tabZoneSel) {
+      // เปิดหน้า: sync ค่าจาก tab → map
+      mapZoneSel.value = tabZoneSel.value || '';
+      mapZoneSel.addEventListener('change', () => {
+        tabZoneSel.value = mapZoneSel.value;   // ให้สองฝั่งตรงกัน
+        this._lastMarkerHash = null;            // force rebuild
+        this.renderAll();                       // renderMarkers + list
+      });
+      // ฝั่งแท็บลูกค้าเปลี่ยน → อัพเดต map dropdown ด้วย
+      tabZoneSel.addEventListener('change', () => {
+        mapZoneSel.value = tabZoneSel.value || '';
+      });
+    }
+
     const apply = () => {
       this.debtMonth = monthSel.value;
       this.debtTier = tierSel.value;
       this.omsomMode = omSel.value;
       this.m15Mode = m15Sel ? m15Sel.value : '';
+      this._zoneFilter = document.getElementById('customer-zone')?.value || '';
+      this._lastMarkerHash = null;   // force rebuild
       this.renderAll();
     };
     monthSel.addEventListener('change', apply);
@@ -288,7 +353,11 @@ const Customers = {
     if (m15Sel) m15Sel.addEventListener('change', apply);
     if (resetBtn) resetBtn.addEventListener('click', () => {
       monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value='';
+      if (mapZoneSel) mapZoneSel.value = '';
+      if (tabZoneSel) tabZoneSel.value = '';
       this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode='';
+      this._zoneFilter = '';
+      this._lastMarkerHash = null;
       this.renderAll();
     });
   },
@@ -545,9 +614,14 @@ const Customers = {
       c.lng = lng;
       c.updatedAt = new Date().toISOString();
       Storage.saveCustomers(Storage.getCustomers());
+      if (c.cif && Storage.markDirty) Storage.markDirty(c.cif);
 
       // อัปเดต marker บนแผนที่
+      this._lastMarkerHash = null;   // force rebuild — marker hash ยังไม่เห็น lat/lng ใหม่
       this.renderAll();
+
+      // Push ทันที → เครื่องอื่นเห็นภายใน poll cycle (ไม่ต้องรอ 15วิ + delta miss)
+      if (typeof Storage !== 'undefined' && Storage.push) Storage.push();
 
       Utils.toast(`📍 ปักหมุด "${c.name}" สำเร็จ!`);
     } catch (err) {
@@ -555,7 +629,11 @@ const Customers = {
     }
   },
 
-  // Render customer list (Customers tab)
+  // Render customer list (Customers tab) — with infinite scroll
+  _filteredCustomers: [],
+  _renderedListOffset: 0,
+  _listScrollHandler: null,
+
   renderList() {
     const list = document.getElementById('customers-list');
     let customers = Storage.getActiveCustomers();
@@ -569,6 +647,16 @@ const Customers = {
       customers = customers.filter(c => visits[c.id]);
     } else if (this.currentFilter === 'today') {
       // For now: same as all. Can be filtered by route later.
+    }
+
+    // Zone filter (เขตสินเชื่อ — T3)
+    const zoneSel = document.getElementById('customer-zone');
+    const zoneVal = zoneSel?.value || '';
+    if (zoneVal && typeof CustomerDB !== 'undefined' && CustomerDB._loaded) {
+      customers = customers.filter(c => {
+        const db = c.cif ? CustomerDB.getByCif(c.cif) : null;
+        return db && String(db.zone) === String(zoneVal);
+      });
     }
 
     // Search filter
@@ -594,10 +682,40 @@ const Customers = {
       return;
     }
 
-    list.innerHTML = customers.map(c => {
+    // Store filtered list and reset offset
+    this._filteredCustomers = customers;
+    this._renderedListOffset = 0;
+    list.innerHTML = '';
+
+    // Render first batch
+    this._appendCustomerBatch(list, 30);
+
+    // Set up infinite scroll (remove old handler first)
+    if (this._listScrollHandler) list.removeEventListener('scroll', this._listScrollHandler);
+    this._listScrollHandler = Utils.debounce(() => {
+      if (list.scrollTop + list.clientHeight >= list.scrollHeight - 300) {
+        this._appendCustomerBatch(list, 20);
+      }
+    }, 80);
+    list.addEventListener('scroll', this._listScrollHandler, { passive: true });
+  },
+
+  _appendCustomerBatch(container, count) {
+    const customers = this._filteredCustomers;
+    const start = this._renderedListOffset;
+    const end = Math.min(start + count, customers.length);
+    if (start >= end) return;
+
+    const visits = Storage.getVisits();
+    const route = Storage.getRoute();
+    const frag = document.createDocumentFragment();
+    const tmp = document.createElement('div');
+
+    for (let i = start; i < end; i++) {
+      const c = customers[i];
       const visited = !!visits[c.id];
       const inRoute = route.includes(c.id);
-      // Look up DB data for additional fields
+      const hasCoords = Number.isFinite(c.lat) && Number.isFinite(c.lng);
       const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
       const metaBadges = [];
       if (db) {
@@ -608,11 +726,9 @@ const Customers = {
           metaBadges.push(`<span class="meta-badge ${pClass}">${this.escapeHTML(db.potential)}</span>`);
         }
       }
-      // Debt mini-summary (ย่อ) สำหรับรายชื่อ
       let debtMini = '';
       if (c.cif && typeof DebtDB !== 'undefined') {
         if (!DebtDB._loaded) {
-          // ยังโหลดข้อมูลหนี้ไม่เสร็จ — โชว์สถานะ loading ย่อ
           debtMini = `<div class="customer-debt debt-loading"><span>⏳ กำลังโหลดข้อมูลหนี้...</span></div>`;
         } else {
           const debt = DebtDB.getByCif(c.cif);
@@ -626,8 +742,7 @@ const Customers = {
           }
         }
       }
-      return `
-        <div class="customer-card ${visited ? 'visited' : ''}">
+      tmp.innerHTML = `<div class="customer-card ${visited ? 'visited' : ''}">
           <div class="customer-avatar">${visited ? '✓' : '👤'}</div>
           <div class="customer-info">
             <div class="customer-name">${this.escapeHTML(c.name)}</div>
@@ -637,15 +752,39 @@ const Customers = {
             ${debtMini}
           </div>
           <div class="customer-actions">
+            ${hasCoords ? `<button class="btn-small btn-locate" onclick="Customers.locateCustomer('${c.id}')" title="ไปพิกัดบนแผนที่">📍</button>` : ''}
             <button class="btn-small ${inRoute ? 'btn-route-active' : ''}" onclick="Customers.toggleRoute('${c.id}')" title="เพิ่มในเส้นทาง">
               ${inRoute ? '✓' : '➕'}
             </button>
             <button class="btn-small" onclick="Customers.edit('${c.id}')" title="แก้ไข">✏️</button>
             <button class="btn-small btn-danger" onclick="Customers.del('${c.id}')" title="ลบลูกค้า">🗑️</button>
           </div>
-        </div>
-      `;
-    }).join('');
+        </div>`;
+      frag.appendChild(tmp.firstChild);
+    }
+    container.appendChild(frag);
+    this._renderedListOffset = end;
+  },
+
+  // T2: พาไปพิกัดลูกค้าบนแผนที่ (ปุ่ม 📍 ในการ์ด)
+  locateCustomer(id) {
+    const c = this._filteredCustomers.find(x => x.id === id) ||
+              Storage.getActiveCustomers().find(x => x.id === id);
+    if (!c) return;
+    if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) {
+      Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด', 'error');
+      return;
+    }
+    // พับ bottom sheet ลง → เห็นแผนที่เต็มจอ
+    if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
+    // เดินทางไปพิกัด + เปิด popup marker
+    if (this.map) {
+      this.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
+      setTimeout(() => {
+        const m = this.markers[c.id];
+        if (m) this.map.openPopup(m);
+      }, 900);
+    }
   },
 
   // Toggle customer in today's route
@@ -813,13 +952,14 @@ const Customers = {
   // Render everything
   renderAll(routeOrder, opts) {
     this.renderMarkers(routeOrder, opts);
-    this.renderList();
+    const customersTab = document.getElementById('tab-customers');
+    if (customersTab && customersTab.classList.contains('active')) {
+      this.renderList();
+    }
   },
 
   escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   },
 
   // Escape for use inside HTML attribute values (single/double quotes + ampersand)

@@ -159,14 +159,17 @@ function groupByCIF(contracts) {
   return { summaries, debtRows };
 }
 
+import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // ตรวจสอบ auth (ต้องเป็น admin)
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  }
+  // ตรวจสอบ auth จริง — verify JWT signature + ต้องเป็น admin
+  const token = extractBearerToken(request);
+  if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  if (!payload) return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
+  if (payload.role !== 'admin') return new Response(JSON.stringify({ error: 'ต้องเป็น Admin เท่านั้น' }), { status: 403 });
 
   try {
     // รับไฟล์ CSV

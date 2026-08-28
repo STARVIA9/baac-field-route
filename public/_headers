@@ -1,4 +1,28 @@
 # BAAC Field Route — cache control
+# =====================
+
+# Stable library files (Leaflet, Lucide, MarkerCluster) — cache aggressively
+/lib/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# App shell + SW must NEVER be cached (stale SW caused old UI after deploys)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/admin.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/admin
+  Cache-Control: no-cache, no-store, must-revalidate
+/js/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/css/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
 # Data files must always be fresh from the server (server-authoritative GPS).
 /customers-db.json
   Cache-Control: no-cache, no-store, must-revalidate
@@ -8,3 +32,18 @@
   Cache-Control: no-cache, no-store, must-revalidate
 /version.json
   Cache-Control: no-cache, no-store, must-revalidate
+
+# CORS for API routes
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
+  Access-Control-Max-Age: 86400
+
+# Security hardening (global)
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains

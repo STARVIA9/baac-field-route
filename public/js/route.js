@@ -232,7 +232,7 @@ const Route = {
       
       // Calculate duration based on vehicle type and road classification
       const vehicleType = Utils.getVehicle();
-      const roadClassification = document.getElementById(road-classification)?.value || 'auto';
+      const roadClassification = document.getElementById('road-classification')?.value || 'auto';
       const vehicleProfile = Utils.VEHICLE_PROFILES[vehicleType];
       
       let speed = 40; // Default speed
@@ -455,9 +455,99 @@ const Route = {
     Utils.toast('💾 บันทึกเส้นทางแล้ว — sync ทุกเครื่อง');
   },
 
+  // ===== Route Templates =====
+  // Save current route as a reusable template
+  saveAsTemplate(name) {
+    const routeIds = Storage.getRoute();
+    if (!routeIds.length) {
+      Utils.toast('⚠️ ไม่มีเส้นทางให้บันทึกเป็นเทมเพลต', 'error');
+      return;
+    }
+    const templates = this._getTemplates();
+    templates.push({
+      id: Utils.uuid(),
+      name: name || `เส้นทาง ${new Date().toLocaleDateString('th-TH')}`,
+      routeIds: [...routeIds],
+      createdAt: new Date().toISOString(),
+      createdBy: Auth.getUser()?.name,
+    });
+    localStorage.setItem('bfr_route_templates', JSON.stringify(templates));
+    Utils.toast(`📋 บันทึกเทมเพลต "${name}" แล้ว`);
+  },
+
+  // Load a template into current route
+  loadTemplate(templateId) {
+    const templates = this._getTemplates();
+    const template = templates.find(t => t.id === templateId);
+    if (!template) {
+      Utils.toast('❌ ไม่พบเทมเพลต', 'error');
+      return;
+    }
+    Storage.saveRoute(template.routeIds);
+    App.updateRouteUI();
+    Utils.toast(`📋 โหลดเทมเพลต "${template.name}" แล้ว`);
+  },
+
+  // Get all templates
+  _getTemplates() {
+    try {
+      return JSON.parse(localStorage.getItem('bfr_route_templates') || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  // Delete a template
+  deleteTemplate(templateId) {
+    let templates = this._getTemplates();
+    templates = templates.filter(t => t.id !== templateId);
+    localStorage.setItem('bfr_route_templates', JSON.stringify(templates));
+    Utils.toast('🗑️ ลบเทมเพลตแล้ว');
+  },
+
+  // ===== Route History =====
+  // Save completed route to history
+  saveToHistory(result) {
+    if (!result) return;
+    const history = this._getHistory();
+    history.unshift({
+      id: Utils.uuid(),
+      distance: result.distance,
+      duration: result.duration,
+      stops: result.stops.map(c => ({ id: c.id, name: c.name, cif: c.cif })),
+      fuel: result.fuel,
+      completedAt: new Date().toISOString(),
+      completedBy: Auth.getUser()?.name,
+    });
+    // Keep only last 20 routes
+    if (history.length > 20) history.length = 20;
+    localStorage.setItem('bfr_route_history', JSON.stringify(history));
+  },
+
+  // Get route history
+  _getHistory() {
+    try {
+      return JSON.parse(localStorage.getItem('bfr_route_history') || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  // Load a historical route
+  loadFromHistory(historyId) {
+    const history = this._getHistory();
+    const entry = history.find(h => h.id === historyId);
+    if (!entry) {
+      Utils.toast('❌ ไม่พบเส้นทางในประวัติ', 'error');
+      return;
+    }
+    const routeIds = entry.stops.map(s => s.id);
+    Storage.saveRoute(routeIds);
+    App.updateRouteUI();
+    Utils.toast(`📋 โหลดเส้นทางจากประวัติแล้ว`);
+  },
+
   escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   },
 };

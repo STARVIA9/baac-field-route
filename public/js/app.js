@@ -248,8 +248,9 @@ const App = {
     this._initHeader();
 
     Customers.initMap();
-    // Initial load: fit bounds to all customers so the user sees the full picture
-    Customers.renderAll(undefined, { fitBounds: true });
+    // Initial load: NO fitBounds — เปิดมาเห็นจังหวัดปราจีนบุรี zoom 12 ตาม default
+    // (fitBounds ดัน view ไปยึด marker GPS ทั้งหมด ทำให้ไม่เห็นภาพรวมจังหวัด)
+    Customers.renderAll();
     Visit.render();
     Route.attachEvents();
     this.updateRouteUI();
@@ -454,9 +455,19 @@ const App = {
       customerSort.addEventListener('change', () => Customers.renderList());
     }
 
+    // Zone filter (เขตสินเชื่อ — T3)
+    const customerZone = document.getElementById('customer-zone');
+    if (customerZone) {
+      customerZone.addEventListener('change', () => Customers.renderList());
+    }
+
     // FAB buttons
     on('fab-add-customer', 'click', () => this.openAddCustomerModal());
     on('fab-my-location', 'click', () => this.useGPS());
+
+    // Zoom controls (custom — replaces hidden top-left Leaflet control)
+    on('fab-zoom-in', 'click', () => Customers.map && Customers.map.zoomIn());
+    on('fab-zoom-out', 'click', () => Customers.map && Customers.map.zoomOut());
 
     // Modal close
     on('close-add-modal', 'click', () => this.closeAddCustomerModal());
@@ -595,9 +606,7 @@ const App = {
     if (!sheet) return;
     ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
     if (state && state !== 'default') sheet.classList.add('sheet-' + state);
-    // Hide FABs when sheet is open (peek/half/full) — ป้องกันทับแผงข้อมูล
-    const fab = document.querySelector('.map-fab');
-    if (fab) fab.style.display = (!state || state === 'collapsed') ? '' : 'none';
+    // Q2 FIX: ไม่ซ่อน FAB — CSS ยกตำแหน่งขึ้นตามความสูง sheet (body:has selector)
     
     // Haptic feedback on state change (if supported)
     if (navigator.vibrate) {
@@ -1981,9 +1990,7 @@ const App = {
   },
 
   escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   },
 
   // ===== Hard refresh — bypass HTTP cache + unregister SW + clear caches =====

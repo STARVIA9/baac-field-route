@@ -43,6 +43,16 @@ function rowToCustomer(r) {
       amphoe: r.amphoe || '', tambon: r.tambon || '', province: r.province || '',
       postcode: r.postcode || '', moo: r.moo || '', idCard: r.id_card || '', dob: r.dob || '',
     },
+    // ข้อมูลหนี้จาก Customer Indicator
+    debtClass: r.debt_class || '',
+    debtBalance: r.debt_balance != null ? r.debt_balance : null,
+    reservePct: r.reserve_pct != null ? r.reserve_pct : null,
+    recognition: r.recognition || '',
+    overdue15m: r.overdue_15m || '',
+    nextDue: r.next_due || '',
+    subsidy: r.subsidy || '',
+    commitmentDate: r.commitment_date || '',
+    debtUpdatedAt: r.debt_updated_at || '',
   };
 }
 
@@ -77,37 +87,64 @@ export async function onRequestPut(context) {
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
+  // I12: Optimistic locking — if client sends `ifUpdatedAt`, check it matches
+  // the current row. Prevents two devices from silently overwriting each other.
+  if (body.ifUpdatedAt && existing.updated_at && body.ifUpdatedAt !== existing.updated_at) {
+    return json({
+      success: false,
+      error: 'ข้อมูลถูกแก้ไขโดยเครื่องอื่นแล้ว — กรุณาเปิดใหม่แล้วลองอีกครั้ง',
+      conflict: true,
+      serverUpdated: existing.updated_at,
+    }, 409);
+  }
+
   const sets = [];
-  const updater = auth.user.username || auth.user.sub || "unknown";
-  if (body.name !== undefined) sets.push(`name=${esc(body.name)}`);
-  if (body.nickname !== undefined) sets.push(`nickname=${esc(body.nickname)}`);
-  if (body.phone !== undefined) sets.push(`phone=${esc(body.phone)}`);
-  if (body.address !== undefined) sets.push(`address=${esc(body.address)}`);
-  if (body.riskLevel !== undefined) sets.push(`risk_level=${esc(body.riskLevel)}`);
-  if (body.debtType !== undefined) sets.push(`debt_type=${esc(body.debtType)}`);
+  const bindParams = [];
+  let paramIdx = 1;
+
+  const fieldMap = {
+    name: 'name', nickname: 'nickname', phone: 'phone', address: 'address',
+    riskLevel: 'risk_level', debtType: 'debt_type',
+    zone: 'zone', customerClass: 'customer_class', potential: 'potential', photo: 'photo',
+  };
+
+  for (const [key, col] of Object.entries(fieldMap)) {
+    if (body[key] !== undefined) {
+      sets.push(`${col}=?${paramIdx}`);
+      bindParams.push(body[key] || '');
+      paramIdx++;
+    }
+  }
+
   if (body.lat !== undefined && body.lng !== undefined) {
     const lat = body.lat != null && Number.isFinite(Number(body.lat)) ? Number(body.lat) : null;
     const lng = body.lng != null && Number.isFinite(Number(body.lng)) ? Number(body.lng) : null;
-    sets.push(`lat=${lat === null ? 'NULL' : lat}`);
-    sets.push(`lng=${lng === null ? 'NULL' : lng}`);
+    sets.push(`lat=?${paramIdx}`);
+    bindParams.push(lat);
+    paramIdx++;
+    sets.push(`lng=?${paramIdx}`);
+    bindParams.push(lng);
+    paramIdx++;
   }
 
   if (sets.length === 0) return json({ success: false, error: 'No fields to update' }, 400);
   const now = new Date().toISOString();
-  sets.push(`updated_at=${esc(now)}`);
+  sets.push(`updated_at=?${paramIdx}`);
+  bindParams.push(now);
+  paramIdx++;
 
-  await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=${esc(cif)}`).run();
-  if (env.BFR_KV) await env.BFR_KV.put('meta:overlay-updated', now);
+  bindParams.push(cif);
+  await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=?${paramIdx}`).bind(...bindParams).run();
+  if (env.BFR_KV) {
+    await env.BFR_KV.put('meta:overlay-updated', now);
+    // FIX: bump lastwrite ด้วย — client poll เช็ค serverTime เพื่อดึง delta
+    await env.BFR_KV.put('meta:lastwrite', now);
+  }
 
   const fresh = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
-  if (env.BFR_KV && fresh && fresh.lat != null && fresh.lng != null) {
-    try {
-      const raw = await env.BFR_KV.get('gps:overlay');
-      const overlay = raw ? JSON.parse(raw) : {};
-      overlay[cif] = { lat: Number(fresh.lat), lng: Number(fresh.lng), name: fresh.name || '', updatedAt: now };
-      await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
-    } catch (e) { console.warn('overlay sync failed:', e.message); }
-  }
+  // W13 FIX: Don't read-modify-write KV overlay here — GET /api/gps-overlay
+  // already reads from D1 directly. Just bump the timestamp so clients know
+  // to refetch. This eliminates the KV race condition entirely.
   return json({ success: true, customer: rowToCustomer(fresh) });
 }
 
@@ -132,13 +169,12 @@ export async function onRequestDelete(context) {
   try {
     if (env.BFR_KV) {
       await env.BFR_KV.put('meta:overlay-updated', now);
-      const raw = await env.BFR_KV.get('gps:overlay');
-      const overlay = raw ? JSON.parse(raw) : {};
-      delete overlay[cif];
-      await env.BFR_KV.put('gps:overlay', JSON.stringify(overlay));
+      await env.BFR_KV.put('meta:lastwrite', now);
+      // W13 FIX: Don't read-modify-write KV overlay — GET /api/gps-overlay
+      // reads from D1 directly. Just bump the timestamp.
     }
   } catch (e) {
-    console.error('single delete overlay sync failed:', e.message);
+    console.error('overlay bump failed:', e.message);
   }
   return json({ success: true, deleted: true, cif });
 }

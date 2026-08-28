@@ -20,8 +20,55 @@ const Storage = {
     return this.getCustomers().filter(c => !c.deleted);
   },
 
+  // ===== S2: Dirty tracking — push เฉพาะรายการที่แก้จริง =====
+  _dirtyCifs: null,   // Set of CIFs changed locally, awaiting push
+  KEY_DIRTY: 'bfr_dirty_cifs',
+
+  _loadDirty() {
+    if (this._dirtyCifs) return this._dirtyCifs;
+    try { this._dirtyCifs = new Set(JSON.parse(localStorage.getItem(this.KEY_DIRTY) || '[]')); }
+    catch { this._dirtyCifs = new Set(); }
+    return this._dirtyCifs;
+  },
+
+  markDirty(cif) {
+    if (!cif) return;
+    const s = this._loadDirty();
+    s.add(String(cif).trim());
+    try { localStorage.setItem(this.KEY_DIRTY, JSON.stringify([...s])); } catch {}
+  },
+
+  clearDirty(cifs) {
+    const s = this._loadDirty();
+    for (const cif of cifs) s.delete(String(cif).trim());
+    this._dirtyCifs = s;
+    try { localStorage.setItem(this.KEY_DIRTY, JSON.stringify([...s])); } catch {}
+  },
+
   saveCustomers(list) {
-    localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));
+    try {
+      localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+        console.warn('[Storage] localStorage quota exceeded — pruning photos');
+        // Try to free space by stripping base64 photos from seed customers
+        const pruned = list.map(c => {
+          if (c.photo && c.photo.length > 1000 && c.createdBy === 'AutoImport:StaticDB') {
+            return { ...c, photo: null };
+          }
+          return c;
+        });
+        try {
+          localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(pruned));
+          Utils.toast('⚠️ พื้นที่เต็ม — ลบรูปเก่าออกแล้ว', 'error');
+        } catch (e2) {
+          console.error('[Storage] Still cannot save after pruning:', e2);
+          Utils.toast('❌ พื้ที่จัดเก็บเต็ม — ข้อมูลอาจไม่บันทึก', 'error');
+        }
+      } else {
+        throw e;
+      }
+    }
   },
 
   // ===== Server-first architecture: save → push to KV → confirm =====
@@ -37,8 +84,10 @@ const Storage = {
     customer.debtType = customer.debtType || null;
     list.push(customer);
     this.saveCustomers(list);  // Save locally FIRST (instant UI)
+    if (customer.cif) this.markDirty(customer.cif);   // S2: dirty-list
     // Push to server and await result
     const result = await this.push();
+    if (result && result.success) this.clearDirty([customer.cif]);
     if (result && result.success) {
       return { customer, synced: true };
     } else {
@@ -54,7 +103,13 @@ const Storage = {
   // one D1-backed endpoint. Only records with lat/lng render as map markers.
   async importFromStaticDB() {
     // Pull full customer list from D1 (single source of truth)
-    const res = await API.get('/api/customers');
+    let res;
+    try {
+      res = await API.get('/api/customers');
+    } catch (e) {
+      console.warn('[Storage] importFromStaticDB: network error', e.message);
+      throw new Error('ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้ — กรุณาตรวจสอบอินเทอร์เน็ต');
+    }
     if (!res || !res.success) throw new Error('Failed to load customers from D1');
     const db = res.customers || [];
 
@@ -86,7 +141,12 @@ const Storage = {
     this.saveCustomers(list);
 
     // Apply any server GPS overlay updates (kept for live marker refresh)
-    await this.applyGpsOverlay();
+    try {
+      await this.applyGpsOverlay();
+    } catch (e) {
+      console.warn('[Storage] importFromStaticDB: GPS overlay apply failed', e.message);
+      // Non-fatal — import succeeded, overlay can be retried later
+    }
 
     return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
   },
@@ -120,22 +180,10 @@ const Storage = {
           existing.geo_source = 'gps-overlay';
           applied++;
         } else {
-          list.push({
-            id: 'db_' + cif,
-            cif,
-            name: g.name || '',
-            phone: '',
-            address: '',
-            lat: g.lat,
-            lng: g.lng,
-            riskLevel: 'unclassified',
-            debtType: null,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: 'AutoImport:StaticDB',
-            geo_source: 'gps-overlay',
-          });
-          created++;
+          // W1 FIX: Don't create phantom customers for CIFs only in overlay.
+          // If the CIF doesn't exist in D1 or local, skip it — the admin should
+          // import via /api/admin/gps-import which creates proper D1 records.
+          // Don't increment created — nothing was actually created.
         }
       }
       if (applied > 0 || created > 0) this.saveCustomers(list);
@@ -154,14 +202,25 @@ const Storage = {
     const list = this.getCustomers();
     const idx = list.findIndex(c => c.id === id);
     if (idx >= 0) {
+      // W4 FIX: Whitelist editable fields — prevent accidental overwrite of id/cif/deleted/createdAt
+      const EDITABLE = new Set([
+        'name', 'nickname', 'phone', 'address', 'lat', 'lng',
+        'riskLevel', 'debtType', 'photo', 'note', 'zone', 'potential',
+      ]);
+      const safe = {};
+      for (const [k, v] of Object.entries(updates)) {
+        if (EDITABLE.has(k)) safe[k] = v;
+      }
       // Editing a static-DB seed customer "claims" it — flip createdBy so the
       // change actually syncs (push() skips AutoImport:StaticDB records).
       if (list[idx].createdBy === 'AutoImport:StaticDB') {
         list[idx].createdBy = Auth.getUser()?.name || 'user';
       }
-      list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
+      list[idx] = { ...list[idx], ...safe, updatedAt: new Date().toISOString() };
       this.saveCustomers(list);
+      if (list[idx].cif) this.markDirty(list[idx].cif);   // S2: dirty-list
       const result = await this.push();
+      if (result && result.success) this.clearDirty([list[idx].cif]);
       if (result && result.success) {
         return { synced: true };
       } else {
@@ -218,7 +277,9 @@ const Storage = {
       list[idx].deleted = true;
       list[idx].updatedAt = new Date().toISOString();
       this.saveCustomers(list);
+      if (list[idx].cif) this.markDirty(list[idx].cif);   // S2: dirty-list
       const result = await this.push();
+      if (result && result.success && list[idx].cif) this.clearDirty([list[idx].cif]);
       return { synced: !!(result && result.success), error: result?.error };
     }
     return { synced: false, error: 'Not found' };
@@ -229,9 +290,9 @@ const Storage = {
     catch { return []; }
   },
 
-  saveRoute(list) {
+  async saveRoute(list) {
     localStorage.setItem(this.KEY_ROUTE, JSON.stringify(list));
-    this.push();
+    await this.push();
   },
 
   addToRoute(customerId) {
@@ -272,14 +333,14 @@ const Storage = {
     catch { return []; }
   },
 
-  saveSavedRoute(route) {
+  async saveSavedRoute(route) {
     const list = this.getSavedRoutes();
     route.id = route.id || Utils.uuid();
     route.savedAt = route.savedAt || new Date().toISOString();
     route.savedBy = Auth.getUser()?.name || 'unknown';
     list.push(route);
     localStorage.setItem(this.KEY_SAVED_ROUTES, JSON.stringify(list));
-    this.push();
+    await this.push();
     return route;
   },
 
@@ -290,24 +351,20 @@ const Storage = {
   _listeners: [],
 
   // Push local changes to cloud (after every save)
+  // Coalescing queue: if push is in-flight, mark dirty and re-push after it finishes.
+  // This ensures rapid addCustomer/updateCustomer calls never lose data.
   async push() {
     if (!navigator.onLine) return { skipped: 'offline' };
-    // Debounce: if push is in-flight, wait for it
+    // If push is in-flight, mark dirty and wait for the in-flight push
     if (this._pushInFlight) {
+      this._pushDirty = true;
       return this._pushInFlight;
     }
-    const payload = {
-      // Static-DB seed customers are excluded — they're served from customers-db.json.
-      // Pushing all 3,852 re-triggers the Worker 503 (JSON.stringify > CPU limit).
-      // User edits flip createdBy (updateCustomer/deleteCustomer) so they sync.
-      customers: this.getCustomers().filter(c => c.createdBy !== 'AutoImport:StaticDB'),
-      visits: this.getVisits(),
-      savedRoutes: this.getSavedRoutes(),
-    };
+    this._pushDirty = false;
     this._pushInFlight = (async () => {
       try {
         this._notifyListeners({ status: 'syncing' });
-        const res = await API.syncAll(payload);
+        const res = await API.syncAll(this._buildPayload());
         if (res && res.success) {
           localStorage.setItem(this.KEY_SERVER_TIME, res.serverTime);
           localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
@@ -319,9 +376,43 @@ const Storage = {
         return { error: err.message };
       } finally {
         this._pushInFlight = null;
+        // If new data arrived while we were pushing, flush it
+        if (this._pushDirty) {
+          this._pushDirty = false;
+          this.push().catch(e => console.warn('[Storage] coalesced push failed:', e.message));
+        }
       }
     })();
     return this._pushInFlight;
+  },
+
+  // Build sync payload (shared by push + retrySync)
+  _buildPayload() {
+    // S2: push เฉพาะลูกค้าที่ถูกแก้บนเครื่องนี้จริงๆ (dirty list)
+    const all = this.getCustomers();
+    const dirty = this._loadDirty();
+
+    // Edge cases:
+    // - local add ลูกค้าใหม่ (ไม่มี in D1) → dirty เก็บ CIF
+    // - delete local → deleted flag + markDirty ที่ call site
+    let customers;
+    if (dirty.size > 0) {
+      customers = all.filter(c => c.cif && dirty.has(String(c.cif).trim()) && c.createdBy !== 'AutoImport:StaticDB');
+      // ลูกค้า manual-add ที่ยังไม่ sync (id = db_ prefix เฉพาะ server) → ส่งไปด้วย
+      if (customers.length === 0 && this._forceFullPushOnce) {
+        customers = all.filter(c => c.createdBy !== 'AutoImport:StaticDB');
+        this._forceFullPushOnce = false;
+      }
+    } else {
+      // ไม่มี dirty → payload เบา (visits/routes ยัง merge full เหมือนเดิม)
+      customers = [];
+    }
+
+    return {
+      customers,
+      visits: this.getVisits(),
+      savedRoutes: this.getSavedRoutes(),
+    };
   },
 
   // Pull remote changes (called by polling timer + manual refresh)
@@ -389,6 +480,7 @@ const Storage = {
   async retrySync() {
     this._pushInFlight = null;  // Clear any stuck in-flight flag
     this._pullInFlight = null;
+    this._pushDirty = false;
     this._notifyListeners({ status: 'syncing', action: 'retry' });
     return this.sync();
   },
@@ -413,7 +505,7 @@ const Storage = {
 
   // ===== Polling — fire every 3s to detect remote changes =====
   _pollingTimer: null,
-  startPolling(intervalMs = 3000) {
+  startPolling(intervalMs = 15000) {
     this.stopPolling();
     const tick = async () => {
       try {
@@ -497,6 +589,7 @@ function mergeByUpdatedAt(local, remote) {
   for (const c of remote) {
     if (!c.id) continue;
     if (c.deleted) {
+      // Remote says deleted — always accept (propagate delete)
       byId.set(c.id, c);
       continue;
     }
@@ -504,9 +597,17 @@ function mergeByUpdatedAt(local, remote) {
     if (!old) {
       byId.set(c.id, c);
     } else if (old.deleted) {
+      // W5 FIX: local is deleted — keep deleted unless remote explicitly un-deletes
+      // with a newer timestamp. Prevents stale pulls from resurrecting deleted records.
       const oldTime = new Date(old.updatedAt || 0).getTime();
       const newTime = new Date(c.updatedAt || 0).getTime();
-      byId.set(c.id, newTime >= oldTime ? c : old);
+      // N3 FIX: Use >= to match server mergeById behavior.
+      // Prevents timestamp collision from blocking legitimate un-deletes.
+      if (newTime >= oldTime && c.deleted === false) {
+        // Explicit un-delete with newer timestamp — accept
+        byId.set(c.id, c);
+      }
+      // Otherwise keep the deleted version (do nothing)
     } else {
       const oldTime = new Date(old.updatedAt || old.createdAt || 0).getTime();
       const newTime = new Date(c.updatedAt || c.createdAt || 0).getTime();

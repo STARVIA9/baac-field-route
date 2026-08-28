@@ -1,18 +1,34 @@
 /**
- * GET /api/debt-data
+ * GET /api/debt-data  (AUTH REQUIRED)
  * คืนข้อมูลหนี้ Customer Indicator ฉบับล่าสุด:
+ * - ตรวจ JWT ทุกครั้ง (ลูกค้าที่ login แล้วเท่านั้น)
  * - ถ้ามี KV 'debt:data' (อัปเดตล่าสุดผ่าน /api/debt-import) → คืนของใหม่
- * - ถ้าไม่มี (ยังไม่เคย import) → fallback ไปไฟล์ static debt-data.json เดิม
+ * - ไม่มี fallback static (ปิดช่องรั่วจาก public file)
  */
-export async function onRequestGet(context) {
-  const { env } = context;
 
-  // 1. ลองอ่านจาก KV ก่อน (ข้อมูลอัปเดตล่าสุด)
+import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
+export async function onRequestGet(context) {
+  const { request, env } = context;
+
+  // AUTH: any logged-in user (user or admin) can read debt data for their work
+  const token = extractBearerToken(request);
+  if (!token) return json({ success: false, error: 'No token' }, 401);
+  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
+
+  // Read from KV (single source written by /api/debt-import)
   if (env.BFR_KV) {
     try {
       const raw = await env.BFR_KV.get('debt:data');
       if (raw) {
-        // ตรวจว่า JSON ถูกต้องก่อนส่ง
         try {
           const parsed = JSON.parse(raw);
           return new Response(JSON.stringify(parsed), {
@@ -23,7 +39,8 @@ export async function onRequestGet(context) {
             },
           });
         } catch (e) {
-          console.warn('debt:data KV corrupt, fallback to static');
+          console.warn('debt:data KV corrupt:', e.message);
+          return json({ success: false, error: 'debt data corrupt' }, 500);
         }
       }
     } catch (e) {
@@ -31,17 +48,6 @@ export async function onRequestGet(context) {
     }
   }
 
-  // 2. Fallback: คืนจาก static debt-data.json (ข้อมูลเดิม)
-  const res = await fetch(new Request('https://baacroute.shop/debt-data.json', { method: 'GET' }));
-  if (!res.ok) {
-    return new Response(JSON.stringify({ error: 'debt data unavailable' }), { status: 500 });
-  }
-  const body = await res.text();
-  return new Response(body, {
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-cache',
-      'X-Debt-Source': 'static',
-    },
-  });
+  // No KV data — tell client to import first (no public-file fallback)
+  return json({ success: false, error: 'ยังไม่มีข้อมูลหนี้ — อัปโหลดไฟล์ Customer Indicator ก่อน' }, 404);
 }

@@ -30,11 +30,11 @@ export async function onRequestPost(context) {
     if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
     if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
-    // อ่าน debt-data.json (ไฟล์ static เดียวกับที่หน้าแผนที่ใช้)
-    const res = await fetch(new Request('https://baacroute.shop/debt-data.json', { method: 'GET' }));
-    if (!res.ok) throw new Error('โหลด debt-data.json ไม่สำเร็จ: HTTP ' + res.status);
-    const data = await res.json();
-    if (!Array.isArray(data)) throw new Error('debt-data.json ต้องเป็น array');
+    // อ่านข้อมูลหนี้จาก KV (source of truth — static public file ถูกเอาออกเพื่อความปลอดภัย)
+    const raw = await env.BFR_KV.get('debt:data');
+    if (!raw) throw new Error('ยังไม่มีข้อมูลหนี้ในระบบ — อัปโหลดไฟล์ Customer Indicator ก่อน (/api/debt-import)');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) throw new Error('debt data ต้องเป็น array');
 
     const now = new Date().toISOString();
     const statements = [];

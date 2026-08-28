@@ -94,6 +94,9 @@ export async function onRequestPost(context) {
   // Save visits + routes to KV
   await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
   await env.BFR_KV.put('routes:all', JSON.stringify(mergedRoutes));
+  // Track when visits last changed (client uses this to skip re-processing)
+  const visitsUpdated = new Date().toISOString();
+  await env.BFR_KV.put('meta:visits-updated', visitsUpdated);
 
   // Sync incoming customers into D1 (single source of truth)
   const customersSynced = await syncCustomersToD1(env, body.customers || []);
@@ -110,6 +113,7 @@ export async function onRequestPost(context) {
     customers: [],
     visits: mergedVisits,
     savedRoutes: mergedRoutes,
+    visitsUpdated,
     counts: {
       customers: d1Count,
       visits: Object.keys(mergedVisits).length,
@@ -130,6 +134,7 @@ export async function onRequestGet(context) {
   const routesRaw = await env.BFR_KV.get('routes:all');
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
+  const visitsUpdated = await env.BFR_KV.get('meta:visits-updated');
 
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
@@ -137,6 +142,7 @@ export async function onRequestGet(context) {
   // Customers come from D1 (single source of truth).
   let customers = [];
   let allCustomersCount = 0;
+  let effectiveServerTime = lastWrite || new Date().toISOString();
   if (env.BFR_DB) {
     if (since) {
       // Incremental: customers modified after this time
@@ -151,12 +157,21 @@ export async function onRequestGet(context) {
     }
     const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
     allCustomersCount = countRes?.n || 0;
+    // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
+    // use this as `since` cursor, so no change is ever skipped between polls
+    const maxRes = await env.BFR_DB.prepare(
+      'SELECT MAX(updated_at) m FROM customers'
+    ).first();
+    if (maxRes?.m && (!lastWrite || maxRes.m > lastWrite)) {
+      effectiveServerTime = maxRes.m;
+    }
   }
 
   return json({
     success: true,
-    serverTime: lastWrite || new Date().toISOString(),
+    serverTime: effectiveServerTime,
     overlayUpdatedAt: overlayUpdatedAt || null,
+    visitsUpdated: visitsUpdated || null,
     customers,
     visits,
     savedRoutes,
@@ -209,30 +224,41 @@ async function d1CountCustomers(env) {
 async function syncCustomersToD1(env, incoming) {
   if (!env.BFR_DB || !Array.isArray(incoming) || incoming.length === 0) return 0;
   let synced = 0;
+  let conflicts = 0;
   for (const c of incoming) {
     const cif = String(c.cif || '').trim();
     if (!cif) continue;
     const now = new Date().toISOString();
     const deleted = c.deleted ? 1 : 0;
 
-    // Check existence
+    // Check existence (+ S1: conflict guard — compare updated_at)
     const exists = await env.BFR_DB.prepare(
-      'SELECT cif FROM customers WHERE cif = ?1'
+      'SELECT cif, updated_at FROM customers WHERE cif = ?1'
     ).bind(cif).first();
+
+    // S1: Server row is NEWER than what this device has → skip push (don't clobber)
+    // Client wins only if its updatedAt >= server's (last-write-wins)
+    const clientUpdatedAt = Date.parse(c.updatedAt || '') || 0;
+    const serverUpdatedAt = exists?.updated_at ? Date.parse(exists.updated_at) : 0;
+    if (exists && serverUpdatedAt > clientUpdatedAt + 1000) {  // 1s tolerance
+      conflicts++;
+      continue;
+    }
 
     try {
       if (exists) {
-        // Only update non-empty fields + deleted flag
+        // Update all fields directly — COALESCE prevented clearing fields to null/empty.
+        // Now: if client sends null/empty, the field IS cleared (server trusts the client).
         await env.BFR_DB.prepare(
           `UPDATE customers SET
-             name = COALESCE(?1, name),
-             nickname = COALESCE(?2, nickname),
-             phone = COALESCE(?3, phone),
-             address = COALESCE(?4, address),
-             risk_level = COALESCE(?5, risk_level),
-             debt_type = COALESCE(?6, debt_type),
-             lat = COALESCE(?7, lat),
-             lng = COALESCE(?8, lng),
+             name = ?1,
+             nickname = ?2,
+             phone = ?3,
+             address = ?4,
+             risk_level = ?5,
+             debt_type = ?6,
+             lat = ?7,
+             lng = ?8,
              deleted = ?9,
              updated_at = ?10
            WHERE cif = ?11`
@@ -260,5 +286,6 @@ async function syncCustomersToD1(env, incoming) {
       console.warn('sync customer failed', cif, e.message);
     }
   }
+  if (conflicts > 0) console.log(`[sync] skipped ${conflicts} stale updates (server newer)`);
   return synced;
 }

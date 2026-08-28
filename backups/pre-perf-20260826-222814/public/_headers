@@ -1,0 +1,36 @@
+# BAAC Field Route — cache control
+# =====================
+# CRITICAL: app shell + SW must NEVER be cached (long max-age caused stale
+# service worker to keep serving old code — user saw old UI after deploys)
+# =====================
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/admin.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/admin
+  Cache-Control: no-cache, no-store, must-revalidate
+/js/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/css/*
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+# Data files must always be fresh from the server (server-authoritative GPS).
+/customers-db.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/debt-data.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/fuel-prices.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
+# CORS for API routes (allows cross-origin if needed)
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
+  Access-Control-Max-Age: 86400

@@ -1,0 +1,23 @@
+{
+  "updated": "13/08/2569",
+  "fuels": {
+    "pickup": {
+      "name": "ดีเซล B20",
+      "price": 32.54,
+      "price_tomorrow": 32.54,
+      "diff": 0.0
+    },
+    "car": {
+      "name": "แก๊สโซฮอล์ 91 S EVO",
+      "price": 36.47,
+      "price_tomorrow": 36.47,
+      "diff": 0.0
+    },
+    "motorcycle": {
+      "name": "แก๊สโซฮอล์ 95 S EVO",
+      "price": 36.84,
+      "price_tomorrow": 36.84,
+      "diff": 0.0
+    }
+  }
+}

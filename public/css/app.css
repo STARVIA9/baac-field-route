@@ -4,7 +4,6 @@
  * Icons: Lucide SVG
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 
 :root {
   color-scheme: light dark;
@@ -128,8 +127,11 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS: no rubber-band bounce on page level (inner scroll areas keep momentum) */
+  overscroll-behavior-y: none;
 }
 
 html, body {
@@ -1256,17 +1258,50 @@ body {
 /* ===== FAB Buttons ===== */
 .map-fab {
   position: fixed;
-  bottom: 180px;
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   right: var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  z-index: 1000;
+  z-index: 1100;            /* เหนือ bottom-sheet (z 999) */
   pointer-events: none;
+  transition: bottom 0.25s ease;
 }
+
+/* Q2 FIX: FAB ยกขึ้นตามความสูงของ sheet — ไม่ซ่อนแล้ว */
+body:has(.bottom-sheet.sheet-peek) .map-fab   { bottom: calc(180px + env(safe-area-inset-bottom, 0px)); }
+body:has(.bottom-sheet.sheet-half) .map-fab   { bottom: calc(52vh + env(safe-area-inset-bottom, 0px)); }
+body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-area-inset-bottom, 0px)); }
 
 .map-fab .fab {
   pointer-events: auto;
+}
+
+/* B: ปุ่มซูม −/+ (แทน Leaflet topleft ที่โดนแผงตัวกรองบัง) */
+.zoom-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+.fab-zoom {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff;
+  color: #2c3a2c;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab-zoom:active {
+  background: #eef4ee;
 }
 
 .fab {
@@ -1635,7 +1670,7 @@ body {
 }
 
 .sort-select {
-  font-size: 12px;
+  font-size: 16px;
   padding: 6px 10px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -1684,7 +1719,7 @@ body {
   padding: 10px var(--sp-4);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 16px;
   background: var(--bg);
   font-family: inherit;
   transition: all 0.2s ease;
@@ -1872,7 +1907,7 @@ body {
   padding: 10px var(--sp-4);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 16px;
   background: var(--bg);
   font-family: inherit;
   transition: all 0.2s ease;
@@ -2005,7 +2040,7 @@ body {
   padding: var(--sp-2) var(--sp-3);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 13px;
+  font-size: 16px;
   font-family: inherit;
 }
 
@@ -2375,7 +2410,7 @@ body {
   padding: 10px var(--sp-3);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   color: var(--text);
   background: var(--surface);
@@ -2435,7 +2470,7 @@ body {
   padding: 10px var(--sp-3);
   border: 1.5px solid rgba(10, 143, 60, 0.2);
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   background: var(--surface);
 }
@@ -3308,40 +3343,59 @@ body {
   left: 10px;
   right: auto;
   z-index: 700;
-  background: rgba(255,255,255,0.95);
-  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.97);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
   box-shadow: var(--shadow-md);
-  padding: 6px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  max-width: 200px;
+  gap: 6px;
+  /* C: เผื่อฝั่งขวา ~80px ให้ปุ่มระบบไม่โดนเยื้อง */
+  max-width: calc(100vw - 90px);
 }
 .mdf-row {
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* A: 2 คอลัมน์เท่ากันทุกแถว */
+  gap: 6px;
   align-items: center;
 }
+
 .mdf-select {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid #d0d5d0;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 7px 26px 7px 9px;
+  border: 1.5px solid #d4dad4;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.3;
   font-family: inherit;
-  background: #fff;
+  background: #fff url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23667' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center;
+  -webkit-appearance: none;
+  appearance: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #243024;
+}
+.mdf-select:focus {
+  outline: none;
+  border-color: var(--baac-green, #0a8f3c);
+  box-shadow: 0 0 0 3px rgba(10,143,60,.12);
 }
 .mdf-reset {
-  width: 30px;
-  height: 30px;
-  border: 1px solid #d0d5d0;
-  border-radius: 6px;
-  background: #f0f2f0;
+  width: 100%;
+  height: 38px;
+  border: 1.5px solid #f3d4d2;
+  border-radius: 8px;
+  background: #fdf3f2;
   color: var(--danger);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  align-self: center;
 }
 .mdf-reset:hover { background: #fdecea; }
 
@@ -3663,16 +3717,22 @@ body:has(#map.map-fs-fake) .map-fab {
 }
 
 /* ===== Mobile: เลื่อนกล่องตัวกรองหนี้ ลงพ้น header (หลัง base rule — ชนะ cascade) ===== */
+/* Mobile ≤480px (Android+iOS): grid 2 คอลัมน์ — dropdown กว้างพอ อ่านข้อความครบ */
 @media (max-width: 480px) {
   .map-debt-filter {
-    top: 74px;         /* header สูง ~56-60px → เว้นช่องว่าง ~14px แยกชั้นชัด ไม่แน่น */
-    max-width: 170px;  /* ย่อให้พอดีจอเล็ก ไม่ล้น */
-    right: auto;
+    top: 74px;
+    left: 10px;
+    /* C: เผื่อขวา ~80px — ไม่เยื้องปุ่มระบบด้านขวา */
+    max-width: calc(100vw - 90px);
+    padding: 8px;
   }
-  .map-debt-filter .mdf-row {
-    flex-wrap: wrap;   /* ช่องตัวกรองเรียง 2 คอลัมน์ ไม่แน่นเกินไป */
+  .mdf-select {
+    font-size: 13px;
+    padding: 9px 28px 9px 10px;
   }
 }
+
+/* Very small phones (≤360px): ยังคง 2-col แต่ font คงที่ — text ellipsis เฉพาะ option ยาว */
 
 /* จอเล็กมาก (≤330px): ซ่อนเลขเวอร์ชัน ให้ปุ่ม + ชื่อผู้ใช้พอดีตลอด */
 @media (max-width: 330px) {
@@ -3687,16 +3747,16 @@ body:has(#map.map-fs-fake) .map-fab {
 
 /* ===== Mobile-First Polish (Phase 6) ===== */
 
-/* Touch feedback — ripple effect on buttons */
-.btn-primary,
-.btn-secondary,
-.btn-danger,
+/* Touch feedback — no highlight flash anywhere (iOS polish) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .fab,
 .sheet-tab,
 .filter,
 .route-chip {
   position: relative;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary:active,
@@ -4069,7 +4129,7 @@ html {
   padding: 10px 14px;
   border: 2px solid #d1d5db;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 16px;
   outline: none;
 }
 .pin-search-input-wrap input:focus {
@@ -4107,8 +4167,16 @@ html {
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
-  .map-debt-filter { background: #24261f; border-color: #44483d; }
-  .map-debt-filter .mdf-select { background: #2f312a; border-color: #44483d; color: #f1f1e9; }
+  .map-debt-filter { background: rgba(36,38,31,0.97); border-color: #44483d; }
+  .map-debt-filter .mdf-select {
+    background-color: #2f312a;
+    border-color: #44483d;
+    color: #f1f1e9;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aab2aa' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+  }
+  .map-debt-filter .mdf-reset { background: #3a2320; border-color: #5c3430; color: #ff8a80; }
   .map-debt-filter .mdf-reset { background: #2f312a; border-color: #44483d; color: #ff6b6b; }
   .map-debt-filter .mdf-reset:hover { background: #3a2424; }
   .pin-options-panel { background: #1e1e2e; }

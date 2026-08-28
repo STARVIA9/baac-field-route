@@ -12,7 +12,7 @@ const DebtDB = {
     this._loading = true;
     try {
       // โหลดจาก API (อ่าน KV ที่อัปเดตล่าสุดจาก /api/debt-import → fallback static เดิม)
-      const res = await fetch('/api/debt-data');
+      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
       if (!res.ok) throw new Error('Failed to load debt data');
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('debt data not array');

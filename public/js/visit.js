@@ -83,7 +83,11 @@ const Visit = {
     const visits = Storage.getVisits();
     const existing = visits[customerId];
     const form = document.getElementById('visit-log-form');
-    form.elements.status.value = existing?.status || 'visited';
+    
+    // Set quick status buttons
+    const status = existing?.status || 'visited';
+    this.setQuickStatus(status);
+    
     form.elements.note.value = existing?.note || '';
     // Phase 5: pre-fill GPS if previously recorded
     form.elements.lat.value = existing?.lat || '';
@@ -91,6 +95,18 @@ const Visit = {
     form.elements.accuracy.value = existing?.accuracy || '';
     this._renderGpsDisplay(existing?.lat, existing?.lng, existing?.accuracy);
     document.getElementById('visit-log-modal').classList.remove('hidden');
+  },
+
+  // Set quick status (called by quick status buttons)
+  setQuickStatus(status) {
+    // Update hidden select
+    const select = document.getElementById('visit-status-select');
+    if (select) select.value = status;
+    
+    // Update button states
+    document.querySelectorAll('.quick-status-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.status === status);
+    });
   },
 
   // Phase 5: Render GPS display in visit modal
@@ -147,7 +163,7 @@ const Visit = {
   async submit(form) {
     if (!this.currentCustomerId) return;
     const data = {
-      status: form.elements.status.value,
+      status: document.getElementById('visit-status-select').value,
       note: form.elements.note.value,
     };
     // Phase 5: GPS coordinates (if captured)
@@ -182,9 +198,7 @@ const Visit = {
   },
 
   escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
+    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   },
 };
 

@@ -2,16 +2,23 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0a8f3c">
   <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>BAAC Field Route · วางแผนเส้นทางอัจฉริยะ</title>
+  <!-- Font: preconnect + non-blocking load (was @import in CSS = render-blocking) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"></noscript>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260826n" as="style">
-  <link rel="preload" href="js/app.js?v=20260826n" as="script">
+  <link rel="preload" href="css/app.css?v=20260827i" as="style">
+  <link rel="preload" href="js/app.js?v=20260827i" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -134,15 +141,17 @@
   </style>
   
   <!-- Non-critical CSS (loaded async) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="css/app.css?v=20260826n">
+  <link rel="stylesheet" href="lib/leaflet.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
+  <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
+  <link rel="stylesheet" href="css/app.css?v=20260827i">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260827i"></noscript>
   
   <!-- Non-critical JS (defer) -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script>
+  <script src="lib/lucide.min.js" defer></script>
+  <script src="lib/leaflet.js" defer></script>
+  <script src="lib/leaflet.markercluster.js" defer></script>
 </head>
 <body>
   <!-- Login Screen -->
@@ -364,6 +373,7 @@
 
     <!-- Debt filter bar (floating over map) -->
     <div class="map-debt-filter" id="map-debt-filter">
+      <!-- Row 1 -->
       <div class="mdf-row">
         <select id="debt-month-filter" class="mdf-select"><option value="">🗓️ ทุกเดือน</option></select>
         <select id="debt-tier-filter" class="mdf-select">
@@ -375,18 +385,30 @@
           <option value="5">ชั้น 5</option>
         </select>
       </div>
+      <!-- Row 2 -->
       <div class="mdf-row">
+        <select id="map-zone-filter" class="mdf-select" title="กรองเขตสินเชื่อ">
+          <option value="">ทุกเขต</option>
+          <option value="1">เขต 1</option>
+          <option value="2">เขต 2</option>
+          <option value="3">เขต 3</option>
+          <option value="4">เขต 4</option>
+          <option value="5">เขต 5</option>
+        </select>
         <select id="debt-omsom-filter" class="mdf-select" title="กลุ่ม อสม. (Market Code 3080/2838/2751)">
           <option value="">รวม อสม.</option>
           <option value="exclude">กรอง อสม. ออก</option>
           <option value="only">ดูเฉพาะ อสม.</option>
         </select>
+      </div>
+      <!-- Row 3 -->
+      <div class="mdf-row">
         <select id="debt-15m-filter" class="mdf-select" title="กรอง 15 เดือน">
           <option value="">หนี้ทั้งหมด</option>
           <option value="Y">⏳ มี 15 เดือน</option>
           <option value="none">✓ ไม่มี 15 เดือน</option>
         </select>
-        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรอง">✕</button>
+        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด">✕ ล้างตัวกรอง</button>
       </div>
     </div>
 
@@ -394,6 +416,10 @@
     <div class="map-fab">
       <button class="fab fab-main" id="fab-add-customer" title="เพิ่มลูกค้าใหม่"><i data-lucide="plus" class="icon"></i></button>
       <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน"><i data-lucide="locate" class="icon"></i></button>
+      <div class="zoom-stack">
+        <button class="fab fab-zoom" id="fab-zoom-in" title="ซูมเข้า" aria-label="ซูมเข้า">＋</button>
+        <button class="fab fab-zoom" id="fab-zoom-out" title="ซูมออก" aria-label="ซูมออก">－</button>
+      </div>
     </div>
 
     <!-- ===== Bottom Sheet ===== -->
@@ -439,6 +465,14 @@
               <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
             </div>
             <div class="customers-sort">
+              <select id="customer-zone" class="sort-select" title="กรองเขตสินเชื่อ">
+                <option value="">ทุกเขต</option>
+                <option value="1">เขต 1</option>
+                <option value="2">เขต 2</option>
+                <option value="3">เขต 3</option>
+                <option value="4">เขต 4</option>
+                <option value="5">เขต 5</option>
+              </select>
               <select id="customer-sort" class="sort-select">
                 <option value="name">เรียงตามชื่อ</option>
                 <option value="cif">เรียงตาม CIF</option>
@@ -1204,20 +1238,9 @@
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="js/utils.js?v=20260826n"></script>
-  <script src="js/auth.js?v=20260826n"></script>
-  <script src="js/api.js?v=20260826n"></script>
-  <script src="js/storage.js?v=20260826n"></script>
-  <script src="js/fuel.js?v=20260826n"></script>
-  <script src="js/customers.js?v=20260826n"></script>
-  <script src="js/customer-db.js?v=20260826n"></script>
-  <script src="js/debt-db.js?v=20260826n"></script>
-  <script src="js/debt-summary.js?v=20260826n"></script>
-  <script src="js/tsp.js?v=20260826n"></script>
-  <script src="js/route.js?v=20260826n"></script>
-  <script src="js/visit.js?v=20260826n"></script>
-  <script src="js/report.js?v=20260826n"></script>
-  <script src="js/app.js?v=20260826n"></script>
+  <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
+  <script src="js/vendor.js?v=20260827i"></script>
+  <script src="js/app.bundle.js?v=20260827i"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
