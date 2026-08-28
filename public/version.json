@@ -1,6 +1,6 @@
 {
-  "version": "20260828.181500",
+  "version": "20260828.190000",
   "lastUpdate": "2026-08-28",
-  "changelog": "🔧 รวม search bar เข้าใน filter panel (แผงเดียว) — ไม่ทับซ้อนกันบนมือถือ",
-  "updatedAt": "2026-08-28T18:15:00.000Z"
+  "changelog": "✨ Tab ใหม่: วางแผน→เส้นทาง→ลูกค้า→เข้าพบ→สรุปหนี้ · แยก route ตาม user (bfr_route_{user})",
+  "updatedAt": "2026-08-28T19:00:00.000Z"
 }

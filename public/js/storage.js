@@ -286,12 +286,17 @@ const Storage = {
   },
 
   getRoute() {
-    try { return JSON.parse(localStorage.getItem(this.KEY_ROUTE) || '[]'); }
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const suffix = (user && user.username) ? '_' + user.username : '';
+    this._routeKey = this.KEY_ROUTE + suffix;
+    try { return JSON.parse(localStorage.getItem(this._routeKey) || '[]'); }
     catch { return []; }
   },
 
   async saveRoute(list) {
-    localStorage.setItem(this.KEY_ROUTE, JSON.stringify(list));
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const suffix = (user && user.username) ? '_' + user.username : '';
+    localStorage.setItem(this.KEY_ROUTE + suffix, JSON.stringify(list));
     await this.push();
   },
 
@@ -329,17 +334,22 @@ const Storage = {
   },
 
   getSavedRoutes() {
-    try { return JSON.parse(localStorage.getItem(this.KEY_SAVED_ROUTES) || '[]'); }
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const suffix = (user && user.username) ? '_' + user.username : '';
+    this._savedRoutesKey = this.KEY_SAVED_ROUTES + suffix;
+    try { return JSON.parse(localStorage.getItem(this._savedRoutesKey) || '[]'); }
     catch { return []; }
   },
 
   async saveSavedRoute(route) {
     const list = this.getSavedRoutes();
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const suffix = (user && user.username) ? '_' + user.username : '';
     route.id = route.id || Utils.uuid();
     route.savedAt = route.savedAt || new Date().toISOString();
     route.savedBy = Auth.getUser()?.name || 'unknown';
     list.push(route);
-    localStorage.setItem(this.KEY_SAVED_ROUTES, JSON.stringify(list));
+    localStorage.setItem(this.KEY_SAVED_ROUTES + suffix, JSON.stringify(list));
     await this.push();
     return route;
   },

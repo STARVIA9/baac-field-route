@@ -625,7 +625,7 @@ const App = {
       setTimeout(() => Customers.map && Customers.map.invalidateSize(), 50);
       return;
     }
-    const sheetNames = { customers: 'customers', route: 'plan', visit: 'visit' };
+    const sheetNames = { customers: 'customers', route: 'route', visit: 'visit' };
     this.switchSheetTab(sheetNames[name] || name);
     this.setSheetState('half');
   },

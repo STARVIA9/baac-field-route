@@ -80,9 +80,11 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
   // Customers now live in D1 (single source of truth).
-  // Visits + savedRoutes stay in KV.
+  // Visits + savedRoutes stay in KV — per user
+  const userKey = auth.user && auth.user.username ? auth.user.username : 'default';
+  const routesKey = 'routes:user:' + userKey;
   const visitsRaw = await env.BFR_KV.get('visits:all');
-  const routesRaw = await env.BFR_KV.get('routes:all');
+  const routesRaw = await env.BFR_KV.get(routesKey);
 
   const existingVisits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const existingRoutes = routesRaw ? JSON.parse(routesRaw) : [];
@@ -91,9 +93,9 @@ export async function onRequestPost(context) {
   const mergedVisits = mergeVisits(existingVisits, body.visits || {});
   const mergedRoutes = mergeById(existingRoutes, body.savedRoutes || []);
 
-  // Save visits + routes to KV
+  // Save visits + routes to KV (per user)
   await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
-  await env.BFR_KV.put('routes:all', JSON.stringify(mergedRoutes));
+  await env.BFR_KV.put(routesKey, JSON.stringify(mergedRoutes));
   // Track when visits last changed (client uses this to skip re-processing)
   const visitsUpdated = new Date().toISOString();
   await env.BFR_KV.put('meta:visits-updated', visitsUpdated);
@@ -131,7 +133,8 @@ export async function onRequestGet(context) {
   const since = url.searchParams.get('since');  // ISO timestamp — return only customers updated AFTER this
 
   const visitsRaw = await env.BFR_KV.get('visits:all');
-  const routesRaw = await env.BFR_KV.get('routes:all');
+  const routesKey = 'routes:user:' + (auth.user && auth.user.username ? auth.user.username : 'default');
+  const routesRaw = await env.BFR_KV.get(routesKey);
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
   const visitsUpdated = await env.BFR_KV.get('meta:visits-updated');
