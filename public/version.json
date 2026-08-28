@@ -1,6 +1,6 @@
 {
-  "version": "20260827.122000",
-  "lastUpdate": "2026-08-26",
-  "changelog": "UI Fix: ตัวกรอง grid 2x3 (option ครบไม่ตัด) · ปุ่มซูมย้ายล่างขวา (ไม่โดนแผงบัง) · แผงเผื่อขวา 80px",
-  "updatedAt": "2026-08-27T12:15:00.000Z"
+  "version": "20260828.180000",
+  "lastUpdate": "2026-08-28",
+  "changelog": "✨ Floating search bar บนแผนที่ (Google Maps-style) — ค้นหาด้วยชื่อ/CIF/เบอร์ แล้ว flyTo + popup",
+  "updatedAt": "2026-08-28T18:00:00.000Z"
 }

@@ -270,6 +270,9 @@ const App = {
       }).catch(() => {});
     }
 
+    // Init floating map search bar (Google Maps-style)
+    if (typeof MapSearch !== 'undefined') MapSearch.init();
+
     // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
     if (Storage.getCustomers().length === 0) {
       try {
@@ -2236,3 +2239,149 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {}
   });
 })();
+
+// ===== Floating Map Search Bar (Google Maps-style) =====
+// ค้นหาลูกค้าบนแผนที่ด้วยชื่อ/CIF/เบอร์ — flyTo + open popup
+const MapSearch = {
+  _input: null,
+  _results: null,
+  _clearBtn: null,
+  _allCustomersCache: null,
+  _refreshTimer: null,
+
+  init() {
+    this._input = document.getElementById('map-search');
+    this._results = document.getElementById('msb-results');
+    this._clearBtn = document.getElementById('msb-clear');
+    if (!this._input || !this._results) return;
+
+    this._input.addEventListener('input', () => this._onInput());
+    this._input.addEventListener('focus', () => { if (this._input.value) this._onInput(); });
+    this._clearBtn.addEventListener('click', () => this._clear());
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+      const bar = document.getElementById('map-search-bar');
+      if (bar && !bar.contains(e.target)) this._hideResults();
+    });
+
+    // Refresh cache every 30s (customers may change via sync/import)
+    this._refreshTimer = setInterval(() => { this._allCustomersCache = null; }, 30000);
+  },
+
+  _getCustomers() {
+    if (this._allCustomersCache) return this._allCustomersCache;
+    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
+      this._allCustomersCache = Storage.getActiveCustomers();
+    } else {
+      this._allCustomersCache = [];
+    }
+    return this._allCustomersCache;
+  },
+
+  _onInput() {
+    const q = this._input.value.trim();
+    this._clearBtn.classList.toggle('hidden', !q);
+
+    if (!q || q.length < 1) { this._hideResults(); return; }
+
+    const query = q.toLowerCase();
+    const customers = this._getCustomers();
+
+    // Match: name, nickname, CIF, phone (exact + partial)
+    const matches = customers.filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const nick = (c.nickname || '').toLowerCase();
+      const cif = String(c.cif || '');
+      const phone = String(c.phone || '');
+      return name.includes(query) || nick.includes(query) || cif.includes(query) || phone.includes(query);
+    });
+    const top = matches.slice(0, 6);
+
+    if (top.length === 0) {
+      this._results.innerHTML = '<div class="msb-no-results">ไม่พบลูกค้าที่ตรงกับ "<strong>' + this._esc(q) + '</strong>"</div>';
+      this._results.classList.remove('hidden');
+      return;
+    }
+
+    const riskColors = { 'แดง': '#d32f2f', 'เหลือง': '#e6a817', 'เขียว': '#16a34a' };
+    this._results.innerHTML = top.map(c => {
+      const color = riskColors[c.riskLevel] || '#9e9e9e';
+      const sub = [c.cif ? 'CIF:' + c.cif : '', c.phone, c.nickname].filter(Boolean).join(' · ');
+      const id = c.id || c.cif;
+      return '<div class="msb-result-item" data-id="' + this._escAttr(id) + '" role="option">' +
+        '<span class="msb-result-dot" style="background:' + color + '"></span>' +
+        '<div class="msb-result-info">' +
+          '<div class="msb-result-name">' + this._esc(c.name || 'ไม่มีชื่อ') + '</div>' +
+          '<div class="msb-result-meta">' + this._esc(sub || '-') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // Bind clicks
+    const self = this;
+    this._results.querySelectorAll('.msb-result-item').forEach(el => {
+      el.addEventListener('click', () => self._select(el.dataset.id));
+    });
+
+    this._results.classList.remove('hidden');
+  },
+
+  _select(id) {
+    const customers = this._getCustomers();
+    const c = customers.find(x => (x.id === id) || String(x.cif) === id);
+    if (!c) return;
+
+    if (!c.lat || !c.lng) {
+      if (typeof Utils !== 'undefined') Utils.toast('⚠️ ลูกค้านี้ไม่มีพิกัดบนแผนที่', 'warn');
+      this._clear();
+      this._hideResults();
+      return;
+    }
+
+    // Collapse bottom sheet to show full map
+    if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
+
+    // Fly to marker + open popup (reuse Customers pattern)
+    if (typeof Customers !== 'undefined' && Customers.map) {
+      Customers.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
+      setTimeout(() => {
+        if (Customers.markers && Customers.markers[c.id]) {
+          Customers.map.openPopup(Customers.markers[c.id]);
+        } else if (Customers.markers) {
+          // Try by cif
+          for (const [mid, m] of Object.entries(Customers.markers)) {
+            if (mid === c.id || String(mid) === String(c.id || c.cif)) {
+              Customers.map.openPopup(m);
+              break;
+            }
+          }
+        }
+      }, 900);
+    }
+
+    this._clear();
+    this._hideResults();
+    this._input.blur(); // hide mobile keyboard
+  },
+
+  _clear() {
+    if (this._input) this._input.value = '';
+    if (this._clearBtn) this._clearBtn.classList.add('hidden');
+    this._hideResults();
+  },
+
+  _hideResults() {
+    if (this._results) this._results.classList.add('hidden');
+  },
+
+  _esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  },
+
+  _escAttr(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  },
+};
