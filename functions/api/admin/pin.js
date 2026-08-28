@@ -5,12 +5,12 @@ import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
 
 const KV_KEY = 'admin:pin';
-const DEFAULT_PIN = '7531'; // Default admin PIN (more secure than 0000)
+const DEFAULT_PIN = '7297'; // Default admin PIN (randomized 28/08/69)
 
-// ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of '7531'.
+// ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of '7297'.
 // Same reasoning as login.js: avoid PBKDF2 at runtime on fresh deploy.
 // Regenerate if you change DEFAULT_PIN.
-const DEFAULT_PIN_HASH = '500.qAdEUmySHWOuc7EOoX5m36HeAY80ApKb_9es2NerJHU.dF5b5JthfU2yDfX0zbG1q54AxGqx1ATzO2Y7alvmeQ8.dIuNUmrVfk4lwPcwrn_kiLyzAOc19xTZLZH6M5pGWKg';
+const DEFAULT_PIN_HASH = '500.YbJ1Gs_EoD1D0aXvRngbb7MnO1YbsuQ6Hx6g4h_aYCM.b_FrLBZBpwDjyDTGNsh-xv9QLMD21ZI2WioV6W2asnc.wX2WTJiadqaqHkgI9KUiPUepziJFY-BiDVM6MrTu30s';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {

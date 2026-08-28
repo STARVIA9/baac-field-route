@@ -8,10 +8,10 @@ import { verifyAdminPin } from './admin/pin.js';
 
 // Legacy team PINs (non-admin offline fallback)
 const PIN_TEAM = {
-  '1001': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
-  '1002': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
-  '1003': { name: 'ประยูทธ์ มั่นคง', role: 'user', branch: 'WTC' },
-  '1004': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
+  '4944': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
+  '3242': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
+  '9302': { name: 'ประยูทธ์ มั่นคง', role: 'user', branch: 'WTC' },
+  '5129': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
 };
 
 // Default admin user (seeded into KV if missing) — survives total KV wipe
