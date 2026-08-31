@@ -12,7 +12,7 @@
  * 7. คืนผลลัพธ์
  */
 
-// คอลัมน์ Customer Indicator (0-indexed)
+// คอลัมน์ Customer Indicator (0-indexed) — อิง build_debt_data.py (ต้นฉบับถูกต้อง)
 const COL_CIF = 7;
 const COL_NAME = 5;
 const COL_CONTRACT_NO = 22;       // เลขสัญญา
@@ -22,7 +22,15 @@ const COL_SUBSIDY = 31;           // Subsidy plan
 const COL_NEXT_DUE = 33;          // Next Due date
 const COL_RESERVE_PCT = 60;       // อัตราการกันสำรอง (%)
 const COL_RECOGNITION = 62;       // เกณฑ์การรับรู้รายได้
-const COL_OVERDUE_15M = 65;       // 15เดือน ณ เดือนปัจจุบัน
+const COL_OVERDUE_15M = 65;       // 15เดือน ณ เดือนปัจจุบัน Y/N
+const COL_OVERDUE_15M_AMT = 66;   // 15เดือน ณ 31/03/2570 ยอดขั้นต่ำ (บาท) — ที่หายไปทำให้ GPS โชว์ไม่ครบ
+const COL_MC = 18;                // Market Code (3080/2838/2751 = อสม.)
+const COL_F08 = 103;              // คาดการณ์ 15เดือน ส.ค.69 Y/N
+const COL_F09 = 104;              // คาดการณ์ ก.ย.69
+const COL_F10 = 105;              // คาดการณ์ ต.ค.69
+const COL_P08 = 134;              // ยอดขั้นต่ำ ส.ค.69
+const COL_P09 = 135;              // ยอดขั้นต่ำ ก.ย.69
+const COL_P10 = 136;              // ยอดขั้นต่ำ ต.ค.69
 const COL_COMMITMENT = 102;       // วันที่สิ้นสุดสัญญา
 
 // ระดับชั้นหนี้ (สำหรับเปรียบเทียบ — สูงกว่า = สำคัญกว่า)
@@ -89,17 +97,28 @@ function parseCSV(text) {
     const cif = cols[COL_CIF];
     if (!cif || cif.length < 5) continue; // ข้าม CIF ไม่ถูกต้อง
 
+    // helper: safe parse float without comma
+    const parseAmt = (v) => parseFloat(String(v || '').replace(/,/g, '').trim()) || 0;
+    const yn = (v) => { const s = String(v || '').trim(); return s === 'Y' || s === 'N' ? s : (s === 'Y' ? 'Y' : ''); };
     results.push({
       cif,
       name: cols[COL_NAME] || '',
       contractNo: cols[COL_CONTRACT_NO] || '',
       debtClass: cols[COL_DEBT_CLASS] || '',
-      debtBalance: parseFloat(String(cols[COL_DEBT_BALANCE] || '').replace(/,/g, '')) || 0,
+      debtBalance: parseAmt(cols[COL_DEBT_BALANCE]),
       subsidy: cols[COL_SUBSIDY] || '',
       nextDue: cols[COL_NEXT_DUE] || '',
       reservePct: cols[COL_RESERVE_PCT] || '',
       recognition: cols[COL_RECOGNITION] || '',
       overdue15m: cols[COL_OVERDUE_15M] || '',
+      overdue15mAmt: parseAmt(cols[COL_OVERDUE_15M_AMT]),
+      marketCode: cols[COL_MC] || '',
+      f08: yn(cols[COL_F08]),
+      f09: yn(cols[COL_F09]),
+      f10: yn(cols[COL_F10]),
+      p08: parseAmt(cols[COL_P08]),
+      p09: parseAmt(cols[COL_P09]),
+      p10: parseAmt(cols[COL_P10]),
       commitmentDate: cols[COL_COMMITMENT] || '',
     });
   }
@@ -153,10 +172,10 @@ function groupByCIF(contracts) {
         rec: c.recognition,
         sub: c.subsidy,
         m15: c.overdue15m || 'N',
-        m15_amt: 0,
-        mc: '',
-        f08: '', f09: '', f10: '',
-        p08: 0, p09: 0, p10: 0,
+        m15_amt: c.overdue15mAmt || 0,
+        mc: c.marketCode || '',
+        f08: c.f08 || '', f09: c.f09 || '', f10: c.f10 || '',
+        p08: c.p08 || 0, p09: c.p09 || 0, p10: c.p10 || 0,
       };
     });
 
@@ -179,7 +198,7 @@ function groupByCIF(contracts) {
       num_contracts: items.length,
       max_tier: maxTier,
       earliest_due: earliestDue,
-      is_omsom: false,
+      is_omsom: items.some(c => /3080|2838|2751/.test(c.marketCode || '')),
       contracts,
     });
   }

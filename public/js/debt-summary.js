@@ -5,7 +5,14 @@ const DebtSummary = {
   render() {
     if (!window.DebtDB || !DebtDB._loaded) {
       this._setSub('ข้อมูลหนี้ยังไม่โหลด');
+      if (window.DebtDB && !DebtDB._loaded) DebtDB.load().then(() => this.render());
       return;
+    }
+    // อัพหนี้ใหม่ระหว่างเปิดแอปค้างไว้ → refresh เงียบๆ ถ้า cache เก่าเกิน 2 นาที
+    const staleMs = Date.now() - (DebtDB._loadedAt || 0);
+    if (staleMs > 120000) {
+      DebtDB._loadedAt = Date.now(); // กัน refresh ซ้ำเป็น loop
+      DebtDB.refresh().then((ok) => { if (ok) this.render(); });
     }
     const data = [...DebtDB._byCif.values()];
 

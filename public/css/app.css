@@ -4185,6 +4185,80 @@ html.keyboard-open .pin-search-input-wrap {
   flex-shrink: 0;
 }
 
+/* ===== Custom confirm dialog (แทน window.confirm — iOS Safari บล็อก) ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000; /* เหนือ panel ปักหมุด (10000) และ modal (200) */
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: overlayIn 0.15s ease;
+}
+.confirm-card {
+  background: #fff;
+  border-radius: 16px;
+  width: min(92vw, 360px);
+  padding: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.confirm-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+.confirm-msg {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+.confirm-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.confirm-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.confirm-btn:active { transform: scale(0.96); }
+.confirm-btn.cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+.confirm-btn.ok {
+  background: #16a34a;
+  color: #fff;
+}
+.confirm-btn.ok.danger {
+  background: #dc2626;
+}
+html.keyboard-open .confirm-card {
+  /* ถ้า keyboard ค้างเปิดอยู่ ยก dialog ขึ้นพ้นเหมือน panel */
+  max-height: calc(100vh - var(--kb-h, 0px) - 24px);
+  overflow-y: auto;
+}
+@media (prefers-color-scheme: dark) {
+  .confirm-card { background: #1e1e2e; }
+  .confirm-title { color: #e5e5e5; }
+  .confirm-msg { color: #b0b0c0; }
+  .confirm-btn.cancel { background: #2a2a3e; color: #c0c0d0; }
+  .confirm-btn.ok { background: #16a34a; color: #fff; }
+  .confirm-btn.ok.danger { background: #dc2626; color: #fff; }
+}
+
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   .map-debt-filter { background: rgba(36,38,31,0.97); border-color: #44483d; }

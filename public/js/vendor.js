@@ -168,6 +168,81 @@ const Utils = {
       maximumFractionDigits: 2,
     }).format(amount);
   },
+
+  // ===== iOS/Android keyboard guard =====
+  // element position:fixed; bottom:X อ้างอิง layout viewport เต็มจอ
+  // แต่พอแป้นพิมพ์เปิดบนมือถือ visualViewport หด -> หน้าต่าง/ช่องพิมพ์โดนบัง
+  // แก้: ฟัง visualViewport resize/scroll คำนวณความสูงแป้นพิมพ์ (--kb-h)
+  // + class keyboard-open บน <html> ให้ CSS ยก panel/modal ขึ้นพ้นแป้นพิมพ์
+  initKeyboardGuard() {
+    const vv = window.visualViewport;
+    if (!vv || typeof vv.addEventListener !== 'function') return; // ไม่ support → ข้าม
+    const root = document.documentElement;
+    let raf = null;
+    const update = () => {
+      const kb = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+      root.style.setProperty('--kb-h', kb.toFixed(0) + 'px');
+      root.classList.toggle('keyboard-open', kb > 60);
+    };
+    vv.addEventListener('resize', () => {
+      if (!raf) raf = requestAnimationFrame(() => { raf = null; update(); });
+    });
+    vv.addEventListener('scroll', update);
+    window.addEventListener('focusin', () => setTimeout(update, 350));
+    update();
+  },
+
+  // ===== Custom confirm dialog (iOS Safari confirm() ไม่แสดงตอนแป้นพิมพ์เปิด) =====
+  // รับ: { title, message, confirmText, cancelText, danger } → Promise<boolean>
+  confirmDialog({ title = 'ยืนยัน', message = '', confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', danger = false } = {}) {
+    return new Promise((resolve) => {
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'confirm-overlay';
+      const card = document.createElement('div');
+      card.className = 'confirm-card';
+      const t = document.createElement('div');
+      t.className = 'confirm-title';
+      t.textContent = title;
+      const m = document.createElement('div');
+      m.className = 'confirm-msg';
+      m.style.whiteSpace = 'pre-line';
+      m.textContent = message;
+      const btns = document.createElement('div');
+      btns.className = 'confirm-btns';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'confirm-btn cancel';
+      cancelBtn.textContent = cancelText;
+      const okBtn = document.createElement('button');
+      okBtn.className = 'confirm-btn ok' + (danger ? ' danger' : '');
+      okBtn.textContent = confirmText;
+
+      btns.appendChild(cancelBtn);
+      btns.appendChild(okBtn);
+      card.appendChild(t);
+      card.appendChild(m);
+      card.appendChild(btns);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      setTimeout(() => okBtn.focus(), 50);
+
+      const done = (v) => {
+        overlay.remove();
+        resolve(v);
+      };
+      cancelBtn.addEventListener('click', () => done(false));
+      okBtn.addEventListener('click', () => done(true));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+      document.addEventListener('keydown', function onKey(e) {
+        if (e.key === 'Escape') { document.removeEventListener('keydown', onKey); done(false); }
+        if (e.key === 'Enter') { document.removeEventListener('keydown', onKey); done(true); }
+      });
+    });
+  },
 };
 
 window.Utils = Utils;
@@ -1393,6 +1468,7 @@ const DebtDB = {
       this._byCif = new Map();
       for (const r of data) this._byCif.set(r.cif, r);
       this._loaded = true;
+      this._loadedAt = Date.now();
       console.log(`[DebtDB] Loaded ${data.length} customers` + (res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : ''));
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
@@ -1400,6 +1476,26 @@ const DebtDB = {
     }
     this._loading = false;
     return this._loaded;
+  },
+
+  // re-fetch ข้อมูลล่าสุด (หลังแอดมินอัพหนี้ใหม่ → หน้าสรุปเห็นเลขใหม่
+  // โดยไม่ต้องรีเฟรชหน้า) — ไม่บล็อก ล้มเหลวเงียบ
+  async refresh() {
+    try {
+      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!Array.isArray(data)) return false;
+      this._byCif = new Map();
+      for (const r of data) this._byCif.set(r.cif, r);
+      this._loaded = true;
+      this._loadedAt = Date.now();
+      console.log(`[DebtDB] Refreshed ${data.length} customers (หลังอัพหนี้ใหม่)`);
+      return true;
+    } catch (err) {
+      console.warn('[DebtDB] refresh failed:', err.message);
+      return false;
+    }
   },
 
   // Lookup debt by exact CIF -> record {cif,total_debt,num_contracts,max_tier,earliest_due,contracts[]} | null
@@ -1549,7 +1645,14 @@ const DebtSummary = {
   render() {
     if (!window.DebtDB || !DebtDB._loaded) {
       this._setSub('ข้อมูลหนี้ยังไม่โหลด');
+      if (window.DebtDB && !DebtDB._loaded) DebtDB.load().then(() => this.render());
       return;
+    }
+    // อัพหนี้ใหม่ระหว่างเปิดแอปค้างไว้ → refresh เงียบๆ ถ้า cache เก่าเกิน 2 นาที
+    const staleMs = Date.now() - (DebtDB._loadedAt || 0);
+    if (staleMs > 120000) {
+      DebtDB._loadedAt = Date.now(); // กัน refresh ซ้ำเป็น loop
+      DebtDB.refresh().then((ok) => { if (ok) this.render(); });
     }
     const data = [...DebtDB._byCif.values()];
 

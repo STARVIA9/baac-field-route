@@ -585,7 +585,13 @@ const Customers = {
     if (!c) return Utils.toast('ไม่พบลูกค้า', 'error');
 
     const oldGps = c.lat && c.lng ? `(${Number(c.lat).toFixed(5)}, ${Number(c.lng).toFixed(5)})` : 'ยังไม่มี';
-    if (!confirm(`📍 ปักหมุด "${c.name}"?\n\nพิกัดเดิม: ${oldGps}\nพิกัดใหม่: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)) return;
+    // ใช้ custom dialog — iOS Safari confirm() ไม่แสดงตอนแป้นพิมพ์ค้างเปิด
+    const ok = await Utils.confirmDialog({
+      title: '📍 ปักหมุดลูกค้า',
+      message: `"${c.name}"\n\nพิกัดเดิม: ${oldGps}\nพิกัดใหม่: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      confirmText: 'ปักหมุดเลย',
+    });
+    if (!ok) return;
 
     // ปิด panel ค้นหา
     document.getElementById('pin-search-panel')?.remove();
@@ -2371,6 +2377,8 @@ const App = {
     // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
+    // ยก panel/modal พ้นแป้นพิมพ์มือถือ (iOS keyboard guardian)
+    if (typeof Utils !== 'undefined' && Utils.initKeyboardGuard) Utils.initKeyboardGuard();
     // แจ้งเตือนถ้าเพิ่งกดปุ่มอัปเดตแล้ว reload เสร็จ
     this._notifyUpdateCompleted();
     try {

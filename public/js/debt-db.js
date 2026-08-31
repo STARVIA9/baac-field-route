@@ -19,6 +19,7 @@ const DebtDB = {
       this._byCif = new Map();
       for (const r of data) this._byCif.set(r.cif, r);
       this._loaded = true;
+      this._loadedAt = Date.now();
       console.log(`[DebtDB] Loaded ${data.length} customers` + (res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : ''));
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
@@ -26,6 +27,26 @@ const DebtDB = {
     }
     this._loading = false;
     return this._loaded;
+  },
+
+  // re-fetch ข้อมูลล่าสุด (หลังแอดมินอัพหนี้ใหม่ → หน้าสรุปเห็นเลขใหม่
+  // โดยไม่ต้องรีเฟรชหน้า) — ไม่บล็อก ล้มเหลวเงียบ
+  async refresh() {
+    try {
+      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!Array.isArray(data)) return false;
+      this._byCif = new Map();
+      for (const r of data) this._byCif.set(r.cif, r);
+      this._loaded = true;
+      this._loadedAt = Date.now();
+      console.log(`[DebtDB] Refreshed ${data.length} customers (หลังอัพหนี้ใหม่)`);
+      return true;
+    } catch (err) {
+      console.warn('[DebtDB] refresh failed:', err.message);
+      return false;
+    }
   },
 
   // Lookup debt by exact CIF -> record {cif,total_debt,num_contracts,max_tier,earliest_due,contracts[]} | null
