@@ -168,6 +168,32 @@ const Utils = {
       maximumFractionDigits: 2,
     }).format(amount);
   },
+
+  // ===== iOS/Android keyboard guard =====
+  // ปัญหา: element position:fixed; bottom:X อ้างอิง layout viewport เต็มจอ
+  // แต่พอแป้นพิมพ์เปิดบนมือถือ visualViewport หด -> หน้าต่าง/ช่องพิมพ์โดนบัง
+  // วิธีแก้: ฟัง visualViewport resize/scroll คำนวณความสูงแป้นพิมพ์ (--kb-h)
+  // + ใส่ class keyboard-open บน <html> ให้ CSS ยก panel/modal ขึ้นพ้นแป้นพิมพ์
+  initKeyboardGuard() {
+    const vv = window.visualViewport;
+    if (!vv || typeof vv.addEventListener !== 'function') return; // ไม่ support → ข้าม
+    const root = document.documentElement;
+    let raf = null;
+    const update = () => {
+      // ความสูงแป้นพิมพ์ = layout viewport − visual viewport (bottom-anchored)
+      const kb = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+      root.style.setProperty('--kb-h', kb.toFixed(0) + 'px');
+      root.classList.toggle('keyboard-open', kb > 60);
+    };
+    vv.addEventListener('resize', () => {
+      if (!raf) raf = requestAnimationFrame(() => { raf = null; update(); });
+    });
+    // iOS Safari เลื่อน visualViewport เองตอนแป้นพิมพ์เปิด → ฟัง scroll ด้วย
+    vv.addEventListener('scroll', update);
+    // กัน focus input แล้ว keyboard ขึ้นช้า (delay ~300ms) คำนวณซ้ำรอบหนึ่ง
+    window.addEventListener('focusin', () => setTimeout(update, 350));
+    update();
+  },
 };
 
 window.Utils = Utils;

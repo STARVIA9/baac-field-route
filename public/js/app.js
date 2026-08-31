@@ -27,6 +27,8 @@ const App = {
     // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
+    // ยก panel/modal พ้นแป้นพิมพ์มือถือ (iOS keyboard guardian)
+    if (typeof Utils !== 'undefined' && Utils.initKeyboardGuard) Utils.initKeyboardGuard();
     // แจ้งเตือนถ้าเพิ่งกดปุ่มอัปเดตแล้ว reload เสร็จ
     this._notifyUpdateCompleted();
     try {

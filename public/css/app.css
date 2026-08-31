@@ -4165,6 +4165,26 @@ html {
   font-size: 14px;
 }
 
+/* ===== Keyboard guard (iOS/Android): ยก panel/modal พ้นแป้นพิมพ์ =====
+   JS: Utils.initKeyboardGuard() ตั้ง --kb-h + class keyboard-open บน <html>
+   ใช้ 100vh (layout viewport ไม่หด) ลบ --kb-h — กัน dvh หดเองแล้วซ้อนทบ */
+html.keyboard-open .pin-options-panel {
+  bottom: calc(var(--kb-h, 0px) + 12px);
+  max-height: calc(100vh - var(--kb-h, 0px) - 24px);
+  overflow-y: auto;
+}
+html.keyboard-open .pin-search-results {
+  max-height: 180px; /* ลดจาก 260px ให้ช่องพิมพ์+ผลลัพธ์เห็นพร้อมกันใน panel ที่สั้นลง */
+  -webkit-overflow-scrolling: touch;
+}
+html.keyboard-open .modal-card {
+  max-height: calc(100vh - var(--kb-h, 0px) - 12px);
+}
+/* ช่องพิมพ์เองก็เลื่อนให้เห็นเสมอ (กันผลลัพธ์ยาวดัน input หลุด) */
+html.keyboard-open .pin-search-input-wrap {
+  flex-shrink: 0;
+}
+
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   .map-debt-filter { background: rgba(36,38,31,0.97); border-color: #44483d; }
