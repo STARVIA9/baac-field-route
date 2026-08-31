@@ -26,16 +26,26 @@ const COL_OVERDUE_15M = 65;       // 15เดือน ณ เดือนปั
 const COL_COMMITMENT = 102;       // วันที่สิ้นสุดสัญญา
 
 // ระดับชั้นหนี้ (สำหรับเปรียบเทียบ — สูงกว่า = สำคัญกว่า)
+// รองรับทั้งข้อความไทย ("ปกติ") และรหัสตัวเลข ("1"-"5") จากไฟล์จริง WEEKLY 34
 const DEBT_CLASS_RANK = {
   'ปกติ': 1,
   'กล่าวถึงเป็นพิเศษ': 2,
   'สงสัย': 3,
   'สงสัยจะสูญ': 4,
   'สงสัยจะสูญมาก': 5,
+  '1': 1,
+  '2': 2,
+  '3': 3,
+  '4': 4,
+  '5': 5,
 };
 
 function tierNum(cls) {
-  return DEBT_CLASS_RANK[cls] || 0;
+  const v = String(cls || '').trim();
+  if (DEBT_CLASS_RANK[v] !== undefined) return DEBT_CLASS_RANK[v];
+  // เผื่อ "01", " 1 " หรือ "ชั้น 1"
+  const m = v.match(/[1-5]/);
+  return m ? parseInt(m[0], 10) : 0;
 }
 
 // วัน DD/MM/YYYY → timestamp สำหรับ compare (ช้ากว่า = ค่าเล็กกว่า... กลับด้าน)
@@ -46,7 +56,25 @@ function dueKey(d) {
 
 /**
  * Parse CSV string (TIS-620) → array ของสัญญาทุกใบ (ไม่เลือกสัญญาเดียว)
+ * รองรับฟิลด์ที่มีเครื่องหมายคำพูดและคอมม่าภายใน (เช่น ที่อยู่)
  */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; } // escaped ""
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      out.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map(c => c.trim().replace(/^"|"$/g, '').trim());
+}
 function parseCSV(text) {
   const lines = text.split('\n').filter(line => line.trim());
   if (lines.length < 3) return [];
@@ -55,7 +83,7 @@ function parseCSV(text) {
   const results = [];
 
   for (let i = 2; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const cols = splitCsvLine(lines[i]);
     if (cols.length < 10) continue; // ข้ามแถวที่ไม่สมบูรณ์
 
     const cif = cols[COL_CIF];
@@ -66,7 +94,7 @@ function parseCSV(text) {
       name: cols[COL_NAME] || '',
       contractNo: cols[COL_CONTRACT_NO] || '',
       debtClass: cols[COL_DEBT_CLASS] || '',
-      debtBalance: parseFloat(cols[COL_DEBT_BALANCE]) || 0,
+      debtBalance: parseFloat(String(cols[COL_DEBT_BALANCE] || '').replace(/,/g, '')) || 0,
       subsidy: cols[COL_SUBSIDY] || '',
       nextDue: cols[COL_NEXT_DUE] || '',
       reservePct: cols[COL_RESERVE_PCT] || '',
