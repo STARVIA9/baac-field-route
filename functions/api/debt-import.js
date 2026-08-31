@@ -276,23 +276,37 @@ export async function onRequestPost(context) {
     // ⚠️ ปลอดภัย: ล้างเฉพาะ CIF ที่ระบบสร้างจากไฟล์หนี้ (created_by='Debt-Import')
     // — CIF เหล่านี้เกิดจากไฟล์ Customer Indicator ล้วน ถ้าไม่อยู่ในไฟล์ใหม่ = ไม่มีหนี้จริง
     // ลูกค้าจริง (AutoImport/GPS/Admin) ไม่โดนล้าง — คงข้อมูลเดิม (เผื่อไฟล์ย่อย/ไม่ครบ)
+    // Fix too many SQL variables: แทนการใช้ NOT IN (?) กับ cifList ทั้งก้อน (เกิน 999 vars)
+    // → query หา CIF Debt-Import ที่มีอยู่ แล้ว diff ใน JS แล้ว clear เป็น batch 100
     if (cifList.length > 0) {
-      const placeholders = cifList.map(() => '?').join(',');
-      statements.push(
-        env.BFR_DB.prepare(
-          `UPDATE customers SET
-            debt_class = '',
-            debt_balance = 0,
-            reserve_pct = '',
-            recognition = '',
-            overdue_15m = '',
-            next_due = '',
-            subsidy = '',
-            commitment_date = '',
-            debt_updated_at = ?
-          WHERE deleted = 0 AND created_by = 'Debt-Import' AND cif NOT IN (${placeholders})`
-        ).bind(now, ...cifList)
-      );
+      try {
+        const cifSet = new Set(cifList);
+        const existingDebtRows = await env.BFR_DB.prepare(
+          `SELECT cif FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
+        ).all();
+        const toClear = (existingDebtRows.results || []).map(r => r.cif).filter(cif => !cifSet.has(cif));
+        for (let i = 0; i < toClear.length; i += 100) {
+          const chunk = toClear.slice(i, i + 100);
+          const ph = chunk.map(() => '?').join(',');
+          statements.push(
+            env.BFR_DB.prepare(
+              `UPDATE customers SET
+                debt_class = '',
+                debt_balance = 0,
+                reserve_pct = '',
+                recognition = '',
+                overdue_15m = '',
+                next_due = '',
+                subsidy = '',
+                commitment_date = '',
+                debt_updated_at = ?
+              WHERE cif IN (${ph})`
+            ).bind(now, ...chunk)
+          );
+        }
+      } catch (e) {
+        console.warn('clear stale debt skip:', e.message);
+      }
     }
 
     // Execute batch (D1 batch API — batch ละ 100 statements)
