@@ -197,12 +197,13 @@ export async function onRequestPost(context) {
     const now = new Date().toISOString();
 
     // ดึง CIF ที่มีอยู่ในตาราง customers (แบ่ง batch 100 CIF ต่อครั้ง)
+    // ต้องเช็คทุก CIF รวมที่ถูกลบ (deleted=1) ด้วย — ไม่งั้น INSERT จะชน UNIQUE (PK) กับ CIF ในถังขยะ
     const existingCIFs = new Set();
     for (let i = 0; i < cifList.length; i += BATCH_SIZE) {
       const batch = cifList.slice(i, i + BATCH_SIZE);
       const placeholders = batch.map(() => '?').join(',');
       const rows = await env.BFR_DB.prepare(
-        `SELECT cif FROM customers WHERE cif IN (${placeholders}) AND deleted = 0`
+        `SELECT cif FROM customers WHERE cif IN (${placeholders})`
       ).bind(...batch).all();
       (rows.results || []).forEach(r => existingCIFs.add(r.cif));
     }
@@ -227,7 +228,7 @@ export async function onRequestPost(context) {
               subsidy = ?,
               commitment_date = ?,
               debt_updated_at = ?
-            WHERE cif = ? AND deleted = 0`
+            WHERE cif = ?`
           ).bind(
             s.debtClass,
             s.debtBalance,
