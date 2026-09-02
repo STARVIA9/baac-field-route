@@ -108,6 +108,7 @@ export async function onRequestPost(context) {
   await env.BFR_KV.put('meta:lastwrite', serverTime);
 
   const d1Count = await d1CountCustomers(env);
+  const gpsCount = await d1GpsCount(env);
 
   return json({
     success: true,
@@ -118,6 +119,7 @@ export async function onRequestPost(context) {
     visitsUpdated,
     counts: {
       customers: d1Count,
+      gps: gpsCount,
       visits: Object.keys(mergedVisits).length,
       savedRoutes: mergedRoutes.length,
     },
@@ -145,6 +147,7 @@ export async function onRequestGet(context) {
   // Customers come from D1 (single source of truth).
   let customers = [];
   let allCustomersCount = 0;
+  let gpsCount = 0;
   let effectiveServerTime = lastWrite || new Date().toISOString();
   if (env.BFR_DB) {
     if (since) {
@@ -160,6 +163,7 @@ export async function onRequestGet(context) {
     }
     const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
     allCustomersCount = countRes?.n || 0;
+    gpsCount = await d1GpsCount(env);
     // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
     // use this as `since` cursor, so no change is ever skipped between polls
     const maxRes = await env.BFR_DB.prepare(
@@ -180,6 +184,7 @@ export async function onRequestGet(context) {
     savedRoutes,
     counts: {
       customers: allCustomersCount,
+      gps: gpsCount,
       visits: Object.keys(visits).length,
       savedRoutes: savedRoutes.length,
     },
@@ -220,6 +225,16 @@ function esc(v) {
 async function d1CountCustomers(env) {
   if (!env.BFR_DB) return 0;
   const res = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+  return res?.n || 0;
+}
+
+// Count customers that have GPS coords in D1 (server-authoritative for the
+// "📍 มีพิกัดแล้ว N ราย" summary — every device reads the same number)
+async function d1GpsCount(env) {
+  if (!env.BFR_DB) return 0;
+  const res = await env.BFR_DB.prepare(
+    'SELECT COUNT(*) n FROM customers WHERE deleted=0 AND lat IS NOT NULL AND lng IS NOT NULL'
+  ).first();
   return res?.n || 0;
 }
 
