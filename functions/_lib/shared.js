@@ -30,6 +30,35 @@ export function esc(v) {
   return "'" + String(v).replace(/'/g, "''") + "'";
 }
 
+// ===== D1 ETAG GATE helpers (ลด rows_read — D1 free quota 5M rows/day) =====
+// หลัก: ทุก write ลงตาราง customers ต้องเรียก touchCustomers(env) → เขียน KV
+// meta:customers-updated = ตอนเขียน. GET /api/sync ใช้ตัวนี้เทียบกับ since ของ client:
+//   since >= customers-updated → ไม่มีข้อมูลใหม่ → ใช้ cached counts (0 D1 query!)
+// เขียนแค่ KV (ถูก, เร็ว) — ทำให้ poll ที่ไม่มีข้อมูลเปลี่ยน = 0 rows_read
+
+const CUSTOMERS_UPDATED_KEY = 'meta:customers-updated';
+const DB_MAX_UPDATED_KEY = 'meta:db-max-updated';
+const COUNTS_KEY = 'meta:counts-d1';
+
+// เรียกทุกครั้งที่ customers ใน D1 เปลี่ยน (insert/update/delete/import)
+export async function touchCustomers(env) {
+  if (!env?.BFR_KV) return;
+  try {
+    await env.BFR_KV.put(CUSTOMERS_UPDATED_KEY, new Date().toISOString());
+  } catch (e) { console.warn('touchCustomers failed:', e.message); }
+}
+
+// เรียกทุกครั้งที่ GET query D1 จริง → refresh etag gate data (MAX updated_at + counts)
+export async function refreshCustomerCache(env, { maxUpdated, customersCount, gpsCount }) {
+  if (!env?.BFR_KV) return;
+  try {
+    if (maxUpdated) await env.BFR_KV.put(DB_MAX_UPDATED_KEY, maxUpdated);
+    await env.BFR_KV.put(COUNTS_KEY, JSON.stringify({ customers: customersCount, gps: gpsCount }));
+  } catch (e) { console.warn('refreshCustomerCache failed:', e.message); }
+}
+
+export { CUSTOMERS_UPDATED_KEY, DB_MAX_UPDATED_KEY, COUNTS_KEY };
+
 // Map D1 row → frontend customer shape (null-safe lat/lng)
 export function rowToCustomer(r) {
   return {

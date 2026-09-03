@@ -1097,7 +1097,7 @@ const Storage = {
 
   // ===== Polling — fire every 3s to detect remote changes =====
   _pollingTimer: null,
-  startPolling(intervalMs = 15000) {
+  startPolling(intervalMs = 60000) {
     this.stopPolling();
     const tick = async () => {
       try {

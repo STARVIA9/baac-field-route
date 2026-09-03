@@ -4,6 +4,7 @@
 // Returns: full state of all data
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { touchCustomers } from '../_lib/shared.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -102,6 +103,8 @@ export async function onRequestPost(context) {
 
   // Sync incoming customers into D1 (single source of truth)
   const customersSynced = await syncCustomersToD1(env, body.customers || []);
+  // Bump etag gate: มี write จริง → client poll ถัดไปจะ query D1 (เห็นข้อมูลใหม่)
+  if (customersSynced > 0) await touchCustomers(env);
 
   // Update last-write timestamp (used for polling/etag)
   const serverTime = new Date().toISOString();
@@ -144,33 +147,72 @@ export async function onRequestGet(context) {
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
 
-  // Customers come from D1 (single source of truth).
+  // ===== D1 ETAG GATE (ลด rows_read — D1 quota 5M rows/day) =====
+  // ทุก write ลง customers ตั้ง updated_at = now เสมอ (verified ทุก endpoint)
+  // → SELECT MAX(updated_at) ถูก index (idx_c_updated) = 1 row/poll ถูกมาก
+  // ถ้า MAX ไม่เปลี่ยนจาก cache = ไม่มีข้อมูลใหม่ = ข้าม COUNT/gps/delta query เลย
+  // (เขียนใหม่ผ่าน KV touch ใช้ไม่ได้ครบทุกจุด — MAX check ครอบคลุม 100%)
   let customers = [];
   let allCustomersCount = 0;
   let gpsCount = 0;
   let effectiveServerTime = lastWrite || new Date().toISOString();
+
+  let d1Hit = false;  // true = query D1 เต็ม (มีข้อมูลใหม่ หรือ cache เก่า)
+
   if (env.BFR_DB) {
-    if (since) {
-      // Incremental: customers modified after this time
-      const sinceTime = new Date(since).getTime();
-      if (!isNaN(sinceTime)) {
+    const sinceTime = since ? new Date(since).getTime() : 0;
+    const cachedMax = await env.BFR_KV.get('meta:db-max-updated');
+    const cachedCounts = await env.BFR_KV.get('meta:counts-d1');
+    const cacheWritten = await env.BFR_KV.get('meta:db-cache-written');
+    const cachedMaxTime = cachedMax ? new Date(cachedMax).getTime() : 0;
+    // cacheFresh คิดจากเวลาที่ cache ถูกเขียน (ไม่ใช่ MAX ซึ่งอาจเก่าหลายชม.)
+    const cacheAgeMs = cacheWritten ? Date.now() - new Date(cacheWritten).getTime() : Infinity;
+    // counts/MAX cache ใช้ได้ 6 ชม. — miss เกิดจาก MAX เปลี่ยนจริงเท่านั้น (มี write)
+    // → ต่อ poll = 1 rows_read (MAX) เกือบตลอด; ต่อวัน ต่อเครื่องมี miss เต็มแค่ ~4 ครั้ง
+    const cacheFresh = cacheAgeMs < 6 * 60 * 60 * 1000;
+
+    // ที่สุด: SELECT MAX(updated_at) — ใช้ index idx_c_updated → rows_read = 1
+    const maxRes = await env.BFR_DB.prepare(
+      'SELECT MAX(updated_at) m FROM customers'
+    ).first();
+    const maxTime = maxRes?.m ? new Date(maxRes.m).getTime() : 0;
+
+    // ETAG HIT: MAX เท่าเดิม + counts cache ยังสด → ไม่มีข้อมูลใหม่ → 0 query เพิ่ม
+    const etagHit = maxTime > 0 && cachedMaxTime > 0 && maxTime === cachedMaxTime && cacheFresh;
+
+    if (etagHit && cachedCounts) {
+      // ✅ HIT — ใช้ cached counts, ไม่ query delta/count เลย (total rows_read = 1/poll!)
+      try {
+        const counts = JSON.parse(cachedCounts);
+        allCustomersCount = counts.customers || 0;
+        gpsCount = counts.gps || 0;
+        d1Hit = false;
+      } catch (e) { d1Hit = true; }
+    } else {
+      // ETAG MISS — มีข้อมูลใหม่ หรือ cache เก่า → query เต็ม + refresh cache
+      d1Hit = true;
+      if (sinceTime > 0 && !isNaN(sinceTime) && maxTime > sinceTime) {
         const sinceIso = new Date(sinceTime).toISOString();
         const { results } = await env.BFR_DB.prepare(
           `SELECT * FROM customers WHERE updated_at > ?1 AND deleted=0 ORDER BY updated_at ASC`
         ).bind(sinceIso).all();
         customers = (results || []).map(d1ToCustomer);
       }
-    }
-    const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
-    allCustomersCount = countRes?.n || 0;
-    gpsCount = await d1GpsCount(env);
-    // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
-    // use this as `since` cursor, so no change is ever skipped between polls
-    const maxRes = await env.BFR_DB.prepare(
-      'SELECT MAX(updated_at) m FROM customers'
-    ).first();
-    if (maxRes?.m && (!lastWrite || maxRes.m > lastWrite)) {
-      effectiveServerTime = maxRes.m;
+      const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+      allCustomersCount = countRes?.n || 0;
+      gpsCount = await d1GpsCount(env);
+      // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
+      // use this as `since` cursor, so no change is ever skipped between polls
+      if (maxRes?.m && (!lastWrite || maxRes.m > lastWrite)) {
+        effectiveServerTime = maxRes.m;
+      }
+      // Refresh KV caches (MAX + counts สำหรับ etag hit ครั้งถัดไป)
+      try {
+        const nowIso = new Date().toISOString();
+        await env.BFR_KV.put('meta:db-max-updated', maxRes?.m || effectiveServerTime);
+        await env.BFR_KV.put('meta:db-cache-written', nowIso);
+        await env.BFR_KV.put('meta:counts-d1', JSON.stringify({ customers: allCustomersCount, gps: gpsCount }));
+      } catch (e) { console.warn('etag cache put failed', e.message); }
     }
   }
 
@@ -188,6 +230,7 @@ export async function onRequestGet(context) {
       visits: Object.keys(visits).length,
       savedRoutes: savedRoutes.length,
     },
+    _d1: d1Hit ? 'query' : 'cache',  // debug: ดูว่า poll นี้ query D1 หรือใช้ cache
   });
 }
 

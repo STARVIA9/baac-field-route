@@ -184,7 +184,8 @@ const Admin = {
 
   startPolling() {
     if (this.pollingTimer) clearInterval(this.pollingTimer);
-    this.pollingTimer = setInterval(() => this.loadAll(), 5000);
+    // poll 60s (เดิม 5s) — 5s เผา D1 rows_read (COUNT 3,949 + debtMonths 6,673 ต่อ poll)
+    this.pollingTimer = setInterval(() => this.loadAll(), 60000);
   },
 
   updateSyncBadge(status) {

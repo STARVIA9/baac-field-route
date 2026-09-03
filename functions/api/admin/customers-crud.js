@@ -65,7 +65,7 @@ function rowToCustomer(r) {
   };
 }
 
-async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit = 5000, offset = 0 } = {}) {
+async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit = 5000, offset = 0, totalOverride = null } = {}) {
   if (!env.BFR_DB) return { customers: [], total: 0 };
   const conditions = [];
   const params = [];
@@ -121,9 +121,14 @@ async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter,
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-  // Count total
-  const countRes = await env.BFR_DB.prepare(`SELECT COUNT(*) n FROM customers ${where}`).bind(...params).first();
-  const total = countRes?.n || 0;
+  // Count total — ข้ามได้ถ้า etag gate ให้ cached total (ไม่มี filter = total คงที่)
+  let total;
+  if (totalOverride != null && !includeDeleted && !q && !hasGps && !riskFilter && (!debtClass || debtClass === 'all') && (!debt15m || debt15m === 'all') && (!hasDebt || hasDebt === 'all') && (!debtMonth || debtMonth === 'all')) {
+    total = totalOverride;
+  } else {
+    const countRes = await env.BFR_DB.prepare(`SELECT COUNT(*) n FROM customers ${where}`).bind(...params).first();
+    total = countRes?.n || 0;
+  }
 
   // Fetch page
   params.push(limit, offset);
@@ -195,21 +200,65 @@ export async function onRequestGet(context) {
   const debtMonth = url.searchParams.get('debtMonth') || 'all';
 
   const offset = (page - 1) * perPage;
+
+  // ===== D1 ETAG GATE (ลด rows_read — quota 5M rows/day) =====
+  // เหมือน /api/sync: MAX(updated_at) ใช้ index → 1 rows_read/ตรวจ
+  // ถ้า MAX เท่าเดิม + cache สด → ข้าม COUNT (3,949) + debtMonths (6,673) ได้
+  // page SELECT ใช้ index name → แค่ 50 rows — รวม poll ปกติ = ~51 rows!
+  const hasNoFilter = !includeDeleted && !q && !hasGps && !riskFilter &&
+    (!debtClass || debtClass === 'all') && (!debt15m || debt15m === 'all') &&
+    (!hasDebt || hasDebt === 'all') && (!debtMonth || debtMonth === 'all');
+  let totalOverride = null;
+  let debtMonths = [];
+  let d1EtagHit = false;
+
+  try {
+    const cachedMax = await env.BFR_KV.get('meta:db-max-updated');
+    const cachedCounts = await env.BFR_KV.get('meta:counts-d1');
+    const cacheWritten = await env.BFR_KV.get('meta:db-cache-written');
+    const cachedMaxTime = cachedMax ? new Date(cachedMax).getTime() : 0;
+    // cacheFresh คิดจากเวลาที่ cache ถูกเขียน (ไม่ใช่ MAX ซึ่งอาจเก่าหลายชม.)
+    const cacheAgeMs = cacheWritten ? Date.now() - new Date(cacheWritten).getTime() : Infinity;
+    const cacheFresh = cacheAgeMs < 6 * 60 * 60 * 1000;
+    const cachedDebtMonths = await env.BFR_KV.get('meta:debt-months');
+    const cachedDebtMonthsTime = await env.BFR_KV.get('meta:debt-months-updated');
+
+    const maxRes = await env.BFR_DB.prepare('SELECT MAX(updated_at) m FROM customers').first();
+    const maxTime = maxRes?.m ? new Date(maxRes.m).getTime() : 0;
+
+    const etagHit = hasNoFilter && maxTime > 0 && cachedMaxTime > 0 &&
+      maxTime === cachedMaxTime && cacheFresh && cachedCounts &&
+      cachedDebtMonths && cachedDebtMonthsTime &&
+      (Date.now() - new Date(cachedDebtMonthsTime).getTime()) < 6 * 60 * 60 * 1000;
+
+    if (etagHit) {
+      // ✅ ETAG HIT — total + debtMonths จาก cache, query แค่ page (50 rows)
+      const counts = JSON.parse(cachedCounts);
+      totalOverride = counts.customers || 0;
+      debtMonths = JSON.parse(cachedDebtMonths);
+      d1EtagHit = true;
+    } else {
+      // ETAG MISS — query COUNT + debtMonths จริง + refresh cache
+      const mRes = await env.BFR_DB.prepare(
+        `SELECT DISTINCT substr(next_due, 4, 7) m FROM customers WHERE deleted = 0 AND next_due != '' AND next_due IS NOT NULL ORDER BY m DESC`
+      ).all();
+      debtMonths.push(...(mRes.results || []).map(r => r.m).filter(Boolean));
+      try {
+        await env.BFR_KV.put('meta:db-max-updated', maxRes?.m || new Date().toISOString());
+        await env.BFR_KV.put('meta:db-cache-written', new Date().toISOString());
+        await env.BFR_KV.put('meta:debt-months', JSON.stringify(debtMonths));
+        await env.BFR_KV.put('meta:debt-months-updated', new Date().toISOString());
+      } catch (e) { console.warn('crud cache put failed:', e.message); }
+    }
+  } catch (e) { console.warn('crud etag gate failed (fallback full query):', e.message); }
+
   const { customers, total } = await getAll(env, {
     includeDeleted, q, hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit: perPage, offset,
+    totalOverride: d1EtagHit ? totalOverride : null,
   });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(page, totalPages);
-
-  // เดือนครบกำหนดจาก D1 (ตรงกับ filter debtMonth) — substr('30/09/2026',4,7) = '09/2026'
-  const debtMonths = [];
-  try {
-    const mRes = await env.BFR_DB.prepare(
-      `SELECT DISTINCT substr(next_due, 4, 7) m FROM customers WHERE deleted = 0 AND next_due != '' AND next_due IS NOT NULL ORDER BY m DESC`
-    ).all();
-    debtMonths.push(...(mRes.results || []).map(r => r.m).filter(Boolean));
-  } catch (e) { console.warn('debtMonths failed:', e.message); }
 
   const allTags = [];
   const recycle = includeRecycle ? await getRecycle(env) : [];
@@ -224,6 +273,7 @@ export async function onRequestGet(context) {
     recycle,
     allTags,
     debtMonths,
+    _d1: d1EtagHit ? 'cache' : 'query',
   });
 }
 
@@ -443,6 +493,11 @@ export async function onRequestDelete(context) {
     await env.BFR_DB.prepare('DELETE FROM customers WHERE cif=?1').bind(cif).run();
     await log(env, auth.user, 'purge', { id, cif, name: res.name });
     if (res.lat != null && res.lng != null) await bumpOverlay(env);
+    // Purge (hard delete) ไม่เปลี่ยน MAX(updated_at) → clear etag cache กัน counts ค้าง
+    try {
+      await env.BFR_KV.delete('meta:db-max-updated');
+      await env.BFR_KV.delete('meta:counts-d1');
+    } catch (e) { console.warn('purge cache clear failed:', e.message); }
     return json({ success: true, purged: id });
   }
 

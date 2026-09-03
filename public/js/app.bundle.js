@@ -2663,7 +2663,7 @@ const App = {
 
     // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
     this._wireSyncEvents();
-    Storage.startPolling(15000);
+    Storage.startPolling(60000);  // 60s (เดิม 15s) — กัน D1 rows_read เกิน quota 5M/วัน
   },
 
   // Listen for sync events to update UI badge

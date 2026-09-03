@@ -274,7 +274,8 @@ export async function onRequestPost(context) {
               next_due = ?,
               subsidy = ?,
               commitment_date = ?,
-              debt_updated_at = ?
+              debt_updated_at = ?,
+              updated_at = ?
             WHERE cif = ?`
           ).bind(
             s.debtClass,
@@ -285,6 +286,7 @@ export async function onRequestPost(context) {
             s.nextDue,
             s.subsidy,
             s.commitmentDate,
+            now,
             now,
             cif
           )
@@ -346,9 +348,10 @@ export async function onRequestPost(context) {
                 next_due = '',
                 subsidy = '',
                 commitment_date = '',
-                debt_updated_at = ?
+                debt_updated_at = ?,
+                updated_at = ?
               WHERE cif IN (${ph})`
-            ).bind(now, ...chunk)
+            ).bind(now, now, ...chunk)
           );
         }
       } catch (e) {

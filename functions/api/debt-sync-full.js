@@ -83,7 +83,8 @@ export async function onRequestPost(context) {
             overdue_15m = ?,
             next_due = ?,
             subsidy = ?,
-            debt_updated_at = ?
+            debt_updated_at = ?,
+            updated_at = ?
           WHERE cif = ? AND deleted = 0`
         ).bind(
           String(r.max_tier ?? ''),
@@ -93,6 +94,7 @@ export async function onRequestPost(context) {
           m15Val,
           r.earliest_due || '',
           subsidy,
+          now,
           now,
           cif
         )
