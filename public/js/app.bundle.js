@@ -2624,6 +2624,8 @@ const App = {
 
     // Init floating map search bar (Google Maps-style)
     if (typeof MapSearch !== 'undefined') MapSearch.init();
+    // Q-FILTER 8ก.ย.69: แผงตัวกรองพับได้ (default พับเหลือแค่ค้นหา)
+    if (typeof FilterPanel !== 'undefined') FilterPanel.init();
 
     // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
     if (Storage.getCustomers().length === 0) {
@@ -2961,6 +2963,10 @@ const App = {
     if (!sheet) return;
     ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
     if (state && state !== 'default') sheet.classList.add('sheet-' + state);
+    // Q-FILTER 8ก.ย.69: แถบล่างสำคัญ (half/full) → พับแผงบนอัตโนมัติ กันบังจอเล็ก
+    if ((state === 'half' || state === 'full') && typeof FilterPanel !== 'undefined' && FilterPanel.collapse) {
+      FilterPanel.collapse();
+    }
     // Q2 FIX: ไม่ซ่อน FAB — CSS ยกตำแหน่งขึ้นตามความสูง sheet (body:has selector)
     
     // Haptic feedback on state change (if supported)
@@ -4591,6 +4597,85 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {}
   });
 })();
+
+// ===== Collapsible debt-filter panel (8 ก.ย.69) =====
+// default พับเหลือแค่แถบค้นหา — กางเมื่อคลิก ▼, พับเมื่อคลิก ▲ หรือเมื่อแถบล่างขึ้นมา (half/full)
+const FilterPanel = {
+  _panel: null,
+  _toggle: null,
+
+  init() {
+    this._panel = document.getElementById('map-debt-filter');
+    this._toggle = document.getElementById('mdf-toggle');
+    if (!this._panel || !this._toggle) return;
+    // default: พับ (HTML มี mdf-collapsed อยู่แล้ว — กันกรณี cache เก่าไม่มี class)
+    if (!this._panel.classList.contains('mdf-collapsed') && !this._hasActiveFilter()) {
+      this._panel.classList.add('mdf-collapsed');
+    }
+    this._syncToggle();
+    this._toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggle();
+    });
+    // เปลี่ยนฟิลเตอร์ → อัพเดทสีปุ่ม (บอกว่ามีตัวกรอง active)
+    this._panel.querySelectorAll('select').forEach(sel => {
+      sel.addEventListener('change', () => this._syncToggle());
+    });
+    const resetBtn = document.getElementById('debt-filter-reset');
+    if (resetBtn) resetBtn.addEventListener('click', () => setTimeout(() => this._syncToggle(), 0));
+  },
+
+  isCollapsed() {
+    return this._panel ? this._panel.classList.contains('mdf-collapsed') : true;
+  },
+
+  expand() {
+    if (!this._panel) return;
+    this._panel.classList.remove('mdf-collapsed');
+    this._syncToggle();
+    // แผงบนสำคัญ → หุบแถบล่างลงเหลือ peek กันทับซ้อน
+    if (typeof App !== 'undefined' && App.setSheetState) {
+      const sheet = document.getElementById('bottom-sheet');
+      if (sheet && (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) {
+        App.setSheetState('peek');
+      }
+    }
+  },
+
+  collapse() {
+    if (!this._panel) return;
+    if (!this.isCollapsed()) {
+      this._panel.classList.add('mdf-collapsed');
+      this._syncToggle();
+      // ซ่อนผลค้นหาที่ค้าง กันลอยทับแผนที่
+      const r = document.getElementById('msb-results');
+      if (r) r.classList.add('hidden');
+    } else {
+      this._syncToggle();
+    }
+  },
+
+  toggle() {
+    if (this.isCollapsed()) this.expand();
+    else this.collapse();
+  },
+
+  _hasActiveFilter() {
+    const ids = ['debt-month-filter', 'debt-tier-filter', 'map-zone-filter', 'debt-omsom-filter', 'debt-15m-filter'];
+    return ids.some(id => {
+      const el = document.getElementById(id);
+      return el && el.value !== '';
+    });
+  },
+
+  _syncToggle() {
+    if (!this._toggle) return;
+    const collapsed = this.isCollapsed();
+    this._toggle.textContent = collapsed ? '▼' : '▲';
+    this._toggle.setAttribute('aria-expanded', String(!collapsed));
+    this._toggle.classList.toggle('has-active', this._hasActiveFilter());
+  },
+};
 
 // ===== Floating Map Search Bar (Google Maps-style) =====
 // ค้นหาลูกค้าบนแผนที่ด้วยชื่อ/CIF/เบอร์ — flyTo + open popup

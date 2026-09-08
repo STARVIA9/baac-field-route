@@ -1,6 +1,6 @@
 {
-  "version": "20260903.000200",
-  "lastUpdate": "2026-09-03",
-  "changelog": "🐛 fix cacheFresh: วัดจากเวลาที่ cache ถูกเขียน (meta:db-cache-written) แทน MAX(updated_at) ที่เก่า 22ชม. — etag gate ทำงานจริงแล้ว",
-  "updatedAt": "2026-09-03T07:50:00.000Z"
+  "version": "20260908.000201",
+  "lastUpdate": "2026-09-08",
+  "changelog": "✨ แผงตัวกรองพับได้: default เหลือแค่แถบค้นหา (ปุ่ม ▼/▲) — คลิกแถบล่างพับแผงบน / กางแผงบนหุบแถบล่างเหลือ peek กันบังจอเล็ก",
+  "updatedAt": "2026-09-08T04:00:00.000Z"
 }

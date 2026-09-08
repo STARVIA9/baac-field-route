@@ -4319,6 +4319,30 @@ html.keyboard-open .confirm-card {
   line-height: 1;
 }
 .mdf-search-clear:hover { color: var(--text); }
+/* Collapse toggle (▼/▲) — always visible in search row */
+.mdf-toggle {
+  background: #eef4ee;
+  border: 1px solid #d4dad4;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1;
+  color: #243024;
+  cursor: pointer;
+  padding: 6px 8px;
+  flex-shrink: 0;
+  font-family: inherit;
+  min-width: 32px;
+  min-height: 32px;
+}
+.mdf-toggle:hover { background: #e2ece2; }
+.mdf-toggle.has-active {
+  background: #0a8f3c;
+  border-color: #0a8f3c;
+  color: #fff;
+}
+/* Collapsed state (default): show only search row + results — hide filter rows */
+.map-debt-filter.mdf-collapsed .mdf-row { display: none; }
+.map-debt-filter.mdf-collapsed .mdf-search-row { border-bottom: none; margin-bottom: 0; }
 
 /* Results dropdown (inside filter panel) */
 .msb-results {
