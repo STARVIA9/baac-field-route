@@ -394,6 +394,10 @@ const Customers = {
         }
       }
     }
+    const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+    const gpsStatus = hasGps
+      ? `<div class="popup-addr" style="font-size:11px;">📍 มีพิกัดแล้ว</div>`
+      : `<div class="popup-addr" style="font-size:11px;">⚪ ยังไม่มีพิกัด</div>`;
     return `
       <div class="popup-name">${this.escapeHTML(c.name)}</div>
       ${c.cif ? `<div class="popup-addr" style="font-size:11px;">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
@@ -401,12 +405,33 @@ const Customers = {
       ${debtHTML}
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
       ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
+      ${gpsStatus}
       <div class="popup-actions">
-        <button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>
+        ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">📍 เก็บพิกัดตรงนี้</button>`}
         <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
         <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️</button>
       </div>
     `;
+  },
+
+  // 📍 เซฟพิกัดด่วนในหน้าเดียวกับดูข้อมูล — กดปุ๊บเก็บพิกัดมือถือทันที ไม่ต้องเปิดฟอร์มแก้ไข
+  saveQuickGps(id) {
+    const c = Storage.getCustomers().find(x => x.id === id);
+    if (!c) return;
+    if (!navigator.geolocation) {
+      Utils.toast('เครื่องนี้ไม่รองรับ GPS', 'error');
+      return;
+    }
+    Utils.toast('📍 กำลังจับพิกัด...', 'info');
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = Number(pos.coords.latitude.toFixed(6));
+      const lng = Number(pos.coords.longitude.toFixed(6));
+      const r = await Storage.updateCustomer(id, { lat, lng });
+      Customers.renderAll();
+      Utils.toast(r && r.synced ? `📍 เซฟพิกัด ${c.name} แล้ว` : `📍 เซฟพิกัดแล้ว (รอเน็ตส่งขึ้นเว็บ)`, r && r.synced ? 'success' : 'warn');
+    }, () => {
+      Utils.toast('จับพิกัดไม่สำเร็จ — เปิด GPS แล้วลองใหม่', 'error');
+    }, { enableHighAccuracy: true, timeout: 15000 });
   },
 
   // Navigate to customer (Google Maps)
@@ -801,7 +826,7 @@ const Customers = {
       Utils.toast('เอาออกจากเส้นทาง');
     } else {
       if (!Storage.addToRoute(id)) {
-        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
         return;
       }
       Utils.toast('เพิ่มในเส้นทางวันนี้ ✓');

@@ -316,6 +316,48 @@ const App = {
     // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
     this._wireSyncEvents();
     Storage.startPolling(60000);  // 60s (เดิม 15s) — กัน D1 rows_read เกิน quota 5M/วัน
+
+    // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
+    this.showStartModePopup();
+  },
+
+  // ===== ป๊อบอัพ "วันนี้ทำอะไร" — โผล่หลัง login (ข้ามได้ถ้าเคยติ๊กจำไว้) =====
+  showStartModePopup() {
+    try {
+      if (localStorage.getItem('bfr_start_mode_skip') === '1') return;
+      if (document.getElementById('start-mode-overlay')) return;
+    } catch { return; }
+    const overlay = document.createElement('div');
+    overlay.id = 'start-mode-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 18px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <div style="font-size:17px;font-weight:700;margin-bottom:4px;">วันนี้ทำอะไร?</div>
+        <div style="font-size:12px;color:#666;margin-bottom:14px;">เลือกแล้วเว็บพาไปหน้านั้นเลย</div>
+        <button data-mode="gps" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#f1f8f1;font-size:15px;cursor:pointer;">📍 ดูลูกค้า / เก็บพิกัด</button>
+        <button data-mode="route" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#eef4ff;font-size:15px;cursor:pointer;">🧭 ออกพื้นที่</button>
+        <button data-mode="summary" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff8ec;font-size:15px;cursor:pointer;">📊 ดูสรุป</button>
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:12px;color:#666;cursor:pointer;">
+          <input type="checkbox" id="start-mode-remember" style="width:16px;height:16px;"> จำไว้ ไม่ถามอีก
+        </label>
+      </div>`;
+    const close = (mode) => {
+      try {
+        if (overlay.querySelector('#start-mode-remember')?.checked && mode) {
+          localStorage.setItem('bfr_start_mode_skip', '1');
+          localStorage.setItem('bfr_start_mode', mode);
+        }
+      } catch {}
+      overlay.remove();
+      if (mode === 'gps') this.switchTab('customers');
+      else if (mode === 'route') this.switchTab('map');
+      else if (mode === 'summary') this.switchSheetTab('debtsummary');
+    };
+    overlay.querySelectorAll('button[data-mode]').forEach(b => {
+      b.addEventListener('click', () => close(b.dataset.mode));
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   },
 
   // Listen for sync events to update UI badge

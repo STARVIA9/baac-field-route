@@ -68,15 +68,20 @@ const Route = {
 
     resultsEl.innerHTML = matches.map(c => {
       const isSelected = route.includes(c.id);
-      const disabled = isSelected ? 'disabled' : '';
+      const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+      const gpsBadge = hasGps ? '📍' : '⚪';
+      const noGps = !hasGps && !isSelected;
+      const disabled = (isSelected || noGps) ? 'disabled' : '';
+      const btnTitle = isSelected ? 'เลือกแล้ว' : (hasGps ? 'เพิ่ม' : 'ยังไม่มีพิกัด — กด 📍 เก็บก่อน');
+      const btnStyle = noGps ? ' style="opacity:0.35;cursor:not-allowed"' : '';
       return `
         <div class="route-search-result-item">
           <div class="route-search-result-info">
-            <div class="route-search-result-name">${this.escapeHTML(c.name)}</div>
-            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}</div>
+            <div class="route-search-result-name">${gpsBadge} ${this.escapeHTML(c.name)}</div>
+            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}${hasGps ? '' : ' · ยังไม่มีพิกัด'}</div>
           </div>
           <span class="route-search-result-cif">${this.escapeHTML(c.cif || '-')}</span>
-          <button class="route-search-result-add" ${disabled} onclick="Route.toggle('${c.id}')" title="${isSelected ? 'เลือกแล้ว' : 'เพิ่ม'}">
+          <button class="route-search-result-add" ${disabled}${btnStyle} onclick="Route.toggle('${c.id}')" title="${btnTitle}">
             ${isSelected ? '✓' : '+'}
           </button>
         </div>
@@ -97,7 +102,7 @@ const Route = {
         return;
       }
       if (!Storage.addToRoute(id)) {
-        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
         return;
       }
     }

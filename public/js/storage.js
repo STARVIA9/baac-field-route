@@ -297,7 +297,9 @@ const Storage = {
     const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
     const suffix = (user && user.username) ? '_' + user.username : '';
     localStorage.setItem(this.KEY_ROUTE + suffix, JSON.stringify(list));
-    await this.push();
+    // กด + รัวๆ ไม่หน่วง: เซฟลงเครื่องทันที + ส่งขึ้นเว็บรวมรอบเดียวหลังหยุดกด 2.5 วิ
+    clearTimeout(this._routePushTimer);
+    this._routePushTimer = setTimeout(() => { this.push().catch(() => {}); }, 2500);
   },
 
   addToRoute(customerId) {
@@ -359,6 +361,7 @@ const Storage = {
   _pushInFlight: null,
   _pullInFlight: null,
   _listeners: [],
+  _routePushTimer: null,
 
   // Push local changes to cloud (after every save)
   // Coalescing queue: if push is in-flight, mark dirty and re-push after it finishes.

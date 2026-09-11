@@ -394,6 +394,10 @@ const Customers = {
         }
       }
     }
+    const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+    const gpsStatus = hasGps
+      ? `<div class="popup-addr" style="font-size:11px;">📍 มีพิกัดแล้ว</div>`
+      : `<div class="popup-addr" style="font-size:11px;">⚪ ยังไม่มีพิกัด</div>`;
     return `
       <div class="popup-name">${this.escapeHTML(c.name)}</div>
       ${c.cif ? `<div class="popup-addr" style="font-size:11px;">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
@@ -401,12 +405,33 @@ const Customers = {
       ${debtHTML}
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
       ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
+      ${gpsStatus}
       <div class="popup-actions">
-        <button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>
+        ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">📍 เก็บพิกัดตรงนี้</button>`}
         <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
         <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️</button>
       </div>
     `;
+  },
+
+  // 📍 เซฟพิกัดด่วนในหน้าเดียวกับดูข้อมูล — กดปุ๊บเก็บพิกัดมือถือทันที ไม่ต้องเปิดฟอร์มแก้ไข
+  saveQuickGps(id) {
+    const c = Storage.getCustomers().find(x => x.id === id);
+    if (!c) return;
+    if (!navigator.geolocation) {
+      Utils.toast('เครื่องนี้ไม่รองรับ GPS', 'error');
+      return;
+    }
+    Utils.toast('📍 กำลังจับพิกัด...', 'info');
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = Number(pos.coords.latitude.toFixed(6));
+      const lng = Number(pos.coords.longitude.toFixed(6));
+      const r = await Storage.updateCustomer(id, { lat, lng });
+      Customers.renderAll();
+      Utils.toast(r && r.synced ? `📍 เซฟพิกัด ${c.name} แล้ว` : `📍 เซฟพิกัดแล้ว (รอเน็ตส่งขึ้นเว็บ)`, r && r.synced ? 'success' : 'warn');
+    }, () => {
+      Utils.toast('จับพิกัดไม่สำเร็จ — เปิด GPS แล้วลองใหม่', 'error');
+    }, { enableHighAccuracy: true, timeout: 15000 });
   },
 
   // Navigate to customer (Google Maps)
@@ -801,7 +826,7 @@ const Customers = {
       Utils.toast('เอาออกจากเส้นทาง');
     } else {
       if (!Storage.addToRoute(id)) {
-        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
         return;
       }
       Utils.toast('เพิ่มในเส้นทางวันนี้ ✓');
@@ -1149,15 +1174,20 @@ const Route = {
 
     resultsEl.innerHTML = matches.map(c => {
       const isSelected = route.includes(c.id);
-      const disabled = isSelected ? 'disabled' : '';
+      const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+      const gpsBadge = hasGps ? '📍' : '⚪';
+      const noGps = !hasGps && !isSelected;
+      const disabled = (isSelected || noGps) ? 'disabled' : '';
+      const btnTitle = isSelected ? 'เลือกแล้ว' : (hasGps ? 'เพิ่ม' : 'ยังไม่มีพิกัด — กด 📍 เก็บก่อน');
+      const btnStyle = noGps ? ' style="opacity:0.35;cursor:not-allowed"' : '';
       return `
         <div class="route-search-result-item">
           <div class="route-search-result-info">
-            <div class="route-search-result-name">${this.escapeHTML(c.name)}</div>
-            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}</div>
+            <div class="route-search-result-name">${gpsBadge} ${this.escapeHTML(c.name)}</div>
+            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}${hasGps ? '' : ' · ยังไม่มีพิกัด'}</div>
           </div>
           <span class="route-search-result-cif">${this.escapeHTML(c.cif || '-')}</span>
-          <button class="route-search-result-add" ${disabled} onclick="Route.toggle('${c.id}')" title="${isSelected ? 'เลือกแล้ว' : 'เพิ่ม'}">
+          <button class="route-search-result-add" ${disabled}${btnStyle} onclick="Route.toggle('${c.id}')" title="${btnTitle}">
             ${isSelected ? '✓' : '+'}
           </button>
         </div>
@@ -1178,7 +1208,7 @@ const Route = {
         return;
       }
       if (!Storage.addToRoute(id)) {
-        Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด — เพิ่มพิกัดก่อนจึงจะวางเส้นทางได้', 'error');
+        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
         return;
       }
     }
@@ -2666,6 +2696,48 @@ const App = {
     // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
     this._wireSyncEvents();
     Storage.startPolling(60000);  // 60s (เดิม 15s) — กัน D1 rows_read เกิน quota 5M/วัน
+
+    // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
+    this.showStartModePopup();
+  },
+
+  // ===== ป๊อบอัพ "วันนี้ทำอะไร" — โผล่หลัง login (ข้ามได้ถ้าเคยติ๊กจำไว้) =====
+  showStartModePopup() {
+    try {
+      if (localStorage.getItem('bfr_start_mode_skip') === '1') return;
+      if (document.getElementById('start-mode-overlay')) return;
+    } catch { return; }
+    const overlay = document.createElement('div');
+    overlay.id = 'start-mode-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 18px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <div style="font-size:17px;font-weight:700;margin-bottom:4px;">วันนี้ทำอะไร?</div>
+        <div style="font-size:12px;color:#666;margin-bottom:14px;">เลือกแล้วเว็บพาไปหน้านั้นเลย</div>
+        <button data-mode="gps" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#f1f8f1;font-size:15px;cursor:pointer;">📍 ดูลูกค้า / เก็บพิกัด</button>
+        <button data-mode="route" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#eef4ff;font-size:15px;cursor:pointer;">🧭 ออกพื้นที่</button>
+        <button data-mode="summary" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff8ec;font-size:15px;cursor:pointer;">📊 ดูสรุป</button>
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:12px;color:#666;cursor:pointer;">
+          <input type="checkbox" id="start-mode-remember" style="width:16px;height:16px;"> จำไว้ ไม่ถามอีก
+        </label>
+      </div>`;
+    const close = (mode) => {
+      try {
+        if (overlay.querySelector('#start-mode-remember')?.checked && mode) {
+          localStorage.setItem('bfr_start_mode_skip', '1');
+          localStorage.setItem('bfr_start_mode', mode);
+        }
+      } catch {}
+      overlay.remove();
+      if (mode === 'gps') this.switchTab('customers');
+      else if (mode === 'route') this.switchTab('map');
+      else if (mode === 'summary') this.switchSheetTab('debtsummary');
+    };
+    overlay.querySelectorAll('button[data-mode]').forEach(b => {
+      b.addEventListener('click', () => close(b.dataset.mode));
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   },
 
   // Listen for sync events to update UI badge
