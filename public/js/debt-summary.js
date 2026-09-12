@@ -119,6 +119,21 @@ const DebtSummary = {
     }
 
     // ===== แยกตามเขต: ถึงกำหนด + 15 เดือน (บล็อก action รวม ดูง่ายแถวเดียวต่อเขต) =====
+    // ตัวเลือกเดือนถึงกำหนด: เดือนปัจจุบัน → มี.ค.70 + ทั้งปีบัญชี (default)
+    const dueSel = document.getElementById('debt-duemonth-filter');
+    if (dueSel) {
+      const _now = new Date(), _keys = [];
+      let _y = _now.getFullYear(), _m = _now.getMonth() + 1;
+      while (_y * 100 + _m <= 202703) {
+        _keys.push(String(_m).padStart(2, '0') + '/' + _y);
+        if (++_m > 12) { _m = 1; _y++; }
+      }
+      const _cur = self.selMonth || 'ALL';
+      dueSel.innerHTML = `<option value="ALL">ทั้งปีบัญชี</option>` +
+        _keys.map(k => `<option value="${k}"${k === _cur ? ' selected' : ''}>${DebtDB.fmtDate('01/' + k)}</option>`).join('');
+      dueSel.onchange = () => { self.selMonth = dueSel.value; self.render(); };
+    }
+    const dueLabel = (self.selMonth && self.selMonth !== 'ALL') ? DebtDB.fmtDate('01/' + self.selMonth) : 'ปีนี้';
     const zdBlock = document.getElementById('debt-zonedue-block');
     if (zdBlock) {
       if (!window.CustomerDB || !CustomerDB._loaded) {
@@ -139,16 +154,19 @@ const DebtSummary = {
           const k = DebtDB.dueMonthKey(r.earliest_due);
           if (k) {
             const kv = yk(k);
-            if (kv >= FYS && kv <= FYE) {
+            // เลือกเดือนเดียว → เอาเฉพาะเดือนนั้น, ทั้งปีบัญชี → ช่วง มิ.ย.69-มี.ค.70
+            const inScope = (self.selMonth && self.selMonth !== 'ALL') ? (k === self.selMonth) : (kv >= FYS && kv <= FYE);
+            if (inScope) {
               zfy[z] = (zfy[z] || 0) + 1;
               zfyD[z] = (zfyD[z] || 0) + (+r.total_debt || 0);
             }
           }
-          let amt = 0;
-          for (const c of (r.contracts || [])) amt += (+c.m15_amt || 0);
-          if (amt > 0) {
+          // 15 เดือน: นับหนี้รวมทั้งก้อนของ CIF (ไม่ใช้ยอดขั้นต่ำ) — มีสัญญาใด m15_amt>0 = ต้องไปตาม
+          let inM15 = false;
+          for (const c of (r.contracts || [])) { if ((+c.m15_amt || 0) > 0) { inM15 = true; break; } }
+          if (inM15) {
             zm[z] = (zm[z] || 0) + 1;
-            zmA[z] = (zmA[z] || 0) + amt;
+            zmA[z] = (zmA[z] || 0) + (+r.total_debt || 0);
           }
         }
         const zdOrder = ['1', '2', '3', '4', '5'];
@@ -167,9 +185,9 @@ const DebtSummary = {
         const totM = zdKeys.reduce((s, k) => s + gv(zm, k), 0);
         const totMA = zdKeys.reduce((s, k) => s + gv(zmA, k), 0);
         zdBlock.innerHTML = `
-          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ ${totM.toLocaleString('th-TH')} ราย · ${fmt(totMA)} บาท</span></div>` +
+          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ 15เดือน ${totM.toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(totMA)} บาท</span></div>` +
           zdKeys.map(z => `
-          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ ${gv(zm, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zmA, z))} บาท</span></div>
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ 15เดือน ${gv(zm, z).toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(gv(zmA, z))} บาท</span></div>
         `).join('');
       }
     }
