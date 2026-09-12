@@ -807,8 +807,17 @@ const App = {
   // Open add customer modal
   openAddCustomerModal() {
     document.getElementById('add-customer-modal').classList.remove('hidden');
-    document.getElementById('add-customer-form').dataset.editId = '';
-    document.getElementById('add-customer-form').reset();
+    document.getElementById('add-modal-title').textContent = '➕ เพิ่มลูกค้าใหม่';
+    const form = document.getElementById('add-customer-form');
+    // จำพิกัดไว้ก่อน reset (กันทับพิกัดที่จิ้มมาจากแผนที่หลัก)
+    const latKeep = document.getElementById('new-lat').value;
+    const lngKeep = document.getElementById('new-lng').value;
+    form.dataset.editId = '';
+    form.reset();
+    if (latKeep && lngKeep) {
+      document.getElementById('new-lat').value = latKeep;
+      document.getElementById('new-lng').value = lngKeep;
+    }
     this._resetPhotoPreview();
     // Reset DB search
     const dbInput = document.getElementById('db-search-input');
@@ -817,8 +826,14 @@ const App = {
     if (dbInput) dbInput.value = '';
     if (dbResults) { dbResults.innerHTML = ''; dbResults.classList.remove('active'); }
     if (dbInfo) { dbInfo.innerHTML = ''; dbInfo.classList.remove('active'); }
+    this._renderAddGpsDisplay();
     // Init mini-map after modal visible
-    setTimeout(() => this.initMiniMap(), 100);
+    if (latKeep && lngKeep) {
+      const la = parseFloat(latKeep), ln = parseFloat(lngKeep);
+      setTimeout(() => this.initMiniMap(isNaN(la) ? undefined : la, isNaN(ln) ? undefined : ln), 100);
+    } else {
+      setTimeout(() => this.initMiniMap(), 100);
+    }
   },
 
   // ===== Photo upload (capture/file → resize → base64) =====
@@ -840,6 +855,9 @@ const App = {
     }
     if (dataInput) dataInput.value = dataUrl;
     if (removeBtn) removeBtn.classList.remove('hidden');
+    // เปิดกล่องรูปให้เห็นรูปที่เลือก
+    const details = document.querySelector('#add-customer-modal .photo-details');
+    if (details) details.open = true;
   },
 
   // Resize image to max 800px, JPEG quality 0.7 → base64 dataURL
@@ -1025,6 +1043,7 @@ const App = {
       if (rec.lat && rec.lng) {
         document.getElementById('new-lat').value = rec.lat;
         document.getElementById('new-lng').value = rec.lng;
+        this._renderAddGpsDisplay();
         // Update mini-map with the location
         setTimeout(() => this.initMiniMap(rec.lat, rec.lng), 150);
       }
@@ -1201,6 +1220,7 @@ const App = {
   setMiniMapLocation(lat, lng) {
     document.getElementById('new-lat').value = lat.toFixed(6);
     document.getElementById('new-lng').value = lng.toFixed(6);
+    this._renderAddGpsDisplay();
     if (this._miniMarker) {
       this._miniMarker.setLatLng([lat, lng]);
     } else {
@@ -1214,6 +1234,19 @@ const App = {
       }).addTo(this._miniMap);
     }
     this._miniMap.panTo([lat, lng]);
+  },
+
+  // Render GPS status strip in add-customer modal (hidden lat/lng → readable)
+  _renderAddGpsDisplay() {
+    const el = document.getElementById('add-gps-display');
+    if (!el) return;
+    const lat = document.getElementById('new-lat')?.value;
+    const lng = document.getElementById('new-lng')?.value;
+    if (lat && lng) {
+      el.innerHTML = `<div class="gps-captured"><span class="gps-coord">📍 ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span></div>`;
+    } else {
+      el.innerHTML = '<span class="gps-empty">ยังไม่ได้เลือก — จิ้มแผนที่หรือกดปุ่ม GPS</span>';
+    }
   },
 
   // Pick location on main map (close modal temporarily)
@@ -1252,6 +1285,7 @@ const App = {
         this.initMiniMap(lat, lng);
       } else {
         this.initMiniMap();
+        this._renderAddGpsDisplay();
       }
     }, 100);
   },
@@ -1317,6 +1351,7 @@ const App = {
           window._lastGPS = { lat, lng };
           document.getElementById('new-lat').value = lat.toFixed(6);
           document.getElementById('new-lng').value = lng.toFixed(6);
+          this._renderAddGpsDisplay();
           Utils.toast('📍 ใช้ตำแหน่งปัจจุบันแล้ว');
         },
         (err) => {

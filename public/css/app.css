@@ -2556,6 +2556,88 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   color: var(--text-secondary);
 }
 
+/* ===== Add-customer modal (step sections + GPS row + photo) ===== */
+#add-customer-form .db-search-container {
+  margin-bottom: 0;
+}
+
+#add-customer-form .form-row-2 {
+  margin-bottom: 12px;
+}
+
+#add-customer-form .form-row-2:last-child {
+  margin-bottom: 0;
+}
+
+#add-customer-modal .modal-header h3 {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+#add-customer-form .form-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  padding: 12px 20px 16px;
+}
+
+#add-customer-form .form-actions .btn-secondary {
+  flex: 1;
+}
+
+.gps-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gps-btn-row .btn-secondary {
+  width: 100%;
+  font-size: 13px;
+  padding: 10px 6px;
+}
+
+.photo-details {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.photo-details summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.photo-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.photo-details summary::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.photo-details[open] summary::before {
+  content: '▼';
+}
+
+.photo-details .photo-upload {
+  padding: 0 12px 12px;
+}
+
+.photo-details .photo-preview {
+  aspect-ratio: auto;
+  min-height: 96px;
+}
+
 /* ===== Empty States ===== */
 .empty-state {
   text-align: center;

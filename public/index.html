@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260912e" as="style">
-  <link rel="preload" href="js/app.js?v=20260912e" as="script">
+  <link rel="preload" href="css/app.css?v=20260912f" as="style">
+  <link rel="preload" href="js/app.js?v=20260912f" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20260912e">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20260912e"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20260912f">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260912f"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -663,11 +663,12 @@
   <div class="modal hidden" id="add-customer-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>➕ เพิ่มลูกค้าใหม่</h3>
+        <h3 id="add-modal-title">➕ เพิ่มลูกค้าใหม่</h3>
         <button class="btn-close" id="close-add-modal">×</button>
       </div>
       <form id="add-customer-form">
-        <!-- DB Search: auto-fill from imported customer data -->
+        <div class="visit-sections">
+        <!-- ค้นจากฐานข้อมูลก่อน (ถ้ามี จะกรอกให้เอง) -->
         <div class="db-search-container">
           <label>🔍 ค้นหาจากฐานข้อมูลลูกค้า (CIF / ชื่อ / เลขบัตร)</label>
           <div class="db-search-row">
@@ -676,48 +677,37 @@
           <div class="db-search-results" id="db-search-results"></div>
           <div class="db-filled-info" id="db-filled-info"></div>
         </div>
-        <div class="form-row">
-          <label>รหัสลูกค้า (CIF) *</label>
-          <input type="text" name="cif" required pattern="[0-9]{6,20}" placeholder="เช่น 1234567890123" inputmode="numeric">
-        </div>
-        <div class="form-row">
-          <label>เบอร์โทรศัพท์</label>
-          <input type="tel" name="phone" placeholder="0812345678">
-        </div>
-        <div class="form-row">
-          <label>ที่อยู่</label>
-          <textarea name="address" rows="2" placeholder="เลขที่ หมู่ ตำบล อำเภอ จังหวัด"></textarea>
-        </div>
-        <div class="form-row">
-          <label>📍 ตำแหน่งบนแผนที่ * <span class="label-hint">(จิ้ม/คลิกที่แผนที่ด้านล่าง)</span></label>
-          <div class="mini-map-container">
-            <div id="mini-map"></div>
-            <div class="mini-map-hint">👆 จิ้มที่แผนที่เพื่อเลือกตำแหน่ง</div>
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">1</span><div><label>ข้อมูลลูกค้า</label><p class="step-hint">กรอกชื่อก่อน ที่เหลือค้นจากฐานข้อมูลด้านบนได้</p></div></div>
+          <div class="form-row-2">
+            <div>
+              <label>ชื่อ-นามสกุล *</label>
+              <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
+            </div>
+            <div>
+              <label>ชื่อเล่น <span class="label-hint">(ไม่บังคับ)</span></label>
+              <input type="text" name="nickname" placeholder="เช่น ชาย, เจ, ตั้ม">
+            </div>
           </div>
-        </div>
-        <div class="form-row form-row-2">
-          <div>
-            <label>Latitude</label>
-            <input type="text" name="lat" id="new-lat" inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+          <div class="form-row-2">
+            <div>
+              <label>รหัสลูกค้า (CIF) *</label>
+              <input type="text" name="cif" required pattern="[0-9]{6,20}" placeholder="เช่น 1234567890123" inputmode="numeric">
+            </div>
+            <div>
+              <label>เบอร์โทรศัพท์</label>
+              <input type="tel" name="phone" placeholder="0812345678">
+            </div>
           </div>
           <div>
-            <label>Longitude</label>
-            <input type="text" name="lng" id="new-lng" inputmode="decimal" placeholder="คลิกแผนที่ →" readonly style="background:#f0f0f0">
+            <label>ที่อยู่</label>
+            <textarea name="address" rows="2" placeholder="เลขที่ หมู่ ตำบล อำเภอ จังหวัด"></textarea>
           </div>
         </div>
-        <div class="form-row form-row-2">
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">2</span><div><label>เรื่องหนี้</label><p class="step-hint">เลือกระดับความเสี่ยง + จดโน้ตสั้น ๆ (ประเภทหนี้อยู่ในการ์ดสัญญาแล้ว)</p></div></div>
           <div>
-            <label>ชื่อ-นามสกุล *</label>
-            <input type="text" name="name" required placeholder="เช่น นายสมชาย ใจดี">
-          </div>
-          <div>
-            <label>ชื่อเล่น <span class="label-hint">(ไม่บังคับ)</span></label>
-            <input type="text" name="nickname" placeholder="เช่น ชาย, เจ, ตั้ม">
-          </div>
-        </div>
-        <div class="form-row form-row-2">
-          <div>
-            <label>🎯 ระดับความเสี่ยง (หนี้)</label>
+            <label>🎯 ระดับความเสี่ยง</label>
             <select name="riskLevel">
               <option value="unclassified">❓ ยังไม่จัดระดับ</option>
               <option value="good">🟢 ดี · ติดตามง่าย</option>
@@ -726,32 +716,51 @@
             </select>
           </div>
           <div>
-            <label>💰 ประเภทหนี้</label>
-            <select name="debtType">
-              <option value="">— ไม่ระบุ —</option>
-              <option value="current">📅 หนี้ถึงกำหนด (ยังไม่เกิน)</option>
-              <option value="overdue">⚠️ หนี้ค้าง (เลยกำหนด)</option>
-            </select>
+            <label>📝 หมายเหตุเรื่องหนี้</label>
+            <textarea name="debtNote" rows="2" placeholder="เช่น ค้าง 2 งวด รับปากจ่าย 5,000 วันที่ 20 ก.ย."></textarea>
           </div>
         </div>
-        <div class="form-row">
-          <label>📷 รูปถ่าย <span class="label-hint">(ไม่บังคับ · ใช้ช่วยจำลูกค้า)</span></label>
-          <div class="photo-upload">
-            <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
-            <div class="photo-preview" id="photo-preview" onclick="document.getElementById('photo-input').click()">
-              <div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>
-            </div>
-            <div class="photo-actions">
-              <button type="button" class="btn-secondary" onclick="document.getElementById('photo-input').click()">📷 ถ่ายรูป/เลือกไฟล์</button>
-              <button type="button" class="btn-secondary hidden" id="btn-remove-photo" onclick="App.removePhoto()">🗑️ ลบรูป</button>
-            </div>
-            <input type="hidden" name="photo" id="photo-data">
-            <small class="photo-size-hint">รูปจะถูกย่ออัตโนมัติ (สูงสุด 800px) เพื่อ sync เร็ว</small>
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">3</span><div><label>📍 พิกัด</label><p class="step-hint">จิ้มแผนที่ หรือกดปุ่ม GPS อย่างใดอย่างหนึ่ง</p></div></div>
+          <div class="mini-map-container">
+            <div id="mini-map"></div>
+            <div class="mini-map-hint">👆 จิ้มที่แผนที่เพื่อเลือกตำแหน่ง</div>
           </div>
+          <div class="gps-capture">
+            <div class="gps-btn-row">
+              <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ GPS ปัจจุบัน</button>
+              <button type="button" class="btn-secondary" id="btn-pick-on-main-map">🗺️ เลือกบนแผนที่หลัก</button>
+            </div>
+            <div class="gps-status-table">
+              <span class="gps-status-label">สถานะ</span>
+              <div class="gps-display" id="add-gps-display">
+                <span class="gps-empty">ยังไม่ได้เลือก — จิ้มแผนที่หรือกดปุ่ม GPS</span>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="lat" id="new-lat">
+          <input type="hidden" name="lng" id="new-lng">
         </div>
+        <div class="form-row visit-section">
+          <details class="photo-details">
+            <summary>📷 รูปถ่าย <span class="label-hint">(ไม่บังคับ · ใช้ช่วยจำลูกค้า)</span></summary>
+            <div class="photo-upload">
+              <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
+              <div class="photo-preview" id="photo-preview" onclick="document.getElementById('photo-input').click()">
+                <div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>
+              </div>
+              <div class="photo-actions">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('photo-input').click()">📷 ถ่ายรูป/เลือกไฟล์</button>
+                <button type="button" class="btn-secondary hidden" id="btn-remove-photo" onclick="App.removePhoto()">🗑️ ลบรูป</button>
+              </div>
+              <input type="hidden" name="photo" id="photo-data">
+              <small class="photo-size-hint">รูปจะถูกย่ออัตโนมัติ (สูงสุด 800px) เพื่อ sync เร็ว</small>
+            </div>
+          </details>
+        </div>
+        </div><!-- /visit-sections -->
         <div class="form-actions">
-          <button type="button" class="btn-secondary" id="btn-use-gps">📍 ใช้ GPS ปัจจุบัน</button>
-          <button type="button" class="btn-secondary" id="btn-pick-on-main-map">🗺️ ไปเลือกบนแผนที่หลัก</button>
+          <button type="button" class="btn-secondary" onclick="App.closeAddCustomerModal()">ยกเลิก</button>
           <button type="submit" class="btn-primary">💾 บันทึก</button>
         </div>
       </form>
@@ -1279,8 +1288,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20260912e"></script>
-  <script src="js/app.bundle.js?v=20260912e"></script>
+  <script src="js/vendor.js?v=20260912f"></script>
+  <script src="js/app.bundle.js?v=20260912f"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

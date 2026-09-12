@@ -445,6 +445,7 @@ const Customers = {
     if (!c) return;
     // Open modal FIRST (it clears form + reset editId)
     App.openAddCustomerModal();
+    document.getElementById('add-modal-title').textContent = `✏️ แก้ไขลูกค้า: ${c.name || ''}`;
     // Then set editId AFTER, so the modal reset doesn't wipe it
     const form = document.getElementById('add-customer-form');
     form.dataset.editId = id;
@@ -455,9 +456,10 @@ const Customers = {
     form.elements.address.value = c.address || '';
     form.elements.lat.value = c.lat || '';
     form.elements.lng.value = c.lng || '';
-    // Phase 4: pre-fill risk + debt dropdowns
+    App._renderAddGpsDisplay();
+    // Phase 4: pre-fill risk + debt note
     form.elements.riskLevel.value = c.riskLevel || 'unclassified';
-    form.elements.debtType.value = c.debtType || '';
+    if ('debtNote' in form.elements) form.elements.debtNote.value = c.debtNote || '';
     // Phase 2: pre-fill photo
     if (c.photo) {
       App._showPhotoPreview(c.photo);
