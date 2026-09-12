@@ -14,6 +14,7 @@
 
 // คอลัมน์ Customer Indicator (0-indexed) — อิง build_debt_data.py (ต้นฉบับถูกต้อง)
 const COL_CIF = 7;
+const COL_ZONE = 4;              // เขต (1-5/9807/76003/99999) — sync ลง customers.zone ทุกครั้งที่อัพหนี้
 const COL_NAME = 5;
 const COL_CONTRACT_NO = 22;       // เลขสัญญา
 const COL_DEBT_BALANCE = 24;      // หนี้คงเหลือ
@@ -103,6 +104,7 @@ function parseCSV(text) {
     results.push({
       cif,
       name: cols[COL_NAME] || '',
+      zone: (cols[COL_ZONE] || '').trim(),
       contractNo: cols[COL_CONTRACT_NO] || '',
       debtClass: cols[COL_DEBT_CLASS] || '',
       debtBalance: parseAmt(cols[COL_DEBT_BALANCE]),
@@ -182,6 +184,7 @@ function groupByCIF(contracts) {
     summaries[cif] = {
       cif,
       name: items[0].name || '',
+      zone: items.reduce((z, c) => z || (c.zone || ''), ''),
       debtClass: maxTier ? String(maxTier) : '',
       debtBalance: totalDebt,
       reservePct: reserve,
@@ -267,6 +270,7 @@ export async function onRequestPost(context) {
           env.BFR_DB.prepare(
             `UPDATE customers SET
               debt_class = ?,
+              zone = ?,
               debt_balance = ?,
               reserve_pct = ?,
               recognition = ?,
@@ -279,6 +283,7 @@ export async function onRequestPost(context) {
             WHERE cif = ?`
           ).bind(
             s.debtClass,
+            s.zone || '',
             s.debtBalance,
             s.reservePct,
             s.recognition,
@@ -297,13 +302,14 @@ export async function onRequestPost(context) {
         statements.push(
           env.BFR_DB.prepare(
             `INSERT INTO customers (
-              cif, name, debt_class, debt_balance, reserve_pct,
+              cif, name, zone, debt_class, debt_balance, reserve_pct,
               recognition, overdue_15m, next_due, subsidy, commitment_date,
               debt_updated_at, risk_level, deleted, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
           ).bind(
             cif,
             (s.name || '').trim(),
+            (s.zone || '').trim(),
             s.debtClass,
             s.debtBalance,
             s.reservePct,
@@ -385,6 +391,7 @@ export async function onRequestPost(context) {
       unique_cifs: cifList.length,
       updated,
       added,
+      zones_synced: cifList.filter(c => summaries[c] && summaries[c].zone).length,
       debt_rows: debtRows.length,
       kv_written: kvWritten,
       debt_updated_at: now,
