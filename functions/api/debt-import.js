@@ -15,6 +15,7 @@
 // คอลัมน์ Customer Indicator (0-indexed) — อิง build_debt_data.py (ต้นฉบับถูกต้อง)
 const COL_CIF = 7;
 const COL_ZONE = 4;              // เขต (1-5/9807/76003/99999) — sync ลง customers.zone ทุกครั้งที่อัพหนี้
+const COL_GB = 117;              // โครงการนำร่อง: GOOD BANK / BAD BANK (ตัวจริงตามไฟล์ ห้ามเดาจากชั้นหนี้)
 const COL_NAME = 5;
 const COL_CONTRACT_NO = 22;       // เลขสัญญา
 const COL_DEBT_BALANCE = 24;      // หนี้คงเหลือ
@@ -101,6 +102,13 @@ function birth15(fmy, now15, moRaw) {
   const t = (fmy.m - 1) + (15 - mo);   // เดือนค้าง mo → อีก (15-mo) เดือนครบ
   return String((t % 12) + 1).padStart(2, '0') + '/' + (fmy.y + Math.floor(t / 12));
 }
+// GOOD/BAD BANK จากช่องโครงการนำร่อง (ตัวจริงตามไฟล์)
+function gbFlag(v) {
+  const s = String(v || '').trim().toUpperCase();
+  if (s === 'BAD BANK') return 'BAD';
+  if (s === 'GOOD BANK') return 'GOOD';
+  return '';
+}
 function parseCSV(text) {
   const lines = text.split('\n').filter(line => line.trim());
   if (lines.length < 3) return { rows: [], fileMY: null };
@@ -124,6 +132,7 @@ function parseCSV(text) {
       name: cols[COL_NAME] || '',
       zone: (cols[COL_ZONE] || '').trim(),
       b15: birth15(fileMY, cols[COL_15M_NOW] === 'Y', cols[COL_MONTHS_OVERDUE]),
+      gb: gbFlag(cols[COL_GB]),
       contractNo: cols[COL_CONTRACT_NO] || '',
       debtClass: cols[COL_DEBT_CLASS] || '',
       debtBalance: parseAmt(cols[COL_DEBT_BALANCE]),
@@ -205,6 +214,7 @@ function groupByCIF(contracts) {
       cif,
       name: items[0].name || '',
       zone: items.reduce((z, c) => z || (c.zone || ''), ''),
+      gb: items.reduce((z, c) => z || (c.gb || ''), ''),
       debtClass: maxTier ? String(maxTier) : '',
       debtBalance: totalDebt,
       reservePct: reserve,
@@ -218,6 +228,7 @@ function groupByCIF(contracts) {
     debtRows.push({
       cif,
       total_debt: totalDebt,
+      gb: (summaries[cif] && summaries[cif].gb) || '',
       num_contracts: items.length,
       max_tier: maxTier,
       earliest_due: earliestDue,
