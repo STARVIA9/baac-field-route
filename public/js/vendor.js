@@ -1726,6 +1726,41 @@ const DebtSummary = {
       `).join('');
     }
 
+    // ===== แยกตามเขต (zone 1-5 จากฐานลูกค้า ผูกกับหนี้ผ่าน CIF) =====
+    const zoneBlock = document.getElementById('debt-zone-block');
+    if (zoneBlock) {
+      if (!window.CustomerDB || !CustomerDB._loaded) {
+        zoneBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
+        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
+      } else {
+        const zoneCount = {};
+        const zoneDebt = {};
+        const zoneOrder = ['1', '2', '3', '4', '5'];
+        for (const r of data) {
+          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+          let z = cust && cust.zone ? String(cust.zone).trim() : '';
+          if (!z) z = 'ไม่ระบุ';   // CIF ไม่มีในฐานลูกค้า หรือ zone ว่าง
+          zoneCount[z] = (zoneCount[z] || 0) + 1;
+          zoneDebt[z] = (zoneDebt[z] || 0) + (+r.total_debt || 0);
+        }
+        // เรียง: เขต 1-5 ก่อน แล้วรหัสพิเศษ (9807/76003/...) แล้วไม่ระบุเขตท้ายสุด
+        const zoneKeys = Object.keys(zoneCount).sort((a, b) => {
+          const ia = zoneOrder.indexOf(a), ib = zoneOrder.indexOf(b);
+          if (ia >= 0 && ib >= 0) return ia - ib;
+          if (ia >= 0) return -1;
+          if (ib >= 0) return 1;
+          if (a === 'ไม่ระบุ') return 1;
+          if (b === 'ไม่ระบุ') return -1;
+          return a.localeCompare(b);
+        });
+        const zoneTotal = zoneKeys.reduce((s, k) => s + zoneCount[k], 0) || 1;
+        zoneBlock.innerHTML = zoneKeys.map(z => `
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">${zoneCount[z].toLocaleString('th-TH')} ราย · ${fmt(zoneDebt[z])} บาท</span></div>
+          <div class="ds-bar"><div class="ds-bar-fill" style="width:${(zoneCount[z] / zoneTotal * 100) || 0}%;background:#0f766e"></div></div>
+        `).join('');
+      }
+    }
+
     // ===== หนี้ถึงกำหนดรายเดือน (ปีบัญชีปัจจุบัน: มิ.ย.69 -> มี.ค.70) =====
     const monthBlock = document.getElementById('debt-month-block');
     if (monthBlock) {
