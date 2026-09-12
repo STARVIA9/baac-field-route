@@ -74,7 +74,13 @@ const DebtSummary = {
         if (tierCount[t] !== undefined) { tierCount[t]++; tierDebt[t] += (+r.total_debt || 0); }
       }
       const labels = { 1: 'ชั้น 1', 2: 'ชั้น 2', 3: 'ชั้น 3', 4: 'ชั้น 4', 5: 'ชั้น 5' };
-      tierBlock.innerHTML = Object.keys(tierCount).map(t => `
+      const goodN = tierCount[1], goodD = tierDebt[1];
+      const badN = tierCount[2] + tierCount[3] + tierCount[4] + tierCount[5];
+      const badD = tierDebt[2] + tierDebt[3] + tierDebt[4] + tierDebt[5];
+      tierBlock.innerHTML = `
+        <div class="ds-row ds-total"><span class="ds-label">✅ Good Bank (ชั้น 1)</span><span class="ds-val">${goodN.toLocaleString('th-TH')} ราย · ${fmt(goodD)} บาท</span></div>
+        <div class="ds-row ds-total"><span class="ds-label" style="color:#d00000">⛔ Bad Bank (ชั้น 2-5)</span><span class="ds-val" style="color:#d00000">${badN.toLocaleString('th-TH')} ราย · ${fmt(badD)} บาท</span></div>
+      ` + Object.keys(tierCount).map(t => `
         <div class="ds-row ds-clickable" onclick="DebtSummary.drillDown('tier', '${t}')">
           <span class="ds-label" style="color:${DebtDB.tierColor(t)}">🏷️ ${labels[t]}</span>
           <span class="ds-val">${tierCount[t].toLocaleString('th-TH')} ราย · ${fmt(tierDebt[t])} บาท ▸</span>
@@ -94,6 +100,7 @@ const DebtSummary = {
         const zoneDebt = {};
         const zoneOrder = ['1', '2', '3', '4', '5'];
         for (const r of data) {
+          if (parseInt(r.max_tier) !== 1) continue;   // โซนโชว์เฉพาะ Good Bank (ชั้น 1)
           const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
           let z = cust && cust.zone ? String(cust.zone).trim() : '';
           if (!z) z = 'ไม่ระบุ';   // CIF ไม่มีในฐานลูกค้า หรือ zone ว่าง
@@ -156,6 +163,7 @@ const DebtSummary = {
           return z || 'ไม่ระบุ';
         };
         for (const r of data) {
+          if (parseInt(r.max_tier) !== 1) continue;   // โซนโชว์เฉพาะ Good Bank (ชั้น 1)
           const z = zoneOf(r);
           zc[z] = (zc[z] || 0) + 1;
           const k = DebtDB.dueMonthKey(r.earliest_due);
@@ -315,10 +323,10 @@ const DebtSummary = {
       }
       m15Block.innerHTML = `
         <div class="ds-row"><span class="ds-label">⏳ 15เดือนปัจจุบัน (Y)</span><span class="ds-val">${cifM15Y.toLocaleString('th-TH')} ราย · ${cntM15Y} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label">💸 31มี.ค.70 ขั้นต่ำ</span><span class="ds-val">${cifM15Amt.toLocaleString('th-TH')} ราย · ${cntM15Amt} สัญญา · ${fmt(totM15Amt)} บาท</span></div>
-        <div class="ds-row" style="margin-top:6px"><span class="ds-label" style="color:#7c3aed">🔮 คาด ส.ค.69</span><span class="ds-val">${cifF08.toLocaleString('th-TH')} ราย · ${cntF08} สัญญา · ${fmt(totP08)} บาท</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ก.ย.69</span><span class="ds-val">${cifF09.toLocaleString('th-TH')} ราย · ${cntF09} สัญญา · ${fmt(totP09)} บาท</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ต.ค.69</span><span class="ds-val">${cifF10.toLocaleString('th-TH')} ราย · ${cntF10} สัญญา · ${fmt(totP10)} บาท</span></div>
+        <div class="ds-row"><span class="ds-label">💸 31มี.ค.70 (ต้องชำระ)</span><span class="ds-val">${cifM15Amt.toLocaleString('th-TH')} ราย · ${cntM15Amt} สัญญา</span></div>
+        <div class="ds-row" style="margin-top:6px"><span class="ds-label" style="color:#7c3aed">🔮 คาด ส.ค.69</span><span class="ds-val">${cifF08.toLocaleString('th-TH')} ราย · ${cntF08} สัญญา</span></div>
+        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ก.ย.69</span><span class="ds-val">${cifF09.toLocaleString('th-TH')} ราย · ${cntF09} สัญญา</span></div>
+        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ต.ค.69</span><span class="ds-val">${cifF10.toLocaleString('th-TH')} ราย · ${cntF10} สัญญา</span></div>
       `;
     }
   },
