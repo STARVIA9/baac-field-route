@@ -22,7 +22,7 @@ const Visit = {
       return;
     }
 
-    routeCustomers.forEach(c => {
+    routeCustomers.forEach((c, idx) => {
       const visit = visits[c.id];
       const status = visit?.status || 'pending';
       if (status === 'visited' || status === 'interested' || status === 'wait_income') counts.visited++;
@@ -32,16 +32,19 @@ const Visit = {
       const statusIcon = this.statusIcon(status);
       const statusClass = ['visited', 'interested', 'wait_income', 'no_answer', 'not_home', 'reschedule', 'not_interested'].includes(status) ? status : '';
       const itemClass = (status === 'visited' || status === 'interested' || status === 'wait_income') ? 'visited' : (status !== 'pending' ? 'skipped' : '');
+      // Debt badge (ย้ายมาจากแท็บเส้นทาง): บอกว่าเป็นหนี้ถึงกำหนดหรือค้าง
+      const debtBadge = c.debtType === 'overdue' ? '⚠️ ค้าง' : (c.debtType === 'current' ? '📅 ถึงกำหนด' : '');
 
       const item = document.createElement('div');
       item.className = `visit-item ${itemClass}`;
       const goLabel = status === 'pending' ? '📝 บันทึก' : '✏️ แก้ไข';
       item.innerHTML = `
+        <div class="visit-order">${idx + 1}</div>
         <div class="visit-status ${statusClass}" title="คลิกเพื่อบันทึก">
           ${statusIcon}
         </div>
         <div class="visit-info">
-          <div class="visit-name">${this.escapeHTML(c.name)}</div>
+          <div class="visit-name">${this.escapeHTML(c.name)}${debtBadge ? ` <span class="visit-debt">${debtBadge}</span>` : ''}</div>
           <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) : '⏳ รอเยี่ยม — แตะเพื่อบันทึก'}</div>
         </div>
         <button type="button" class="visit-go-btn">${goLabel}</button>
