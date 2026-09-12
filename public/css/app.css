@@ -3168,28 +3168,47 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 
 .popup-name {
   font-weight: 700;
+  font-size: 17px;
   color: var(--baac-green-dark);
   margin-bottom: 4px;
 }
 
 .popup-addr {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
 
 .popup-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .popup-actions button {
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 10px 14px;
+  min-height: 48px;
+  font-size: 15px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
+}
+
+/* Toast แจ้งเตือน — ตัวใหญ่พออ่านบนมือถือภาคสนาม */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%);
+  max-width: 92vw;
+  padding: 14px 20px;
+  font-size: 16px;
+  border-radius: 12px;
+  background: #222;
+  color: #fff;
+  z-index: 12000;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 
 .popup-nav {

@@ -37,6 +37,16 @@ const App = {
         await this.afterLogin();
       } else {
         Auth.showLogin();
+        // เปิดมาเจอช่อง PIN เลย — พนักงานใช้ PIN เป็นหลัก ไม่ต้องกด "เข้าสู่ระบบด้วย PIN" ก่อน
+        try {
+          document.getElementById('login-screen').classList.add('login-mode');
+          const pinForm = document.getElementById('pin-form');
+          if (pinForm) {
+            pinForm.classList.remove('hidden');
+            const toggleBtn = document.getElementById('toggle-pin-login');
+            if (toggleBtn) toggleBtn.textContent = 'ซ่อน PIN';
+          }
+        } catch {}
       }
     } catch (e) {
       console.warn('[App.init] afterLogin error:', e?.message);
@@ -322,23 +332,25 @@ const App = {
   },
 
   // ===== ป๊อบอัพ "วันนี้ทำอะไร" — โผล่หลัง login (ข้ามได้ถ้าเคยติ๊กจำไว้) =====
-  showStartModePopup() {
+  // force=true = เปิดจากเมนู "🏠 เริ่มตรงนี้" (ข้ามธงจำไว้ได้)
+  showStartModePopup(force) {
     try {
-      if (localStorage.getItem('bfr_start_mode_skip') === '1') return;
+      if (!force && localStorage.getItem('bfr_start_mode_skip') === '1') return;
       if (document.getElementById('start-mode-overlay')) return;
     } catch { return; }
     const overlay = document.createElement('div');
     overlay.id = 'start-mode-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.innerHTML = `
-      <div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:22px 18px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-        <div style="font-size:17px;font-weight:700;margin-bottom:4px;">วันนี้ทำอะไร?</div>
-        <div style="font-size:12px;color:#666;margin-bottom:14px;">เลือกแล้วเว็บพาไปหน้านั้นเลย</div>
-        <button data-mode="gps" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#f1f8f1;font-size:15px;cursor:pointer;">📍 ดูลูกค้า / เก็บพิกัด</button>
-        <button data-mode="route" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#eef4ff;font-size:15px;cursor:pointer;">🧭 ออกพื้นที่</button>
-        <button data-mode="summary" style="display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff8ec;font-size:15px;cursor:pointer;">📊 ดูสรุป</button>
-        <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:12px;color:#666;cursor:pointer;">
-          <input type="checkbox" id="start-mode-remember" style="width:16px;height:16px;"> จำไว้ ไม่ถามอีก
+      <div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:24px 20px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <div style="font-size:20px;font-weight:700;margin-bottom:4px;">วันนี้ทำอะไร?</div>
+        <div style="font-size:14px;color:#666;margin-bottom:14px;">เลือกแล้วเว็บพาไปหน้านั้นเลย</div>
+        <button data-mode="gps" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#f1f8f1;font-size:18px;cursor:pointer;">📍 ดูลูกค้า / เก็บพิกัด</button>
+        <button data-mode="route" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#eef4ff;font-size:18px;cursor:pointer;">🧭 ออกพื้นที่</button>
+        <button data-mode="summary" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#fff8ec;font-size:18px;cursor:pointer;">📊 ดูสรุป</button>
+        <button data-close="1" style="display:block;width:100%;margin:8px 0 0;padding:12px;min-height:50px;border-radius:12px;border:1px solid #ccc;background:#fff;font-size:16px;color:#555;cursor:pointer;">ไว้ทีหลัง ✕</button>
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:14px;color:#666;cursor:pointer;min-height:44px;">
+          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก
         </label>
       </div>`;
     const close = (mode) => {
@@ -356,6 +368,7 @@ const App = {
     overlay.querySelectorAll('button[data-mode]').forEach(b => {
       b.addEventListener('click', () => close(b.dataset.mode));
     });
+    overlay.querySelector('button[data-close]')?.addEventListener('click', () => close(null));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
   },
@@ -465,6 +478,9 @@ const App = {
 
     // Logout
     on('logout-btn', 'click', () => { if (confirm('ออกจากระบบ?')) Auth.logout(); });
+
+    // 🏠 เปิดป๊อบอัพ "วันนี้ทำอะไร" อีกครั้ง (จากเมนู ⋮ — กันคนติ๊ก "จำไว้" แล้วหลง)
+    on('start-mode-btn', 'click', () => this.showStartModePopup(true));
 
     // Admin buttons
     on('admin-users-btn', 'click', () => this.openAdminUsers());

@@ -396,11 +396,11 @@ const Customers = {
     }
     const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
     const gpsStatus = hasGps
-      ? `<div class="popup-addr" style="font-size:11px;">📍 มีพิกัดแล้ว</div>`
-      : `<div class="popup-addr" style="font-size:11px;">⚪ ยังไม่มีพิกัด</div>`;
+      ? `<div class="popup-addr">📍 มีพิกัดแล้ว</div>`
+      : `<div class="popup-addr">⚪ ยังไม่มีพิกัด</div>`;
     return `
       <div class="popup-name">${this.escapeHTML(c.name)}</div>
-      ${c.cif ? `<div class="popup-addr" style="font-size:11px;">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
+      ${c.cif ? `<div class="popup-addr">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
       ${metaHTML}
       ${debtHTML}
       ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
@@ -409,7 +409,7 @@ const Customers = {
       <div class="popup-actions">
         ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">📍 เก็บพิกัดตรงนี้</button>`}
         <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
-        <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️</button>
+        <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️ ลบ</button>
       </div>
     `;
   },
