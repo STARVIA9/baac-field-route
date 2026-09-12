@@ -2742,7 +2742,7 @@ const App = {
       } catch {}
       overlay.remove();
       if (mode === 'gps') this.switchTab('customers');
-      else if (mode === 'route') this.switchTab('map');
+      else if (mode === 'route') this.switchSheetTab('plan');
       else if (mode === 'summary') this.switchSheetTab('debtsummary');
     };
     overlay.querySelectorAll('button[data-mode]').forEach(b => {
