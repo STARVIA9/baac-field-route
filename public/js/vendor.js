@@ -1761,6 +1761,62 @@ const DebtSummary = {
       }
     }
 
+    // ===== แยกตามเขต: ถึงกำหนด + 15 เดือน (บล็อก action รวม ดูง่ายแถวเดียวต่อเขต) =====
+    const zdBlock = document.getElementById('debt-zonedue-block');
+    if (zdBlock) {
+      if (!window.CustomerDB || !CustomerDB._loaded) {
+        zdBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
+        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
+      } else {
+        const yk = (mmyy) => { const p = String(mmyy).split('/'); return (+p[1]) * 100 + (+p[0]); };
+        const FYS = yk('06/2026'), FYE = yk('03/2027');   // ปีบัญชีเดียวกับบล็อกรายเดือน
+        const zc = {}, zfy = {}, zfyD = {}, zm = {}, zmA = {};
+        const zoneOf = (r) => {
+          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+          const z = cust && cust.zone ? String(cust.zone).trim() : '';
+          return z || 'ไม่ระบุ';
+        };
+        for (const r of data) {
+          const z = zoneOf(r);
+          zc[z] = (zc[z] || 0) + 1;
+          const k = DebtDB.dueMonthKey(r.earliest_due);
+          if (k) {
+            const kv = yk(k);
+            if (kv >= FYS && kv <= FYE) {
+              zfy[z] = (zfy[z] || 0) + 1;
+              zfyD[z] = (zfyD[z] || 0) + (+r.total_debt || 0);
+            }
+          }
+          let amt = 0;
+          for (const c of (r.contracts || [])) amt += (+c.m15_amt || 0);
+          if (amt > 0) {
+            zm[z] = (zm[z] || 0) + 1;
+            zmA[z] = (zmA[z] || 0) + amt;
+          }
+        }
+        const zdOrder = ['1', '2', '3', '4', '5'];
+        const zdKeys = Object.keys(zc).sort((a, b) => {
+          const ia = zdOrder.indexOf(a), ib = zdOrder.indexOf(b);
+          if (ia >= 0 && ib >= 0) return ia - ib;
+          if (ia >= 0) return -1;
+          if (ib >= 0) return 1;
+          if (a === 'ไม่ระบุ') return 1;
+          if (b === 'ไม่ระบุ') return -1;
+          return a.localeCompare(b);
+        });
+        const gv = (o, k) => (o[k] || 0);
+        const totFy = zdKeys.reduce((s, k) => s + gv(zfy, k), 0);
+        const totFyD = zdKeys.reduce((s, k) => s + gv(zfyD, k), 0);
+        const totM = zdKeys.reduce((s, k) => s + gv(zm, k), 0);
+        const totMA = zdKeys.reduce((s, k) => s + gv(zmA, k), 0);
+        zdBlock.innerHTML = `
+          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ ${totM.toLocaleString('th-TH')} ราย · ${fmt(totMA)} บาท</span></div>` +
+          zdKeys.map(z => `
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ ${gv(zm, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zmA, z))} บาท</span></div>
+        `).join('');
+      }
+    }
+
     // ===== หนี้ถึงกำหนดรายเดือน (ปีบัญชีปัจจุบัน: มิ.ย.69 -> มี.ค.70) =====
     const monthBlock = document.getElementById('debt-month-block');
     if (monthBlock) {

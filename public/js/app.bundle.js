@@ -2721,6 +2721,14 @@ const App = {
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
     this.showStartModePopup();
+
+    // Deep link: เปิด baacroute.shop/#debtsummary → ข้ามไปแท็บสรุปหนี้ทันทีหลัง login
+    try {
+      if (typeof location !== 'undefined' && location.hash === '#debtsummary') {
+        this.switchSheetTab('debtsummary');
+        if (window.DebtSummary) DebtSummary.render();
+      }
+    } catch (e) { /* ไม่ขวาง login */ }
   },
 
   // ===== ป๊อบอัพ "วันนี้ทำอะไร" — โผล่หลัง login (ข้ามได้ถ้าเคยติ๊กจำไว้) =====
