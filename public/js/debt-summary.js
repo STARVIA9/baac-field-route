@@ -42,17 +42,22 @@ const DebtSummary = {
     const colorBlock = document.getElementById('debt-color-block');
     const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
     const colorCount = { แดง: 0, เหลือง: 0, เขียว: 0 };
+    const colorDebt = { แดง: 0, เหลือง: 0, เขียว: 0 };
     for (const c of customers) {
       const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
       const p = db ? db.potential : null;
-      if (p && colorCount[p] !== undefined) colorCount[p]++;
+      if (p && colorCount[p] !== undefined) {
+        colorCount[p]++;
+        const debt = c.cif ? DebtDB.getByCif(c.cif) : null;
+        colorDebt[p] += (debt ? +debt.total_debt || 0 : 0);
+      }
     }
     if (colorBlock) {
       const totalColor = (colorCount['แดง'] + colorCount['เหลือง'] + colorCount['เขียว']) || 1;
       colorBlock.innerHTML = `
-        <div class="ds-row"><span class="ds-label" style="color:#d00000">🔴 แดง</span><span class="ds-val">${colorCount['แดง']} ราย (${Math.round(colorCount['แดง']/totalColor*100)}%)</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#d97706">🟡 เหลือง</span><span class="ds-val">${colorCount['เหลือง']} ราย (${Math.round(colorCount['เหลือง']/totalColor*100)}%)</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#16a34a">🟢 เขียว</span><span class="ds-val">${colorCount['เขียว']} ราย (${Math.round(colorCount['เขียว']/totalColor*100)}%)</span></div>
+        <div class="ds-row"><span class="ds-label" style="color:#d00000">🔴 แดง</span><span class="ds-val">${colorCount['แดง']} ราย (${Math.round(colorCount['แดง']/totalColor*100)}%) · ${fmt(colorDebt['แดง'])} บาท</span></div>
+        <div class="ds-row"><span class="ds-label" style="color:#d97706">🟡 เหลือง</span><span class="ds-val">${colorCount['เหลือง']} ราย (${Math.round(colorCount['เหลือง']/totalColor*100)}%) · ${fmt(colorDebt['เหลือง'])} บาท</span></div>
+        <div class="ds-row"><span class="ds-label" style="color:#16a34a">🟢 เขียว</span><span class="ds-val">${colorCount['เขียว']} ราย (${Math.round(colorCount['เขียว']/totalColor*100)}%) · ${fmt(colorDebt['เขียว'])} บาท</span></div>
       `;
       if (totalColor === 1 && colorCount['แดง']+colorCount['เหลือง']+colorCount['เขียว'] === 0) {
         colorBlock.innerHTML = '<div class="ds-note">ไม่พบข้อมูลศักยภาพ (กรอกข้อมูลลูกค้ายังไม่ครบ)</div>';
@@ -63,15 +68,16 @@ const DebtSummary = {
     const tierBlock = document.getElementById('debt-tier-block');
     if (tierBlock) {
       const tierCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      const tierDebt = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       for (const r of data) {
         const t = parseInt(r.max_tier) || 0;
-        if (tierCount[t] !== undefined) tierCount[t]++;
+        if (tierCount[t] !== undefined) { tierCount[t]++; tierDebt[t] += (+r.total_debt || 0); }
       }
       const labels = { 1: 'ชั้น 1', 2: 'ชั้น 2', 3: 'ชั้น 3', 4: 'ชั้น 4', 5: 'ชั้น 5' };
       tierBlock.innerHTML = Object.keys(tierCount).map(t => `
         <div class="ds-row ds-clickable" onclick="DebtSummary.drillDown('tier', '${t}')">
           <span class="ds-label" style="color:${DebtDB.tierColor(t)}">🏷️ ${labels[t]}</span>
-          <span class="ds-val">${tierCount[t].toLocaleString('th-TH')} ราย ▸</span>
+          <span class="ds-val">${tierCount[t].toLocaleString('th-TH')} ราย · ${fmt(tierDebt[t])} บาท ▸</span>
         </div>
         <div class="ds-bar"><div class="ds-bar-fill" style="width:${(tierCount[t]/data.length*100)||0}%;background:${t>=2?'#d00000':'#16a34a'}"></div></div>
       `).join('');
@@ -85,15 +91,18 @@ const DebtSummary = {
       const FY_START = ykey('06/2026');   // มิ.ย. 2569
       const FY_END = ykey('03/2027');     // มี.ค. 2570
       const monthCount = {};
+      const monthDebt = {};    // ยอดหนี้รวมต่อเดือน (total_debt ของ CIF ที่ถึงกำหนดเดือนนั้น)
       const monthOmsom = {};   // จำนวน อสม. ต่อเดือน
-      let fyTotal = 0, fyOmsom = 0;
+      let fyTotal = 0, fyOmsom = 0, fyDebt = 0;
       for (const r of data) {
         const k = DebtDB.dueMonthKey(r.earliest_due);
         if (!k) continue;
         const kv = ykey(k);
         if (kv >= FY_START && kv <= FY_END) {
           monthCount[k] = (monthCount[k] || 0) + 1;
+          monthDebt[k] = (monthDebt[k] || 0) + (+r.total_debt || 0);
           fyTotal++;
+          fyDebt += (+r.total_debt || 0);
           if (r.is_omsom) {
             fyOmsom++;
             monthOmsom[k] = (monthOmsom[k] || 0) + 1;
@@ -106,14 +115,14 @@ const DebtSummary = {
       } else {
         // แถวรวม (แยก อสม.) + รายเดือนช่วง มิ.ย.69-มี.ค.70 (วงเล็บจำนวน อสม.)
         const header = `
-          <div class="ds-row ds-total"><span class="ds-label">📊 เหลือทั้งปีบัญชี</span><span class="ds-val">${fyTotal.toLocaleString('th-TH')} ราย</span></div>
+          <div class="ds-row ds-total"><span class="ds-label">📊 เหลือทั้งปีบัญชี</span><span class="ds-val">${fyTotal.toLocaleString('th-TH')} ราย · ${fmt(fyDebt)} บาท</span></div>
           <div class="ds-row"><span class="ds-label">👤 ลูกค้าทั่วไป</span><span class="ds-val">${(fyTotal - fyOmsom).toLocaleString('th-TH')} ราย</span></div>
           <div class="ds-row"><span class="ds-label">🩺 อสม. (3080/2838/2751)</span><span class="ds-val">${fyOmsom.toLocaleString('th-TH')} ราย</span></div>
         `;
         const rows = sortedMonths.map(k => `
           <div class="ds-row">
             <span class="ds-label">📅 ${DebtDB.fmtDate('01/' + k)}</span>
-            <span class="ds-val">${monthCount[k].toLocaleString('th-TH')} ราย${monthOmsom[k] ? ` (อสม. ${monthOmsom[k].toLocaleString('th-TH')})` : ''}</span>
+            <span class="ds-val">${monthCount[k].toLocaleString('th-TH')} ราย · ${fmt(monthDebt[k])} บาท${monthOmsom[k] ? ` (อสม. ${monthOmsom[k].toLocaleString('th-TH')})` : ''}</span>
           </div>
         `).join('');
         monthBlock.innerHTML = `${header}${rows}`;
