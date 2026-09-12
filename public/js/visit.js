@@ -25,25 +25,28 @@ const Visit = {
     routeCustomers.forEach(c => {
       const visit = visits[c.id];
       const status = visit?.status || 'pending';
-      if (status === 'visited') counts.visited++;
+      if (status === 'visited' || status === 'interested' || status === 'wait_income') counts.visited++;
       else if (status === 'no_answer' || status === 'not_home' || status === 'reschedule' || status === 'not_interested') counts.skipped++;
       else counts.pending++;
 
       const statusIcon = this.statusIcon(status);
-      const statusClass = ['visited', 'no_answer', 'not_home', 'reschedule', 'not_interested'].includes(status) ? status : '';
-      const itemClass = status === 'visited' ? 'visited' : (status !== 'pending' ? 'skipped' : '');
+      const statusClass = ['visited', 'interested', 'wait_income', 'no_answer', 'not_home', 'reschedule', 'not_interested'].includes(status) ? status : '';
+      const itemClass = (status === 'visited' || status === 'interested' || status === 'wait_income') ? 'visited' : (status !== 'pending' ? 'skipped' : '');
 
       const item = document.createElement('div');
       item.className = `visit-item ${itemClass}`;
+      const goLabel = status === 'pending' ? '📝 บันทึก' : '✏️ แก้ไข';
       item.innerHTML = `
-        <div class="visit-status ${statusClass}" onclick="Visit.openLog('${c.id}')" title="คลิกเพื่อบันทึก">
+        <div class="visit-status ${statusClass}" title="คลิกเพื่อบันทึก">
           ${statusIcon}
         </div>
         <div class="visit-info">
           <div class="visit-name">${this.escapeHTML(c.name)}</div>
-          <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) : '⏳ รอเยี่ยม'}</div>
+          <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) : '⏳ รอเยี่ยม — แตะเพื่อบันทึก'}</div>
         </div>
+        <button type="button" class="visit-go-btn">${goLabel}</button>
       `;
+      item.onclick = () => this.openLog(c.id);
       list.appendChild(item);
     });
 
@@ -59,19 +62,21 @@ const Visit = {
       no_answer: '❌',
       not_home: '🚪',
       reschedule: '📅',
-      interested: '💚',
+      interested: '🤝',
+      wait_income: '⏳',
       not_interested: '🚫',
     }[status] || '⏳';
   },
 
   statusLabel(status) {
     return {
-      visited: '✅ เยี่ยมสำเร็จ',
+      visited: '✅ พบลูกค้า',
       no_answer: '❌ ไม่พบลูกค้า',
       not_home: '🚪 ไม่อยู่บ้าน',
       reschedule: '📅 นัดใหม่',
-      interested: '💚 ลูกค้าสนใจ',
-      not_interested: '🚫 ไม่สนใจ',
+      interested: '🤝 รับปากจ่าย',
+      wait_income: '⏳ รอรายได้',
+      not_interested: '🚫 ไม่จ่าย',
     }[status] || status;
   },
 

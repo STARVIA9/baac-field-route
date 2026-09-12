@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260912c" as="style">
-  <link rel="preload" href="js/app.js?v=20260912c" as="script">
+  <link rel="preload" href="css/app.css?v=20260912d" as="style">
+  <link rel="preload" href="js/app.js?v=20260912d" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20260912c">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20260912c"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20260912d">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260912d"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -444,8 +444,8 @@
       <div class="sheet-tabs">
         <button class="sheet-tab active" data-sheet="plan"><i data-lucide="map" class="icon"></i> วางแผน</button>
         <button class="sheet-tab" data-sheet="route"><i data-lucide="navigation" class="icon"></i> เส้นทาง</button>
-        <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
         <button class="sheet-tab" data-sheet="visit"><i data-lucide="clipboard-check" class="icon"></i> เข้าพบ</button>
+        <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
         <button class="sheet-tab" data-sheet="debtsummary"><i data-lucide="wallet" class="icon"></i> สรุปหนี้</button>
       </div>
 
@@ -594,7 +594,14 @@
         <div class="sheet-content" id="tab-visit">
           <div class="visit-header">
             <h2>📋 บันทึกการเข้าพบ</h2>
-            <p class="visit-desc">บันทึกผลการเยี่ยมลูกค้าวันนี้</p>
+            <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
+          </div>
+          <div class="visit-guide">
+            <span class="visit-guide-step"><b>1</b> ดูรายชื่อในเส้นทาง</span>
+            <span class="visit-guide-arrow">→</span>
+            <span class="visit-guide-step"><b>2</b> แตะปุ่ม <b class="visit-guide-btn">📝 บันทึก</b></span>
+            <span class="visit-guide-arrow">→</span>
+            <span class="visit-guide-step"><b>3</b> เลือกผล + กดบันทึก</span>
           </div>
           <div class="visit-stats">
             <div class="visit-stat visit-stat-pending">
@@ -760,60 +767,81 @@
         <button class="btn-close" id="close-visit-modal">×</button>
       </div>
       <form id="visit-log-form">
-        <div class="form-row">
-          <label>ผลการเข้าพบ *</label>
+        <div class="visit-sections">
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">1</span><div><label>ผลการเข้าพบ *</label><p class="step-hint">แตะเลือก 1 ข้อที่ตรงที่สุด</p></div></div>
           <!-- Quick status buttons -->
-          <div class="quick-status-grid">
+          <p class="qs-group-title">✅ เจอตัวแล้ว — เลือกผลที่คุย</p>
+          <div class="quick-status-grid grid-3col">
             <button type="button" class="quick-status-btn quick-status-visited" data-status="visited" onclick="Visit.setQuickStatus('visited')">
               <span class="qs-icon">✅</span>
-              <span class="qs-label">เยี่ยมสำเร็จ</span>
+              <span class="qs-label">พบลูกค้า</span>
+              <span class="qs-desc">คุยเรื่องหนี้แล้ว</span>
             </button>
             <button type="button" class="quick-status-btn quick-status-interested" data-status="interested" onclick="Visit.setQuickStatus('interested')">
-              <span class="qs-icon">💚</span>
-              <span class="qs-label">ลูกค้าสนใจ</span>
+              <span class="qs-icon">🤝</span>
+              <span class="qs-label">รับปากจ่าย</span>
+              <span class="qs-desc">เท่าไหร่ / เมื่อไร / จ่ายยังไง</span>
             </button>
+            <button type="button" class="quick-status-btn quick-status-waitincome" data-status="wait_income" onclick="Visit.setQuickStatus('wait_income')">
+              <span class="qs-icon">⏳</span>
+              <span class="qs-label">รอรายได้</span>
+              <span class="qs-desc">พบแล้ว ยังไม่มีจ่าย</span>
+            </button>
+          </div>
+          <p class="qs-group-title">📅 ไม่เจอ / เลื่อนนัด</p>
+          <div class="quick-status-grid grid-2col">
             <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
               <span class="qs-icon">❌</span>
               <span class="qs-label">ไม่พบ</span>
+              <span class="qs-desc">ไปแล้วไม่เจอตัว</span>
             </button>
             <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
               <span class="qs-icon">🚪</span>
               <span class="qs-label">ไม่อยู่</span>
+              <span class="qs-desc">บ้านปิด / ออกไปนา</span>
             </button>
             <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
               <span class="qs-icon">📅</span>
               <span class="qs-label">นัดใหม่</span>
+              <span class="qs-desc">นัดพบ / นัดจ่ายใหม่</span>
             </button>
             <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
               <span class="qs-icon">🚫</span>
-              <span class="qs-label">ไม่สนใจ</span>
+              <span class="qs-label">ไม่จ่าย</span>
+              <span class="qs-desc">บ่ายเบี่ยง / ปฏิเสธ</span>
             </button>
           </div>
           <select name="status" required class="hidden" id="visit-status-select">
-            <option value="visited">✅ เยี่ยมสำเร็จ - พบลูกค้า</option>
+            <option value="visited">✅ พบลูกค้า - คุยเรื่องหนี้แล้ว</option>
+            <option value="interested">🤝 รับปากจ่าย</option>
+            <option value="wait_income">⏳ รอรายได้</option>
             <option value="no_answer">❌ ไม่พบลูกค้า</option>
             <option value="not_home">🚪 ไม่อยู่บ้าน</option>
             <option value="reschedule">📅 นัดใหม่</option>
-            <option value="interested">💚 ลูกค้าสนใจ</option>
-            <option value="not_interested">🚫 ไม่สนใจ</option>
+            <option value="not_interested">🚫 ไม่จ่าย</option>
           </select>
         </div>
-        <div class="form-row">
-          <label>หมายเหตุ</label>
-          <textarea name="note" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">2</span><div><label>หมายเหตุ</label><p class="step-hint">จดยอด + วัน + วิธีจ่าย เช่น จ่ายเท่าไหร่ วันไหน โอนหรือเงินสด</p></div></div>
+          <textarea name="note" rows="3" placeholder="เช่น รับปากจ่าย 5,000 วันที่ 20 ก.ย. โอน / รอขายข้าวก่อน"></textarea>
         </div>
-        <div class="form-row">
-          <label>📍 พิกัด GPS <span class="label-hint">(กดปุ่มเพื่อบันทึก)</span></label>
+        <div class="form-row visit-section">
+          <div class="visit-step-head"><span class="step-num">3</span><div><label>📍 พิกัด GPS</label><p class="step-hint">ยืนกลางแจ้งแล้วกดปุ่ม 1 ครั้ง</p></div></div>
           <div class="gps-capture">
-            <button type="button" class="btn-secondary" id="btn-capture-gps">📍 บันทึกพิกัดปัจจุบัน</button>
-            <div class="gps-display" id="gps-display">
-              <span class="gps-empty">ยังไม่ได้บันทึก</span>
+            <button type="button" class="btn-secondary btn-gps" id="btn-capture-gps">📍 บันทึกพิกัดปัจจุบัน</button>
+            <div class="gps-status-table">
+              <span class="gps-status-label">สถานะ</span>
+              <div class="gps-display" id="gps-display">
+                <span class="gps-empty">ยังไม่ได้บันทึก</span>
+              </div>
             </div>
           </div>
           <input type="hidden" name="lat" id="visit-lat">
           <input type="hidden" name="lng" id="visit-lng">
           <input type="hidden" name="accuracy" id="visit-accuracy">
         </div>
+        </div><!-- /visit-sections -->
         <div class="form-actions">
           <button type="button" class="btn-secondary" id="btn-cancel-visit">ยกเลิก</button>
           <button type="submit" class="btn-primary">💾 บันทึก</button>
@@ -957,14 +985,15 @@
         <section class="help-status">
           <h4>📋 สถานะการเข้าพบ (เลือกตอนบันทึก)</h4>
           <div class="status-table">
-            <div class="status-row"><b>✅ visited</b><span>เยี่ยมสำเร็จ · พบลูกค้า</span><b class="counts">นับ ✓</b></div>
-            <div class="status-row"><b>💚 interested</b><span>ลูกค้าสนใจ</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>✅ visited</b><span>พบลูกค้า · คุยเรื่องหนี้แล้ว</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>🤝 interested</b><span>รับปากจ่าย</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>⏳ wait_income</b><span>รอรายได้</span><b class="counts">นับ ✓</b></div>
             <div class="status-row"><b>❌ no_answer</b><span>ไม่พบลูกค้า</span><b class="counts">ไม่นับ</b></div>
             <div class="status-row"><b>🚪 not_home</b><span>ไม่อยู่บ้าน</span><b class="counts">ไม่นับ</b></div>
             <div class="status-row"><b>📅 reschedule</b><span>นัดใหม่</span><b class="counts">ไม่นับ</b></div>
-            <div class="status-row"><b>🚫 not_interested</b><span>ไม่สนใจ</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>🚫 not_interested</b><span>ไม่จ่าย</span><b class="counts">ไม่นับ</b></div>
           </div>
-          <small>💡 ต้องเลือก <b>visited</b> หรือ <b>interested</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
+          <small>💡 ต้องเลือก <b>visited</b> / <b>interested</b> / <b>wait_income</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
         </section>
 
         <section class="help-allowance">
@@ -1251,8 +1280,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20260912c"></script>
-  <script src="js/app.bundle.js?v=20260912c"></script>
+  <script src="js/vendor.js?v=20260912d"></script>
+  <script src="js/app.bundle.js?v=20260912d"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

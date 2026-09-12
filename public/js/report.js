@@ -469,6 +469,7 @@ const Report = {
     const cls = {
       visited: 'badge-yes',
       interested: 'badge-yes',
+      wait_income: 'badge-warn',
       no_answer: 'badge-no',
       not_home: 'badge-no',
       not_interested: 'badge-no',
@@ -478,19 +479,20 @@ const Report = {
   },
   _statusLabel(status) {
     return {
-      visited: '✅ เยี่ยมสำเร็จ',
+      visited: '✅ พบลูกค้า',
       no_answer: '❌ ไม่พบลูกค้า',
       not_home: '🚪 ไม่อยู่บ้าน',
       reschedule: '📅 นัดใหม่',
-      interested: '💚 สนใจ',
-      not_interested: '🚫 ไม่สนใจ',
+      interested: '🤝 รับปากจ่าย',
+      wait_income: '⏳ รอรายได้',
+      not_interested: '🚫 ไม่จ่าย',
       pending: '⏳ รอ',
     }[status] || status || '-';
   },
   _statusEmoji(status) {
     return {
       visited: '✅', no_answer: '❌', not_home: '🚪',
-      reschedule: '📅', interested: '💚', not_interested: '🚫', pending: '⏳',
+      reschedule: '📅', interested: '🤝', wait_income: '⏳', not_interested: '🚫', pending: '⏳',
     }[status] || '•';
   },
   _riskLabel(level) {
