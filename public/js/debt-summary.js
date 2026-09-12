@@ -143,6 +143,13 @@ const DebtSummary = {
         const yk = (mmyy) => { const p = String(mmyy).split('/'); return (+p[1]) * 100 + (+p[0]); };
         const FYS = yk('06/2026'), FYE = yk('03/2027');   // ปีบัญชีเดียวกับบล็อกรายเดือน
         const zc = {}, zfy = {}, zfyD = {}, zm = {}, zmA = {};
+        // ขอบเขตเดือนเกิด 15 เดือนใหม่: เลือกเดือนเดียว → ตรงเดือนนั้น, ทั้งปีบัญชี → มิ.ย.69-มี.ค.70
+        const scopeB15 = (b) => {
+          if (!b) return false;
+          if (self.selMonth && self.selMonth !== 'ALL') return b === self.selMonth;
+          const p = String(b).split('/');
+          return (+p[1]) * 100 + (+p[0]) >= FYS && (+p[1]) * 100 + (+p[0]) <= FYE;
+        };
         const zoneOf = (r) => {
           const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
           const z = cust && cust.zone ? String(cust.zone).trim() : '';
@@ -161,10 +168,10 @@ const DebtSummary = {
               zfyD[z] = (zfyD[z] || 0) + (+r.total_debt || 0);
             }
           }
-          // 15 เดือน: นับหนี้รวมทั้งก้อนของ CIF (ไม่ใช้ยอดขั้นต่ำ) — มีสัญญาใด m15_amt>0 = ต้องไปตาม
-          let inM15 = false;
-          for (const c of (r.contracts || [])) { if ((+c.m15_amt || 0) > 0) { inM15 = true; break; } }
-          if (inM15) {
+          // 15 เดือนเกิดใหม่ (b15 จากไฟล์หนี้ — คำนวณ 15-เดือนค้างตั้งแต่ตอนอัพ): นับหนี้รวมทั้งก้อน CIF
+          let new15 = false;
+          for (const c of (r.contracts || [])) { if (scopeB15(c.b15)) { new15 = true; break; } }
+          if (new15) {
             zm[z] = (zm[z] || 0) + 1;
             zmA[z] = (zmA[z] || 0) + (+r.total_debt || 0);
           }
@@ -185,9 +192,9 @@ const DebtSummary = {
         const totM = zdKeys.reduce((s, k) => s + gv(zm, k), 0);
         const totMA = zdKeys.reduce((s, k) => s + gv(zmA, k), 0);
         zdBlock.innerHTML = `
-          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ 15เดือน ${totM.toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(totMA)} บาท</span></div>` +
+          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${totM.toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(totMA)} บาท</span></div>` +
           zdKeys.map(z => `
-          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ 15เดือน ${gv(zm, z).toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(gv(zmA, z))} บาท</span></div>
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${gv(zm, z).toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(gv(zmA, z))} บาท</span></div>
         `).join('');
       }
     }

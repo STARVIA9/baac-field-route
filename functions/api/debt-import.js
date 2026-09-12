@@ -23,7 +23,9 @@ const COL_SUBSIDY = 31;           // Subsidy plan
 const COL_NEXT_DUE = 33;          // Next Due date
 const COL_RESERVE_PCT = 60;       // อัตราการกันสำรอง (%)
 const COL_RECOGNITION = 62;       // เกณฑ์การรับรู้รายได้
-const COL_OVERDUE_15M = 65;       // 15เดือน ณ เดือนปัจจุบัน Y/N
+const COL_OVERDUE_15M = 65;       // 15เดือน Y = Reversed แล้ว / N = ยังไม่ (คนละตัวกับ col 64)
+const COL_15M_NOW = 64;            // 15เดือน ณ เดือนปัจจุบัน (Y = เป็นแล้ว)
+const COL_MONTHS_OVERDUE = 71;     // จำนวนเดือนค้าง (หักพักหนี้) — ใช้คำนวณเดือนเกิด 15 เดือนใหม่ (15 - เดือนค้าง)
 const COL_OVERDUE_15M_AMT = 66;   // 15เดือน ณ 31/03/2570 ยอดขั้นต่ำ (บาท) — ที่หายไปทำให้ GPS โชว์ไม่ครบ
 const COL_MC = 18;                // Market Code (3080/2838/2751 = อสม.)
 const COL_F08 = 103;              // คาดการณ์ 15เดือน ส.ค.69 Y/N
@@ -84,11 +86,27 @@ function splitCsvLine(line) {
   out.push(cur);
   return out.map(c => c.trim().replace(/^"|"$/g, '').trim());
 }
+// เดือนของไฟล์ (แถว0 "ข้อมูล ณ DD/MM/BBBB" พ.ศ.→ค.ศ.) — ฐานคำนวณเดือนเกิด 15 เดือนใหม่
+function fileMonthYear(headLine) {
+  const m = String(headLine || '').match(/ข้อมูล ณ\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return { m: parseInt(m[2], 10), y: parseInt(m[3], 10) - 543 };
+}
+
+// เดือนที่จะครบ 15 เดือน (b15 'MM/YYYY' ปี ค.ศ.) — เป็นแล้ว/ข้อมูลไม่พอ = ''
+function birth15(fmy, now15, moRaw) {
+  if (!fmy || now15) return '';
+  const mo = parseInt(String(moRaw || '').trim(), 10);
+  if (!Number.isFinite(mo) || mo < 0 || mo >= 15) return '';
+  const t = (fmy.m - 1) + (15 - mo);   // เดือนค้าง mo → อีก (15-mo) เดือนครบ
+  return String((t % 12) + 1).padStart(2, '0') + '/' + (fmy.y + Math.floor(t / 12));
+}
 function parseCSV(text) {
   const lines = text.split('\n').filter(line => line.trim());
-  if (lines.length < 3) return [];
+  if (lines.length < 3) return { rows: [], fileMY: null };
 
   // แถว0 = หัวรายงาน, แถว1 = ชื่อคอลัมน์, แถว2+ = ข้อมูล
+  const fileMY = fileMonthYear(lines[0]);
   const results = [];
 
   for (let i = 2; i < lines.length; i++) {
@@ -105,6 +123,7 @@ function parseCSV(text) {
       cif,
       name: cols[COL_NAME] || '',
       zone: (cols[COL_ZONE] || '').trim(),
+      b15: birth15(fileMY, cols[COL_15M_NOW] === 'Y', cols[COL_MONTHS_OVERDUE]),
       contractNo: cols[COL_CONTRACT_NO] || '',
       debtClass: cols[COL_DEBT_CLASS] || '',
       debtBalance: parseAmt(cols[COL_DEBT_BALANCE]),
@@ -125,7 +144,7 @@ function parseCSV(text) {
     });
   }
 
-  return results;
+  return { rows: results, fileMY };
 }
 
 /**
@@ -168,6 +187,7 @@ function groupByCIF(contracts) {
       return {
         c: c.contractNo,
         d: c.debtBalance || 0,
+        b15: c.b15 || '',
         t: String(t || ''),
         due: c.nextDue,
         reserve: c.reservePct,
@@ -235,7 +255,10 @@ export async function onRequestPost(context) {
     const text = decoder.decode(buffer);
 
     // Parse CSV
-    const contracts = parseCSV(text);
+    const { rows: contracts, fileMY } = parseCSV(text);
+    if (!fileMY) {
+      return new Response(JSON.stringify({ error: 'อ่านวันที่ไฟล์ไม่ได้ (แถวแรกต้องมี \"ข้อมูล ณ DD/MM/YYYY\")' }), { status: 400 });
+    }
     if (contracts.length === 0) {
       return new Response(JSON.stringify({ error: 'No valid contracts found in CSV' }), { status: 400 });
     }
