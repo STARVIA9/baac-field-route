@@ -24,6 +24,53 @@ async function authCheck(request, env) {
   return { user: payload };
 }
 
+// ===== สโคปข้อมูลเส้นทาง: ผู้ใช้ + เครื่อง =====
+// ปัญหาเดิม: ทุกคนใช้คีย์เดียว 'routes:user:default' (login ด้วย PIN ไม่มี username)
+// → 10 คนใช้พร้อมกันเห็นเส้นทางที่บันทึกไว้รวมกันหมด ทั้งที่ไปกันคนละเส้นทาง
+// ตอนนี้ client ส่ง deviceId (รหัสประจำเครื่อง) ขึ้นมาด้วย → เซิร์ฟเวอร์ผูกกับผู้ใช้ที่ล็อกอินให้เอง
+// (client ปลอม deviceId ของคนอื่นไม่ได้ เพราะส่วนชื่อผู้ใช้เซิร์ฟเวอร์เป็นคนใส่)
+function scopeSanitize(v) {
+  return String(v == null ? '' : v).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 48);
+}
+
+function routeScope(user, rawDeviceId) {
+  const u = user || {};
+  const who = scopeSanitize(u.username || u.sub || u.name) || 'default';
+  const dev = scopeSanitize(rawDeviceId);
+  return dev ? who + '_' + dev : who;
+}
+
+// คีย์เดิม (ก่อนแยกตามเครื่อง) ของผู้ใช้คนนี้ — ครั้งแรกจะย้ายเส้นทางเดิมมาให้ แล้วลบคีย์เดิม
+function legacyRoutesKey(user, scope) {
+  const u = user || {};
+  const who = scopeSanitize(u.username || u.sub);
+  if (!who) return null;
+  const legacy = 'routes:user:' + who;
+  return legacy === 'routes:user:' + scope ? null : legacy;
+}
+
+// อ่านรายการเส้นทางของสโคปนี้ + ย้ายข้อมูลจากคีย์เดิม (ครั้งเดียว)
+async function readRoutesList(env, routesKey, legacyKey) {
+  let list = [];
+  try {
+    const raw = await env.BFR_KV.get(routesKey);
+    list = raw ? JSON.parse(raw) : [];
+  } catch (e) { list = []; }
+
+  if (list.length === 0 && legacyKey) {
+    try {
+      const legacyRaw = await env.BFR_KV.get(legacyKey);
+      const legacyList = legacyRaw ? JSON.parse(legacyRaw) : [];
+      if (Array.isArray(legacyList) && legacyList.length > 0) {
+        list = legacyList;
+        await env.BFR_KV.put(routesKey, JSON.stringify(list));
+        await env.BFR_KV.delete(legacyKey);   // กันคีย์เดิม (ใช้ร่วมกัน) หลุดไปหาคนอื่น
+      }
+    } catch (e) { console.warn('route migrate failed:', e.message); }
+  }
+  return list;
+}
+
 // Merge two arrays by id, keeping the newer updatedAt
 // Supports soft delete: if either side has deleted=true, honor the newer one
 function mergeById(existing, incoming) {
@@ -81,14 +128,13 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
   // Customers now live in D1 (single source of truth).
-  // Visits + savedRoutes stay in KV — per user
-  const userKey = auth.user && auth.user.username ? auth.user.username : 'default';
-  const routesKey = 'routes:user:' + userKey;
+  // visits ยังเป็นก้อนรวม (visits:all) — savedRoutes แยกตาม "ผู้ใช้ + เครื่อง"
+  const scope = routeScope(auth.user, body.deviceId);
+  const routesKey = 'routes:user:' + scope;
   const visitsRaw = await env.BFR_KV.get('visits:all');
-  const routesRaw = await env.BFR_KV.get(routesKey);
 
   const existingVisits = visitsRaw ? JSON.parse(visitsRaw) : {};
-  const existingRoutes = routesRaw ? JSON.parse(routesRaw) : [];
+  const existingRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
 
   // Merge incoming
   const mergedVisits = mergeVisits(existingVisits, body.visits || {});
@@ -138,14 +184,15 @@ export async function onRequestGet(context) {
   const since = url.searchParams.get('since');  // ISO timestamp — return only customers updated AFTER this
 
   const visitsRaw = await env.BFR_KV.get('visits:all');
-  const routesKey = 'routes:user:' + (auth.user && auth.user.username ? auth.user.username : 'default');
-  const routesRaw = await env.BFR_KV.get(routesKey);
+  const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
+
+  // เส้นทางที่บันทึกไว้: แยกตามผู้ใช้ + เครื่องนี้ (client ส่ง ?device= มา)
+  const scope = routeScope(auth.user, url.searchParams.get('device'));
+  const routesKey = 'routes:user:' + scope;
+  const savedRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
   const visitsUpdated = await env.BFR_KV.get('meta:visits-updated');
-
-  const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
-  const savedRoutes = routesRaw ? JSON.parse(routesRaw) : [];
 
   // ===== D1 ETAG GATE (ลด rows_read — D1 quota 5M rows/day) =====
   // ทุก write ลง customers ตั้ง updated_at = now เสมอ (verified ทุก endpoint)

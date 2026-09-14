@@ -579,8 +579,9 @@ const API = {
   },
 
   // Pull full state from cloud
-  async getAll() {
-    return this.get('/api/sync');
+  // ต้องส่งรหัสเครื่องไปด้วย ไม่งั้นเซิร์ฟเวอร์จะไม่รู้ว่าเส้นทางของเครื่องไหน
+  async getAll(deviceId) {
+    return this.get('/api/sync' + (deviceId ? '?device=' + encodeURIComponent(deviceId) : ''));
   },
 
   // Legacy single-customer sync (kept for back-compat)
@@ -966,13 +967,79 @@ const Storage = {
     return { synced: false, error: 'Not found' };
   },
 
+  // ===== แยกเส้นทางตาม "ผู้ใช้ + เครื่องนี้" =====
+  // ปัญหาเดิม: ทุกเครื่องใช้คีย์เดียวกัน (bfr_route) → 10 คนใช้พร้อมกัน เส้นทางทับกัน
+  KEY_DEVICE: 'bfr_device_id',
+
+  // รหัสประจำเครื่องนี้ (สร้างครั้งเดียว เก็บถาวรใน localStorage ของเครื่องนั้น)
+  deviceId() {
+    try {
+      let id = localStorage.getItem(this.KEY_DEVICE);
+      if (!id) {
+        id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        localStorage.setItem(this.KEY_DEVICE, id);
+      }
+      return id;
+    } catch (e) { return 'dunknown'; }
+  },
+
+  // รหัสผู้ใช้ (ต้องตรงกับที่เซิร์ฟเวอร์ใช้: username → sub)
+  // login ด้วย PIN ผู้ดูแลได้ username 'admin' → สโคปตรงกับที่เซิร์ฟเวอร์คิด
+  _userId() {
+    const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    let who = (u && u.username) ? String(u.username) : '';
+    if (!who) {
+      try {
+        const t = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
+        if (t && t.indexOf('.') > 0) {
+          const p = JSON.parse(atob(t.split('.')[1]));
+          who = p.username || p.sub || '';
+        }
+      } catch (e) { /* token เสีย → ใช้ชื่อผู้ใช้แทน */ }
+    }
+    if (!who && u && u.name) who = String(u.name);
+    return String(who || 'guest').replace(/[^A-Za-z0-9._-]/g, '') || 'guest';
+  },
+
+  // สโคปของเครื่องนี้ = ผู้ใช้ + รหัสเครื่อง (ต้องตรงกับเซิร์ฟเวอร์: routes:user:<scope>)
+  routeScope() { return this._userId() + '_' + this.deviceId(); },
+
+  _routeSuffix() { return '_' + this.routeScope(); },
+
+  // คีย์เดิมก่อนแยกตามเครื่อง — ใช้ย้ายข้อมูลครั้งแรก แล้วลบทิ้ง
+  _legacyKeys(base) {
+    const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    const who = (u && u.username) ? String(u.username).replace(/[^A-Za-z0-9._-]/g, '') : '';
+    return who ? [base + '_' + who, base] : [base];
+  },
+
+  // อ่านคีย์ของเครื่องนี้; ถ้ายังว่างให้ย้ายจากคีย์เดิม (ครั้งเดียว) แล้วลบคีย์เดิม
+  _readScoped(key, legacyKeys) {
+    try {
+      const cur = localStorage.getItem(key);
+      if (cur !== null && cur !== '[]' && cur !== '') return JSON.parse(cur);
+      for (const lk of legacyKeys) {
+        if (lk === key) continue;
+        const v = localStorage.getItem(lk);
+        if (v !== null && v !== '[]' && v !== '') {
+          localStorage.setItem(key, v);
+          localStorage.removeItem(lk);   // กันคนอื่นบนเครื่องเดียวกันเห็นข้อมูลของเรา
+          return JSON.parse(v);
+        }
+      }
+    } catch (e) { /* ข้อมูลเสีย → เริ่มใหม่ */ }
+    return [];
+  },
+
   getRoute() {
-    try { return JSON.parse(localStorage.getItem(this.KEY_ROUTE) || '[]'); }
+    this._routeKey = this.KEY_ROUTE + this._routeSuffix();
+    try { return this._readScoped(this._routeKey, this._legacyKeys(this.KEY_ROUTE)); }
     catch { return []; }
   },
 
   async saveRoute(list) {
-    localStorage.setItem(this.KEY_ROUTE, JSON.stringify(list));
+    this._routeKey = this.KEY_ROUTE + this._routeSuffix();
+    localStorage.setItem(this._routeKey, JSON.stringify(list));
     // กด + รัวๆ ไม่หน่วง: เซฟลงเครื่องทันที + ส่งขึ้นเว็บรวมรอบเดียวหลังหยุดกด 2.5 วิ
     clearTimeout(this._routePushTimer);
     this._routePushTimer = setTimeout(() => { this.push().catch(() => {}); }, 2500);
@@ -1012,7 +1079,8 @@ const Storage = {
   },
 
   getSavedRoutes() {
-    try { return JSON.parse(localStorage.getItem(this.KEY_SAVED_ROUTES) || '[]'); }
+    this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
+    try { return this._readScoped(this._savedRoutesKey, this._legacyKeys(this.KEY_SAVED_ROUTES)); }
     catch { return []; }
   },
 
@@ -1022,7 +1090,8 @@ const Storage = {
     route.savedAt = route.savedAt || new Date().toISOString();
     route.savedBy = Auth.getUser()?.name || 'unknown';
     list.push(route);
-    localStorage.setItem(this.KEY_SAVED_ROUTES, JSON.stringify(list));
+    this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
+    localStorage.setItem(this._savedRoutesKey, JSON.stringify(list));
     await this.push();
     return route;
   },
@@ -1096,6 +1165,8 @@ const Storage = {
       customers,
       visits: this.getVisits(),
       savedRoutes: this.getSavedRoutes(),
+      // รหัสเครื่องนี้ → เซิร์ฟเวอร์แยกเส้นทางต่อผู้ใช้+เครื่อง (routes:user:<scope>)
+      deviceId: this.deviceId(),
     };
   },
 
@@ -1106,7 +1177,7 @@ const Storage = {
     this._pullInFlight = (async () => {
       try {
         this._notifyListeners({ status: 'syncing' });
-        const res = await API.getAll();
+        const res = await API.getAll(this.deviceId());
         if (res && res.success) {
           this._mergeRemote(res);
           localStorage.setItem(this.KEY_SERVER_TIME, res.serverTime);
@@ -1140,7 +1211,9 @@ const Storage = {
 
     this.saveCustomers(mergedCustomers);
     localStorage.setItem(this.KEY_VISITS, JSON.stringify(mergedVisits));
-    localStorage.setItem(this.KEY_SAVED_ROUTES, JSON.stringify(mergedRoutes));
+    // เขียนลงคีย์ของเครื่องนี้เท่านั้น (เดิมเขียนคีย์กลาง → เครื่องอื่นบนเครื่องเดียวกันเห็นข้อมูลกัน)
+    this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
+    localStorage.setItem(this._savedRoutesKey, JSON.stringify(mergedRoutes));
 
     // Trigger app re-render if available
     if (typeof App !== 'undefined' && App._onRemoteUpdate) {
@@ -1197,7 +1270,7 @@ const Storage = {
       try {
         // Poll with since= — returns delta customers + full visits/routes
         const lastServer = localStorage.getItem(this.KEY_SERVER_TIME);
-        const res = await fetch(API.baseUrl() + '/api/sync?since=' + encodeURIComponent(lastServer || ''), {
+        const res = await fetch(API.baseUrl() + '/api/sync?since=' + encodeURIComponent(lastServer || '') + '&device=' + encodeURIComponent(this.deviceId()), {
           headers: API.headers(),
         });
         if (res.ok) {

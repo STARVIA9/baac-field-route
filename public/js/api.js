@@ -86,8 +86,9 @@ const API = {
   },
 
   // Pull full state from cloud
-  async getAll() {
-    return this.get('/api/sync');
+  // ต้องส่งรหัสเครื่องไปด้วย ไม่งั้นเซิร์ฟเวอร์จะไม่รู้ว่าเส้นทางของเครื่องไหน
+  async getAll(deviceId) {
+    return this.get('/api/sync' + (deviceId ? '?device=' + encodeURIComponent(deviceId) : ''));
   },
 
   // Legacy single-customer sync (kept for back-compat)

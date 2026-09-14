@@ -455,12 +455,15 @@ const Route = {
       savedAt: new Date().toISOString(),
       savedBy: Auth.getUser()?.name,
     };
-    // Save to cloud via Storage (auto-sync)
+    // Save to cloud via Storage (auto-sync — แยกตามผู้ใช้ + เครื่องนี้)
     Storage.saveSavedRoute(route);
-    Utils.toast('💾 บันทึกเส้นทางแล้ว — sync ทุกเครื่อง');
+    Utils.toast('💾 บันทึกเส้นทางแล้ว — ส่งขึ้นเว็บ (ของเครื่องนี้)');
   },
 
   // ===== Route Templates =====
+  // คีย์แยกตามผู้ใช้+เครื่อง (เดิมคีย์กลาง 'bfr_route_templates' → ใช้เครื่องร่วมกันแล้วเห็นเทมเพลตกัน)
+  _templatesKey() { return 'bfr_route_templates' + Storage._routeSuffix(); },
+
   // Save current route as a reusable template
   saveAsTemplate(name) {
     const routeIds = Storage.getRoute();
@@ -476,7 +479,7 @@ const Route = {
       createdAt: new Date().toISOString(),
       createdBy: Auth.getUser()?.name,
     });
-    localStorage.setItem('bfr_route_templates', JSON.stringify(templates));
+    localStorage.setItem(this._templatesKey(), JSON.stringify(templates));
     Utils.toast(`📋 บันทึกเทมเพลต "${name}" แล้ว`);
   },
 
@@ -496,7 +499,8 @@ const Route = {
   // Get all templates
   _getTemplates() {
     try {
-      return JSON.parse(localStorage.getItem('bfr_route_templates') || '[]');
+      // ย้ายเทมเพลตเดิม (คีย์กลาง) มาที่คีย์ของเครื่องนี้ครั้งแรก
+      return Storage._readScoped(this._templatesKey(), ['bfr_route_templates']);
     } catch {
       return [];
     }
@@ -506,7 +510,7 @@ const Route = {
   deleteTemplate(templateId) {
     let templates = this._getTemplates();
     templates = templates.filter(t => t.id !== templateId);
-    localStorage.setItem('bfr_route_templates', JSON.stringify(templates));
+    localStorage.setItem(this._templatesKey(), JSON.stringify(templates));
     Utils.toast('🗑️ ลบเทมเพลตแล้ว');
   },
 
@@ -526,13 +530,16 @@ const Route = {
     });
     // Keep only last 20 routes
     if (history.length > 20) history.length = 20;
-    localStorage.setItem('bfr_route_history', JSON.stringify(history));
+    localStorage.setItem(this._historyKey(), JSON.stringify(history));
   },
+
+  // คีย์ประวัติแยกตามผู้ใช้+เครื่อง
+  _historyKey() { return 'bfr_route_history' + Storage._routeSuffix(); },
 
   // Get route history
   _getHistory() {
     try {
-      return JSON.parse(localStorage.getItem('bfr_route_history') || '[]');
+      return Storage._readScoped(this._historyKey(), ['bfr_route_history']);
     } catch {
       return [];
     }
