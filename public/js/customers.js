@@ -699,15 +699,6 @@ const Customers = {
     const visits = Storage.getVisits();
     const route = Storage.getRoute();
 
-    // Filter
-    if (this.currentFilter === 'pending') {
-      customers = customers.filter(c => !visits[c.id]);
-    } else if (this.currentFilter === 'visited') {
-      customers = customers.filter(c => visits[c.id]);
-    } else if (this.currentFilter === 'today') {
-      // For now: same as all. Can be filtered by route later.
-    }
-
     // Zone filter (เขตสินเชื่อ — T3)
     const zoneSel = document.getElementById('customer-zone');
     const zoneVal = zoneSel?.value || '';

@@ -699,15 +699,6 @@ const Customers = {
     const visits = Storage.getVisits();
     const route = Storage.getRoute();
 
-    // Filter
-    if (this.currentFilter === 'pending') {
-      customers = customers.filter(c => !visits[c.id]);
-    } else if (this.currentFilter === 'visited') {
-      customers = customers.filter(c => visits[c.id]);
-    } else if (this.currentFilter === 'today') {
-      // For now: same as all. Can be filtered by route later.
-    }
-
     // Zone filter (เขตสินเชื่อ — T3)
     const zoneSel = document.getElementById('customer-zone');
     const zoneVal = zoneSel?.value || '';
@@ -2963,16 +2954,6 @@ const App = {
     // === Sheet tabs ===
     document.querySelectorAll('.sheet-tab').forEach(t => {
       t.addEventListener('click', () => this.switchSheetTab(t.dataset.sheet));
-    });
-
-    // Filters
-    document.querySelectorAll('.filter').forEach(f => {
-      f.addEventListener('click', () => {
-        document.querySelectorAll('.filter').forEach(x => x.classList.remove('active'));
-        f.classList.add('active');
-        Customers.currentFilter = f.dataset.filter;
-        Customers.renderList();
-      });
     });
 
     // Customer search

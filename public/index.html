@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260914a" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20260914a" as="script">
+  <link rel="preload" href="css/app.css?v=20260914b" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20260914b" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20260914a">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20260914a"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20260914b">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260914b"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -471,9 +471,6 @@
           <div class="customers-toolbar">
             <div class="customers-filters">
               <button class="filter active" data-filter="all">ทั้งหมด</button>
-              <button class="filter" data-filter="today">วันนี้</button>
-              <button class="filter" data-filter="pending">รอเยี่ยม</button>
-              <button class="filter" data-filter="visited">เยี่ยมแล้ว</button>
             </div>
             <div class="customers-sort">
               <select id="customer-zone" class="sort-select" title="กรองเขตสินเชื่อ">
@@ -1299,8 +1296,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20260914a"></script>
-  <script src="js/app.bundle.js?v=20260914a"></script>
+  <script src="js/vendor.js?v=20260914b"></script>
+  <script src="js/app.bundle.js?v=20260914b"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

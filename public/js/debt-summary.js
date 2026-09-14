@@ -366,7 +366,6 @@ const DebtSummary = {
       if (searchInput) {
         // Use search to filter — set a temporary filter
         searchInput.value = '';
-        Customers.currentFilter = 'all';
         Customers.renderList();
         Utils.toast(`📋 แสดงลูกค้าชั้น ${value}: ${filtered.length} ราย — ใช้ค้นหาเพื่อกรองเพิ่ม`);
       }

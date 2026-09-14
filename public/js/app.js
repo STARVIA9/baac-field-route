@@ -540,16 +540,6 @@ const App = {
       t.addEventListener('click', () => this.switchSheetTab(t.dataset.sheet));
     });
 
-    // Filters
-    document.querySelectorAll('.filter').forEach(f => {
-      f.addEventListener('click', () => {
-        document.querySelectorAll('.filter').forEach(x => x.classList.remove('active'));
-        f.classList.add('active');
-        Customers.currentFilter = f.dataset.filter;
-        Customers.renderList();
-      });
-    });
-
     // Customer search
     const customerSearch = document.getElementById('customer-search');
     if (customerSearch) {

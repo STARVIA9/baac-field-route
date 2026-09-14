@@ -1078,6 +1078,30 @@ const Storage = {
     return { synced: !!(result && result.success), error: result?.error };
   },
 
+  // ===== ส่งคลังเส้นทางขึ้นเว็บเฉพาะตอนที่มีการเปลี่ยน =====
+  // เดิม: ทุกครั้งที่ push จะแนบคลังทั้งก้อน (เส้นทางถนนในคลัง ~87 KB/ชุด) ขึ้นเน็ตทุกรอบ
+  // ใหม่: แนบเฉพาะเมื่อลายเซ็นคลังต่างจากครั้งที่ส่งสำเร็จล่าสุด (ไม่เปลี่ยน = ส่ง [] )
+  // ปลอดภัยเพราะเซิร์ฟเวอร์ merge แบบเพิ่ม (mergeById) — ส่ง [] ไม่ลบข้อมูลเดิม
+  KEY_ROUTES_SIG: 'bfr_routes_sig',
+
+  _routesSig(list) {
+    try {
+      return JSON.stringify((list || []).map(r => [r.id, r.savedAt, (r.stops || []).length, r.distance, String(r.name || '')]));
+    } catch (e) { return ''; }
+  },
+
+  _routesChangedSinceSync() {
+    try {
+      return localStorage.getItem(this.KEY_ROUTES_SIG) !== this._routesSig(this.getSavedRoutes());
+    } catch (e) { return true; }
+  },
+
+  _markRoutesSynced(list) {
+    try {
+      localStorage.setItem(this.KEY_ROUTES_SIG, this._routesSig(list || this.getSavedRoutes()));
+    } catch (e) { /* พื้นที่เต็ม → ส่งซ้ำได้ ไม่พัง */ }
+  },
+
   getSavedRoutes() {
     this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
     try { return this._readScoped(this._savedRoutesKey, this._legacyKeys(this.KEY_SAVED_ROUTES)); }
@@ -1121,6 +1145,7 @@ const Storage = {
         if (res && res.success) {
           localStorage.setItem(this.KEY_SERVER_TIME, res.serverTime);
           localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
+          this._markRoutesSynced();   // ส่งสำเร็จแล้ว → จำลายเซ็นคลัง ไม่ต้องส่งซ้ำจนกว่าจะเปลี่ยน
           this._notifyListeners({ status: 'synced', serverTime: res.serverTime });
         }
         return res;
@@ -1161,10 +1186,13 @@ const Storage = {
       customers = [];
     }
 
+    // ส่งคลังเส้นทางเฉพาะตอนเปลี่ยน (ไม่เปลี่ยน = ส่ง [] → ประหยัดเน็ตมือถือ เพราะในคลังมีเส้นทางถนนหนัก ๆ)
+    const routesToSend = this._routesChangedSinceSync() ? this.getSavedRoutes() : [];
+
     return {
       customers,
       visits: this.getVisits(),
-      savedRoutes: this.getSavedRoutes(),
+      savedRoutes: routesToSend,
       // รหัสเครื่องนี้ → เซิร์ฟเวอร์แยกเส้นทางต่อผู้ใช้+เครื่อง (routes:user:<scope>)
       deviceId: this.deviceId(),
     };
@@ -1214,6 +1242,8 @@ const Storage = {
     // เขียนลงคีย์ของเครื่องนี้เท่านั้น (เดิมเขียนคีย์กลาง → เครื่องอื่นบนเครื่องเดียวกันเห็นข้อมูลกัน)
     this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
     localStorage.setItem(this._savedRoutesKey, JSON.stringify(mergedRoutes));
+    // คลังที่ได้จากเซิร์ฟเวอร์ (เครื่องนี้ยังไม่มีของตัวเอง) → จำลายเซ็นไว้ ไม่ต้องส่งคืนให้เปลืองเน็ต
+    if (localSavedRoutes.length === 0 && mergedRoutes.length > 0) this._markRoutesSynced(mergedRoutes);
 
     // Trigger app re-render if available
     if (typeof App !== 'undefined' && App._onRemoteUpdate) {
@@ -2199,7 +2229,6 @@ const DebtSummary = {
       if (searchInput) {
         // Use search to filter — set a temporary filter
         searchInput.value = '';
-        Customers.currentFilter = 'all';
         Customers.renderList();
         Utils.toast(`📋 แสดงลูกค้าชั้น ${value}: ${filtered.length} ราย — ใช้ค้นหาเพื่อกรองเพิ่ม`);
       }
