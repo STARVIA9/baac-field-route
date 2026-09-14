@@ -140,21 +140,25 @@ export async function onRequestPost(context) {
   const mergedVisits = mergeVisits(existingVisits, body.visits || {});
   const mergedRoutes = mergeById(existingRoutes, body.savedRoutes || []);
 
-  // Save visits + routes to KV (per user)
-  await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
-  await env.BFR_KV.put(routesKey, JSON.stringify(mergedRoutes));
-  // Track when visits last changed (client uses this to skip re-processing)
-  const visitsUpdated = new Date().toISOString();
-  await env.BFR_KV.put('meta:visits-updated', visitsUpdated);
+  // ===== เขียน KV เฉพาะที่เปลี่ยนจริง (C) =====
+  // เดิมเขียน 4 คีย์ทุกครั้งที่ push (visits:all, routes, meta:visits-updated, meta:lastwrite)
+  // โหมดฟรีให้เขียน 1,000 คีย์/วัน → push เปล่า ๆ ก็กินโควตา ตอนนี้เขียน 0–2 คีย์
+  const visitsChanged = JSON.stringify(mergedVisits) !== JSON.stringify(existingVisits);
+  const routesChanged = JSON.stringify(mergedRoutes) !== JSON.stringify(existingRoutes);
+
+  if (visitsChanged) await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
+  if (routesChanged) await env.BFR_KV.put(routesKey, JSON.stringify(mergedRoutes));
 
   // Sync incoming customers into D1 (single source of truth)
   const customersSynced = await syncCustomersToD1(env, body.customers || []);
-  // Bump etag gate: มี write จริง → client poll ถัดไปจะ query D1 (เห็นข้อมูลใหม่)
-  if (customersSynced > 0) await touchCustomers(env);
+  // หมายเหตุ: ไม่เรียก touchCustomers() แล้ว — ไม่มีใครอ่าน meta:customers-updated
+  // การเปลี่ยนข้อมูลลูกค้าตรวจได้จาก MAX(updated_at) ใน D1 อยู่แล้ว (ประหยัด 1 write/ครั้ง)
 
-  // Update last-write timestamp (used for polling/etag)
+  // meta:lastwrite = สัญญาณ "มีของใหม่" ที่เครื่องอื่นใช้เช็ค (โหมด probe)
+  // เขียนเฉพาะเมื่อมีการเปลี่ยนจริง
   const serverTime = new Date().toISOString();
-  await env.BFR_KV.put('meta:lastwrite', serverTime);
+  if (visitsChanged || routesChanged) await env.BFR_KV.put('meta:lastwrite', serverTime);
+  const visitsUpdated = visitsChanged ? serverTime : null;
 
   const d1Count = await d1CountCustomers(env);
   const gpsCount = await d1GpsCount(env);
@@ -182,6 +186,37 @@ export async function onRequestGet(context) {
 
   const url = new URL(request.url);
   const since = url.searchParams.get('since');  // ISO timestamp — return only customers updated AFTER this
+  const probe = url.searchParams.get('probe') === '1';
+
+  // ===== PROBE MODE (?probe=1) — โหมด "ตรวจเบา ๆ" =====
+  // อ่าน KV แค่ 2 คีย์ + นับ D1 1 แถว → บอกว่ามีของใหม่ไหม
+  // client จะยิงอันนี้ก่อนทุกรอบ (ถูกมาก) และดึงข้อมูลเต็มเฉพาะตอนมีของใหม่จริง
+  // ผล: ปกติ 1 รอบ = 2 reads (เดิม 8) → 10 เครื่องเปิด 8 ชม. รอบ 20 วิ = 29% ของโควตา
+  if (probe) {
+    const lastWriteProbe = env.BFR_KV ? await env.BFR_KV.get('meta:lastwrite') : null;
+    const overlayProbe = env.BFR_KV ? await env.BFR_KV.get('meta:overlay-updated') : null;
+    let maxIso = null;
+    if (env.BFR_DB) {
+      try {
+        const maxResProbe = await env.BFR_DB.prepare('SELECT MAX(updated_at) m FROM customers').first();
+        maxIso = maxResProbe?.m || null;
+      } catch (e) { maxIso = null; }
+    }
+    // serverTime ต้องคำนวณแบบเดียวกับโหมดเต็ม (client ใช้เทียบว่ามีของใหม่ไหม)
+    const serverTimeProbe = (maxIso && (!lastWriteProbe || maxIso > lastWriteProbe)) ? maxIso : (lastWriteProbe || new Date().toISOString());
+    return json({
+      success: true,
+      probe: true,
+      serverTime: serverTimeProbe,
+      overlayUpdatedAt: overlayProbe || null,
+      visitsUpdated: null,
+      customers: [],
+      visits: {},
+      savedRoutes: [],
+      counts: null,
+      _d1: env.BFR_DB && maxIso ? 'max' : 'none',
+    });
+  }
 
   const visitsRaw = await env.BFR_KV.get('visits:all');
   const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
@@ -192,7 +227,7 @@ export async function onRequestGet(context) {
   const savedRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
-  const visitsUpdated = await env.BFR_KV.get('meta:visits-updated');
+  // ไม่ต้องอ่าน meta:visits-updated ทุกครั้ง — client ไม่ได้ใช้ค่านี้ (ตัด 1 read/รอบ)
 
   // ===== D1 ETAG GATE (ลด rows_read — D1 quota 5M rows/day) =====
   // ทุก write ลง customers ตั้ง updated_at = now เสมอ (verified ทุก endpoint)
@@ -267,7 +302,7 @@ export async function onRequestGet(context) {
     success: true,
     serverTime: effectiveServerTime,
     overlayUpdatedAt: overlayUpdatedAt || null,
-    visitsUpdated: visitsUpdated || null,
+    visitsUpdated: null,   // client ไม่ได้ใช้ (เลิกอ่าน meta:visits-updated เพื่อลด KV read)
     customers,
     visits,
     savedRoutes,

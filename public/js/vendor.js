@@ -1264,12 +1264,31 @@ const Storage = {
   _pollingTimer: null,
 
   // ตรวจ 1 รอบ (แยกไว้เพื่อเรียกทันทีตอนกลับเข้าแอป/เน็ตกลับมา)
+  // ขั้น 1 = ตรวจเบา ๆ (?probe=1) อ่าน KV 2 คีย์ → ไม่มีของใหม่ก็จบรอบ (ประหยัดโควตา KV มาก)
+  // ขั้น 2 = มีของใหม่จริงค่อยดึงข้อมูลเต็ม
   async pollOnce() {
     if (!navigator.onLine) return;
     const tick = async () => {
       try {
-        // Poll with since= — returns delta customers + full visits/routes
         const lastServer = localStorage.getItem(this.KEY_SERVER_TIME);
+        const probeOverlay = localStorage.getItem(this.KEY_OVERLAY_TIME);
+
+        // ===== ขั้น 1: ตรวจเบา ๆ =====
+        let hasNew = true;
+        try {
+          const pRes = await fetch(API.baseUrl() + '/api/sync?probe=1', { headers: API.headers() });
+          if (pRes.ok) {
+            const p = await pRes.json();
+            if (p && p.success) {
+              const overlayChanged = !!(p.overlayUpdatedAt && p.overlayUpdatedAt !== probeOverlay);
+              const newer = !!(p.serverTime && (!lastServer || p.serverTime > lastServer));
+              hasNew = overlayChanged || newer;
+            }
+          }
+        } catch (e) { /* probe ล้มเหลว → ลองทางเต็มแทน */ }
+        if (!hasNew) return;   // ไม่มีของใหม่ → จบรอบนี้
+
+        // ===== ขั้น 2: ดึงข้อมูลเต็ม =====
         const res = await fetch(API.baseUrl() + '/api/sync?since=' + encodeURIComponent(lastServer || '') + '&device=' + encodeURIComponent(this.deviceId()), {
           headers: API.headers(),
         });
