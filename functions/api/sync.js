@@ -244,8 +244,9 @@ function d1ToCustomer(r) {
     nickname: r.nickname || '',
     phone: r.phone || '',
     address: r.address || '',
-    lat: r.lat != null ? r.lat : null,
-    lng: r.lng != null ? r.lng : null,
+    // พิกัดต้องเป็นตัวเลขเสมอ — แถวเก่าที่เคยเก็บเป็นข้อความ ("13.77") ทำให้หมุดไม่ขึ้นบนแผนที่
+    lat: (r.lat != null && r.lat !== '' && Number.isFinite(Number(r.lat))) ? Number(r.lat) : null,
+    lng: (r.lng != null && r.lng !== '' && Number.isFinite(Number(r.lng))) ? Number(r.lng) : null,
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
     zone: r.zone || '',

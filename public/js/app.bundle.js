@@ -96,7 +96,9 @@ const Customers = {
 
   // ===== Color scheme for circleMarker (no DOM elements) =====
   _riskColors: {
-    unclassified: { fill: '#e0e0e0', stroke: '#bbbbbb' },
+    // ไม่ระบุความเสี่ยง → ให้เด่นขึ้น (เดิมเทาอ่อน opacity ต่ำ มองแทบไม่เห็น)
+    // ม่วงเข้ม + ขอบขาว = ตัดกับทั้งแผนที่สว่างและภาพดาวเทียม
+    unclassified: { fill: '#6d28d9', stroke: '#ffffff' },
     good:         { fill: '#16a34a', stroke: '#16a34a' },
     warning:      { fill: '#d97706', stroke: '#d97706' },
     bad:          { fill: '#dc2626', stroke: '#dc2626' },
@@ -115,7 +117,7 @@ const Customers = {
     let hash = '';
     for (const c of customers) {
       if (Number.isFinite(c.lat)) {
-        hash += c.id + ':' + c.lat.toFixed(4) + ',' + c.lng.toFixed(4) + ':' + (visits[c.id] ? '1' : '0') + ';';
+        hash += c.id + ':' + Number(c.lat).toFixed(4) + ',' + Number(c.lng).toFixed(4) + ':' + (visits[c.id] ? '1' : '0') + ':' + (c.riskLevel || 'u') + ';';
       }
     }
     if (routeOrder) hash += '|route:' + routeOrder.join(',');
@@ -235,13 +237,14 @@ const Customers = {
         mLng = jitter(c.lng, seed + 7919); // different prime offset for lng
       }
 
+      const isUnclassified = riskClass === 'unclassified';
       const marker = L.circleMarker([mLat, mLng], {
-        radius: inRoute ? 11 : 8,
+        radius: inRoute ? 12 : (isUnclassified ? 10 : 8),
         fillColor: fill,
         color: stroke,
-        weight: inRoute ? 3 : 1.5,
-        opacity: riskClass === 'unclassified' ? 0.6 : 0.9,
-        fillOpacity: riskClass === 'unclassified' ? 0.3 : 0.85,
+        weight: inRoute ? 3 : (isUnclassified ? 3 : 1.5),
+        opacity: isUnclassified ? 1 : 0.9,
+        fillOpacity: isUnclassified ? 0.95 : 0.85,
         pane: 'markerPane',
       });
 
@@ -423,15 +426,73 @@ const Customers = {
       return;
     }
     Utils.toast('📍 กำลังจับพิกัด...', 'info');
-    navigator.geolocation.getCurrentPosition(async (pos) => {
+    navigator.geolocation.getCurrentPosition((pos) => {
       const lat = Number(pos.coords.latitude.toFixed(6));
       const lng = Number(pos.coords.longitude.toFixed(6));
-      const r = await Storage.updateCustomer(id, { lat, lng });
-      Customers.renderAll();
-      Utils.toast(r && r.synced ? `📍 เซฟพิกัด ${c.name} แล้ว` : `📍 เซฟพิกัดแล้ว (รอเน็ตส่งขึ้นเว็บ)`, r && r.synced ? 'success' : 'warn');
+      this.saveGpsFast(id, c.cif, lat, lng, c.name);
     }, () => {
       Utils.toast('จับพิกัดไม่สำเร็จ — เปิด GPS แล้วลองใหม่', 'error');
     }, { enableHighAccuracy: true, timeout: 15000 });
+  },
+
+  // ⚡ จุดเดียวที่ทุกปุ่มปักหมุดเรียกใช้
+  // เขียนลงเครื่อง + วาดหมุดทันที (~20ms) แล้วค่อยส่งขึ้นเว็บเบื้องหลัง
+  // เดิม: await เน็ตก่อน (วัดจริง 14 ก.ย.69 = รอ 1.0–2.5 วิ กว่าหมุดจะขึ้น)
+  saveGpsFast(id, cif, lat, lng, label) {
+    const saved = Storage.updateCustomerLocal(id, { lat, lng });
+    if (!saved) { Utils.toast('ไม่พบลูกค้า', 'error'); return; }
+
+    this._lastMarkerHash = null;   // hash ยังไม่รู้พิกัดใหม่ → บังคับวาดใหม่
+    this.renderAll();
+    this.focusPin(lat, lng);       // ซูมเข้าหา + กระพริบ → เห็นหมุดแน่ๆ ไม่จมในกลุ่ม
+
+    if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('saving');
+    Utils.toast('⏳ กำลังบันทึกพิกัดขึ้นเว็บ...', 'info');
+
+    Storage.uploadCustomer(cif, { lat: Number(lat), lng: Number(lng) }).then((r) => {
+      if (r && r.synced) {
+        if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('saved');
+        Utils.toast(`✅ บันทึกพิกัด "${label || 'ลูกค้า'}" ขึ้นเว็บแล้ว`);
+      } else {
+        if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('error');
+        Utils.toast('⚠️ หมุดขึ้นในเครื่องนี้แล้ว แต่ยังส่งขึ้นเว็บไม่สำเร็จ — กดปุ่ม sync ล่างขวาเพื่อลองใหม่', 'error');
+      }
+    });
+  },
+
+  // ซูมเข้าหาหมุดที่เพิ่งปัก (zoom 17 = หมุดไม่ถูกยัดอยู่ในกลุ่ม) + กระพริบให้เห็น
+  focusPin(lat, lng) {
+    if (!this.map) return;
+    try {
+      const target = L.latLng(lat, lng);
+      const z = Math.max(this.map.getZoom(), 17);
+      this.map.flyTo(target, z, { duration: 0.6 });
+      this._flashPin(target);
+    } catch (e) { /* ไม่ขวางการปักหมุด */ }
+  },
+
+  // วงแหวนกระพริบรอบหมุดที่เพิ่งปัก — หายเองใน ~4.5 วิ
+  _flashPin(latlng) {
+    try {
+      if (this._flashLayer) { this.map.removeLayer(this._flashLayer); this._flashLayer = null; }
+      if (this._flashTimer) { clearInterval(this._flashTimer); this._flashTimer = null; }
+      const halo = L.circleMarker(latlng, {
+        radius: 16, color: '#1d4ed8', weight: 3, opacity: 0.9,
+        fillColor: '#3b82f6', fillOpacity: 0.25,
+        pane: 'markerPane', interactive: false,
+      });
+      this._flashLayer = L.layerGroup([halo]).addTo(this.map);
+      let n = 0;
+      this._flashTimer = setInterval(() => {
+        n++;
+        halo.setStyle({ opacity: n % 2 ? 0.2 : 0.9, fillOpacity: n % 2 ? 0.08 : 0.3 });
+        if (n >= 8) { clearInterval(this._flashTimer); this._flashTimer = null; }
+      }, 350);
+      setTimeout(() => {
+        if (this._flashLayer) { this.map.removeLayer(this._flashLayer); this._flashLayer = null; }
+        if (this._flashTimer) { clearInterval(this._flashTimer); this._flashTimer = null; }
+      }, 4500);
+    } catch (e) { /* ไม่ขวางการปักหมุด */ }
   },
 
   // Navigate to customer (Google Maps)
@@ -623,43 +684,8 @@ const Customers = {
     // ปิด panel ค้นหา
     document.getElementById('pin-search-panel')?.remove();
 
-    Utils.toast('⏳ กำลังบันทึกพิกัด...');
-
-    try {
-      // ยิง PUT ตรงไปที่ /api/customers/:cif (ไม่ต้อง sync ทั้งหมด)
-      const token = Auth.getToken();
-      const res = await fetch(`/api/customers/${encodeURIComponent(c.cif)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ lat, lng }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || `HTTP ${res.status}`);
-      }
-
-      // อัปเดต local storage
-      c.lat = lat;
-      c.lng = lng;
-      c.updatedAt = new Date().toISOString();
-      Storage.saveCustomers(Storage.getCustomers());
-      if (c.cif && Storage.markDirty) Storage.markDirty(c.cif);
-
-      // อัปเดต marker บนแผนที่
-      this._lastMarkerHash = null;   // force rebuild — marker hash ยังไม่เห็น lat/lng ใหม่
-      this.renderAll();
-
-      // Push ทันที → เครื่องอื่นเห็นภายใน poll cycle (ไม่ต้องรอ 15วิ + delta miss)
-      if (typeof Storage !== 'undefined' && Storage.push) Storage.push();
-
-      Utils.toast(`📍 ปักหมุด "${c.name}" สำเร็จ!`);
-    } catch (err) {
-      Utils.toast('❌ บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    }
+    // local-first: หมุดขึ้นทันที (~20ms) แล้วค่อยส่งขึ้นเว็บเบื้องหลัง
+    this.saveGpsFast(id, cif || c.cif, lat, lng, c.name);
   },
 
   // Render customer list (Customers tab) — with infinite scroll
@@ -2715,9 +2741,18 @@ const App = {
       Utils.toast('⚠️ Sync ไม่สำเร็จ — ใช้ข้อมูล local', 'warn');
     }
 
-    // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
+    // Start real-time polling — 20 วิ/รอบ (เดิม 60): เครื่องอื่นเห็นหมุด/ข้อมูลใหม่ไวกว่า
+    // ต้นทุนจริง ~1 rows_read/รอบ ตอนไม่มีข้อมูลใหม่ (etag cache hit) → ยังห่างโควตา D1 5M/วันมาก
     this._wireSyncEvents();
-    Storage.startPolling(60000);  // 60s (เดิม 15s) — กัน D1 rows_read เกิน quota 5M/วัน
+    Storage.startPolling(20000);
+    // กลับเข้าแอป / เน็ตกลับมา → เช็คข้อมูลใหม่ทันที ไม่ต้องรอรอบถัดไป
+    if (!this._pollNowBound) {
+      this._pollNowBound = true;
+      const pollNow = () => { if (!document.hidden && navigator.onLine) Storage.pollOnce(); };
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
+      window.addEventListener('focus', pollNow);
+      window.addEventListener('online', pollNow);
+    }
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
     this.showStartModePopup();
@@ -2786,6 +2821,16 @@ const App = {
     });
   },
 
+  // ให้ส่วนอื่นสั่งสถานะบนจอได้ (saving = กำลังบันทึก, saved = เสร็จแล้ว, error)
+  // ใช้ป้ายลอยมุมขวาล่างตัวเดียวกับ sync badge
+  setSaveStatus(state) {
+    try {
+      if (state === 'saving') this._updateSyncBadge({ status: 'saving' });
+      else if (state === 'saved') this._updateSyncBadge({ status: 'saved' });
+      else this._updateSyncBadge({ status: 'error', error: 'save-failed' });
+    } catch (e) { /* ไม่ขวางการบันทึก */ }
+  },
+
   _updateSyncBadge(evt) {
     let badge = document.getElementById('sync-badge');
     if (!badge) {
@@ -2796,7 +2841,22 @@ const App = {
       badge.addEventListener('click', () => Storage.retrySync());
       document.body.appendChild(badge);
     }
-    if (evt.status === 'syncing') {
+    badge.style.display = '';
+    if (evt.status === 'saving') {
+      badge.textContent = '⏳ กำลังบันทึกพิกัด...';
+      badge.style.background = '#ff9800';
+      badge.style.cursor = 'wait';
+    } else if (evt.status === 'saved') {
+      badge.textContent = '✅ บันทึกพิกัดแล้ว';
+      badge.style.background = '#4caf50';
+      badge.style.cursor = 'pointer';
+      // ซ่อนเองใน 5 วิ (ไม่ให้ป้ายบังจอ)
+      clearTimeout(this._badgeHideTimer);
+      this._badgeHideTimer = setTimeout(() => {
+        const b = document.getElementById('sync-badge');
+        if (b && b.textContent.indexOf('✅ บันทึกพิกัด') === 0) b.style.display = 'none';
+      }, 5000);
+    } else if (evt.status === 'syncing') {
       badge.textContent = evt.action === 'retry' ? '🔄 กำลัง sync ใหม่...' : '🔄 Syncing...';
       badge.style.background = '#ff9800';
       badge.style.cursor = 'wait';
@@ -3694,32 +3754,26 @@ const App = {
     document.getElementById('add-customer-modal').classList.add('hidden');
   },
 
-  // Save customer (add or edit) — Server-first: await sync, show real result
+  // Save customer (add or edit) — Local-first: ขึ้นจอทันที แล้วส่งขึ้นเว็บเบื้องหลัง
   async saveCustomer(form) {
     const data = Object.fromEntries(new FormData(form));
     const editId = form.dataset.editId;
+    const isEdit = !!editId;
     let savedCustomer;
-    let syncResult;
-    if (editId) {
-      syncResult = await Storage.updateCustomer(editId, data);
-      savedCustomer = Storage.getCustomers().find(c => c.id === editId);
-      if (syncResult.synced) {
-        Utils.toast('✅ แก้ไขลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
-      } else {
-        Utils.toast('⚠️ แก้ไขแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
-      }
+
+    // ===== 1) บันทึกลงเครื่อง + วาดหมุดทันที (~20ms) =====
+    // ค่าจากช่องฟอร์มเป็นข้อความ — addCustomerLocal/updateCustomerLocal แปลงเป็นตัวเลขให้
+    // (เดิมพิกัดเป็นข้อความ → หมุดไม่ขึ้นบนแผนที่จนกว่าข้อมูลใหม่จะมาจากเซิร์ฟเวอร์)
+    if (isEdit) {
+      savedCustomer = Storage.updateCustomerLocal(editId, data)
+        || Storage.getCustomers().find(c => c.id === editId);
     } else {
-      syncResult = await Storage.addCustomer(data);
-      savedCustomer = syncResult.customer;
-      if (syncResult.synced) {
-        Utils.toast('✅ เพิ่มลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
-      } else {
-        Utils.toast('⚠️ เพิ่มแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
-      }
+      savedCustomer = Storage.addCustomerLocal(data);
     }
     this.closeAddCustomerModal();
     // Re-render markers WITHOUT fitBounds — preserve whatever view the user
     // was on. This stops the map from yanking away after every save.
+    Customers._lastMarkerHash = null;   // หมุด/พิกัดใหม่ → ต้องวาดใหม่แน่ๆ
     Customers.renderAll();
     // Gentle flyTo the saved customer so the user can see where it landed
     // without a jarring full-bounds reset.
@@ -3728,10 +3782,41 @@ const App = {
       const currentCenter = Customers.map.getCenter();
       // Only fly if the new pin is off-screen or way off-center
       const isVisible = Customers.map.getBounds().contains(newLatLng);
-      if (!isVisible || currentCenter.distanceTo(newLatLng) > 500) {
-        Customers.map.flyTo(newLatLng, Math.max(Customers.map.getZoom(), 15), { duration: 0.6 });
+      const tooFarOut = Customers.map.getZoom() < 16;   // ระดับนี้หมุดถูกยัดอยู่ในกลุ่ม → มองไม่เห็น
+      if (!isVisible || tooFarOut || currentCenter.distanceTo(newLatLng) > 500) {
+        Customers.map.flyTo(newLatLng, 17, { duration: 0.6 });
       }
+      if (Customers._flashPin) Customers._flashPin(newLatLng);   // กระพริบให้เห็นว่าหมุดอยู่ตรงนี้
     }
+
+    // ===== 2) ส่งขึ้นเว็บเบื้องหลัง + แจ้งสถานะบนจอ =====
+    this.setSaveStatus('saving');
+    Utils.toast(isEdit ? '✏️ แก้ไขแล้ว · กำลังบันทึกขึ้นเว็บ...' : '📝 เพิ่มลูกค้าแล้ว · กำลังบันทึกขึ้นเว็บ...', 'info');
+    const settled = (isEdit && savedCustomer && savedCustomer.cif)
+      ? await Storage.uploadCustomer(savedCustomer.cif, this._customerUploadFields(data))
+      : await Storage.push().then((r) => ({ synced: !!(r && r.success), error: r && r.error }));
+    if (settled && settled.synced) {
+      this.setSaveStatus('saved');
+      Utils.toast(isEdit ? '✅ แก้ไขลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย' : '✅ เพิ่มลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย');
+    } else {
+      this.setSaveStatus('error');
+      Utils.toast('⚠️ บันทึกในเครื่องนี้แล้ว แต่ยังส่งขึ้นเว็บไม่สำเร็จ · กดปุ่ม sync ล่างขวาเพื่อลองใหม่', 'error');
+    }
+  },
+
+  // เตรียมข้อมูลจากฟอร์มก่อนส่งขึ้นเว็บ
+  // - ตัดช่องที่เซิร์ฟเวอร์ไม่รับ (cif/debtNote)
+  // - ช่องพิกัดว่าง = ไม่แตะพิกัดเดิม (กัน lat/lng กลายเป็น 0 แล้วหมุดเด้งไปกลางทะเล)
+  // - แปลงพิกัดจากข้อความ ("13.77") เป็นตัวเลข → หมุดขึ้นทันที
+  _customerUploadFields(data) {
+    const f = { ...data };
+    delete f.cif;
+    delete f.debtNote;
+    const nlat = Storage._normCoord(f.lat);
+    const nlng = Storage._normCoord(f.lng);
+    if (nlat === null || nlng === null) { delete f.lat; delete f.lng; }
+    else { f.lat = nlat; f.lng = nlng; }
+    return f;
   },
 
   // Use GPS

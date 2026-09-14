@@ -231,6 +231,89 @@ const Storage = {
     return { synced: false, error: 'Customer not found' };
   },
 
+  // ===== Local-first (optimistic) =====
+  // ปัญหาเดิม: กดเซฟแล้ว UI รอเน็ต 1–2.5 วิ กว่าหมุดจะขึ้น (วัดจากเว็บจริง 14 ก.ย.69)
+  // แนวใหม่: เขียนลงเครื่อง + วาดหมุดก่อน (~20ms) แล้วค่อยส่งขึ้นเว็บเบื้องหลัง
+  _EDITABLE_FIELDS: new Set([
+    'name', 'nickname', 'phone', 'address', 'lat', 'lng',
+    'riskLevel', 'debtType', 'photo', 'note', 'zone', 'potential',
+  ]),
+
+  // พิกัดต้องเป็นตัวเลขเสมอ — ค่าจากฟอร์มเป็นข้อความ ("13.77") ทำให้หมุดไม่ขึ้น
+  _normCoord(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  },
+
+  // เขียนลง localStorage เท่านั้น (ไม่ยิงเน็ต) — คืน record ที่บันทึกแล้ว
+  updateCustomerLocal(id, updates) {
+    const list = this.getCustomers();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx < 0) return null;
+    if (list[idx].createdBy === 'AutoImport:StaticDB') {
+      list[idx].createdBy = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser() ? Auth.getUser().name : '') || 'user';
+    }
+    const safe = {};
+    for (const [k, v] of Object.entries(updates || {})) {
+      if (this._EDITABLE_FIELDS.has(k)) safe[k] = v;
+    }
+    if ('lat' in safe || 'lng' in safe) {
+      safe.lat = this._normCoord(safe.lat !== undefined ? safe.lat : list[idx].lat);
+      safe.lng = this._normCoord(safe.lng !== undefined ? safe.lng : list[idx].lng);
+    }
+    list[idx] = { ...list[idx], ...safe, updatedAt: new Date().toISOString() };
+    this.saveCustomers(list);
+    if (list[idx].cif) this.markDirty(list[idx].cif);
+    return list[idx];
+  },
+
+  // เพิ่มลูกค้าใหม่ลงเครื่องก่อน (ยังไม่ยิงเน็ต)
+  addCustomerLocal(customer) {
+    const list = this.getCustomers();
+    customer.id = customer.id || Utils.uuid();
+    customer.createdAt = customer.createdAt || new Date().toISOString();
+    customer.updatedAt = new Date().toISOString();
+    customer.createdBy = (typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser() ? Auth.getUser().name : '') || 'unknown';
+    customer.riskLevel = customer.riskLevel || 'unclassified';
+    customer.debtType = customer.debtType || null;
+    if ('lat' in customer || 'lng' in customer) {
+      customer.lat = this._normCoord(customer.lat);
+      customer.lng = this._normCoord(customer.lng);
+    }
+    list.push(customer);
+    this.saveCustomers(list);
+    if (customer.cif) this.markDirty(customer.cif);
+    return customer;
+  },
+
+  // ส่งลูกค้ารายเดียวขึ้นเว็บ — PUT ตรง (เบา ~1 วิ) ถ้าไม่ผ่านค่อยถอยไป push() ทั้งก้อน
+  async uploadCustomer(cif, fields) {
+    if (!navigator.onLine) return { synced: false, error: 'offline' };
+    let ok = false;
+    let err = '';
+    if (cif) {
+      try {
+        const res = await fetch(API.baseUrl() + '/api/customers/' + encodeURIComponent(cif), {
+          method: 'PUT',
+          headers: API.headers(),
+          body: JSON.stringify(fields || {}),
+        });
+        const data = await res.json().catch(() => ({}));
+        ok = res.ok && !!data.success;
+        if (!ok) err = data.error || ('HTTP ' + res.status);
+      } catch (e) { err = e.message; }
+    }
+    if (!ok) {
+      const r = await this.push();
+      ok = !!(r && r.success);
+      err = ok ? '' : ((r && r.error) || err || 'sync failed');
+    }
+    if (ok && cif) this.clearDirty([cif]);
+    this._notifyListeners(ok ? { status: 'saved' } : { status: 'error', error: err });
+    return { synced: ok, error: err };
+  },
+
   // ===== Phase 1 + Nickname/Photo: Migrate old customers to new schema =====
   // ลูกค้าเดิมที่ไม่มี riskLevel → 'unclassified' (marker แสดง "?" ไม่มีสี)
   // ลูกค้าเดิมที่ไม่มี debtType → null
@@ -255,6 +338,12 @@ const Storage = {
       if (c.photo === undefined) {
         c.photo = null;
         changed = true;
+      }
+      // พิกัดที่เคยเก็บเป็นข้อความ (ค่าจากฟอร์ม) → แปลงเป็นตัวเลข ไม่งั้นหมุดไม่ขึ้นบนแผนที่
+      if (typeof c.lat === 'string' || typeof c.lng === 'string') {
+        const nlat = this._normCoord(c.lat);
+        const nlng = this._normCoord(c.lng);
+        if (nlat !== null && nlng !== null) { c.lat = nlat; c.lng = nlng; changed = true; }
       }
     });
     if (changed) {
@@ -516,10 +605,12 @@ const Storage = {
     return localStorage.getItem(this.KEY_SYNC_TIME);
   },
 
-  // ===== Polling — fire every 3s to detect remote changes =====
+  // ===== Polling — ตรวจข้อมูลใหม่จากเซิร์ฟเวอร์ =====
   _pollingTimer: null,
-  startPolling(intervalMs = 15000) {
-    this.stopPolling();
+
+  // ตรวจ 1 รอบ (แยกไว้เพื่อเรียกทันทีตอนกลับเข้าแอป/เน็ตกลับมา)
+  async pollOnce() {
+    if (!navigator.onLine) return;
     const tick = async () => {
       try {
         // Poll with since= — returns delta customers + full visits/routes
@@ -559,9 +650,16 @@ const Storage = {
         // Silently ignore — will retry on next tick
       }
     };
+    return tick();
+  },
+
+  // รอบเช็ค 20 วิ (เดิม 60) — เครื่องอื่นเห็นหมุดใหม่ไวกว่า
+  // ต้นทุนจริง ~1 rows_read/รอบ ตอนไม่มีข้อมูลใหม่ (etag cache hit) → ไม่ชนโควตา D1
+  startPolling(intervalMs = 20000) {
+    this.stopPolling();
     // Run immediately, then every interval
-    tick();
-    this._pollingTimer = setInterval(tick, intervalMs);
+    this.pollOnce();
+    this._pollingTimer = setInterval(() => this.pollOnce(), intervalMs);
   },
 
   stopPolling() {

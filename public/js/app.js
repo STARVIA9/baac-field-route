@@ -323,9 +323,18 @@ const App = {
       Utils.toast('⚠️ Sync ไม่สำเร็จ — ใช้ข้อมูล local', 'warn');
     }
 
-    // Start real-time polling (every 15s — reduced from 3s to avoid Worker CPU limit)
+    // Start real-time polling — 20 วิ/รอบ (เดิม 60): เครื่องอื่นเห็นหมุด/ข้อมูลใหม่ไวกว่า
+    // ต้นทุนจริง ~1 rows_read/รอบ ตอนไม่มีข้อมูลใหม่ (etag cache hit) → ยังห่างโควตา D1 5M/วันมาก
     this._wireSyncEvents();
-    Storage.startPolling(60000);  // 60s (เดิม 15s) — กัน D1 rows_read เกิน quota 5M/วัน
+    Storage.startPolling(20000);
+    // กลับเข้าแอป / เน็ตกลับมา → เช็คข้อมูลใหม่ทันที ไม่ต้องรอรอบถัดไป
+    if (!this._pollNowBound) {
+      this._pollNowBound = true;
+      const pollNow = () => { if (!document.hidden && navigator.onLine) Storage.pollOnce(); };
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
+      window.addEventListener('focus', pollNow);
+      window.addEventListener('online', pollNow);
+    }
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
     this.showStartModePopup();
@@ -394,6 +403,16 @@ const App = {
     });
   },
 
+  // ให้ส่วนอื่นสั่งสถานะบนจอได้ (saving = กำลังบันทึก, saved = เสร็จแล้ว, error)
+  // ใช้ป้ายลอยมุมขวาล่างตัวเดียวกับ sync badge
+  setSaveStatus(state) {
+    try {
+      if (state === 'saving') this._updateSyncBadge({ status: 'saving' });
+      else if (state === 'saved') this._updateSyncBadge({ status: 'saved' });
+      else this._updateSyncBadge({ status: 'error', error: 'save-failed' });
+    } catch (e) { /* ไม่ขวางการบันทึก */ }
+  },
+
   _updateSyncBadge(evt) {
     let badge = document.getElementById('sync-badge');
     if (!badge) {
@@ -404,7 +423,22 @@ const App = {
       badge.addEventListener('click', () => Storage.retrySync());
       document.body.appendChild(badge);
     }
-    if (evt.status === 'syncing') {
+    badge.style.display = '';
+    if (evt.status === 'saving') {
+      badge.textContent = '⏳ กำลังบันทึกพิกัด...';
+      badge.style.background = '#ff9800';
+      badge.style.cursor = 'wait';
+    } else if (evt.status === 'saved') {
+      badge.textContent = '✅ บันทึกพิกัดแล้ว';
+      badge.style.background = '#4caf50';
+      badge.style.cursor = 'pointer';
+      // ซ่อนเองใน 5 วิ (ไม่ให้ป้ายบังจอ)
+      clearTimeout(this._badgeHideTimer);
+      this._badgeHideTimer = setTimeout(() => {
+        const b = document.getElementById('sync-badge');
+        if (b && b.textContent.indexOf('✅ บันทึกพิกัด') === 0) b.style.display = 'none';
+      }, 5000);
+    } else if (evt.status === 'syncing') {
       badge.textContent = evt.action === 'retry' ? '🔄 กำลัง sync ใหม่...' : '🔄 Syncing...';
       badge.style.background = '#ff9800';
       badge.style.cursor = 'wait';
@@ -1302,32 +1336,26 @@ const App = {
     document.getElementById('add-customer-modal').classList.add('hidden');
   },
 
-  // Save customer (add or edit) — Server-first: await sync, show real result
+  // Save customer (add or edit) — Local-first: ขึ้นจอทันที แล้วส่งขึ้นเว็บเบื้องหลัง
   async saveCustomer(form) {
     const data = Object.fromEntries(new FormData(form));
     const editId = form.dataset.editId;
+    const isEdit = !!editId;
     let savedCustomer;
-    let syncResult;
-    if (editId) {
-      syncResult = await Storage.updateCustomer(editId, data);
-      savedCustomer = Storage.getCustomers().find(c => c.id === editId);
-      if (syncResult.synced) {
-        Utils.toast('✅ แก้ไขลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
-      } else {
-        Utils.toast('⚠️ แก้ไขแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
-      }
+
+    // ===== 1) บันทึกลงเครื่อง + วาดหมุดทันที (~20ms) =====
+    // ค่าจากช่องฟอร์มเป็นข้อความ — addCustomerLocal/updateCustomerLocal แปลงเป็นตัวเลขให้
+    // (เดิมพิกัดเป็นข้อความ → หมุดไม่ขึ้นบนแผนที่จนกว่าข้อมูลใหม่จะมาจากเซิร์ฟเวอร์)
+    if (isEdit) {
+      savedCustomer = Storage.updateCustomerLocal(editId, data)
+        || Storage.getCustomers().find(c => c.id === editId);
     } else {
-      syncResult = await Storage.addCustomer(data);
-      savedCustomer = syncResult.customer;
-      if (syncResult.synced) {
-        Utils.toast('✅ เพิ่มลูกค้าแล้ว · บันทึกเข้าเซิร์ฟเวอร์เรียบร้อย');
-      } else {
-        Utils.toast('⚠️ เพิ่มแล้วแต่ sync ไม่สำเร็จ (ข้อมูลอยู่แค่ในเครื่องนี้) · กด 🔄 เพื่อลองใหม่', 'error');
-      }
+      savedCustomer = Storage.addCustomerLocal(data);
     }
     this.closeAddCustomerModal();
     // Re-render markers WITHOUT fitBounds — preserve whatever view the user
     // was on. This stops the map from yanking away after every save.
+    Customers._lastMarkerHash = null;   // หมุด/พิกัดใหม่ → ต้องวาดใหม่แน่ๆ
     Customers.renderAll();
     // Gentle flyTo the saved customer so the user can see where it landed
     // without a jarring full-bounds reset.
@@ -1336,10 +1364,41 @@ const App = {
       const currentCenter = Customers.map.getCenter();
       // Only fly if the new pin is off-screen or way off-center
       const isVisible = Customers.map.getBounds().contains(newLatLng);
-      if (!isVisible || currentCenter.distanceTo(newLatLng) > 500) {
-        Customers.map.flyTo(newLatLng, Math.max(Customers.map.getZoom(), 15), { duration: 0.6 });
+      const tooFarOut = Customers.map.getZoom() < 16;   // ระดับนี้หมุดถูกยัดอยู่ในกลุ่ม → มองไม่เห็น
+      if (!isVisible || tooFarOut || currentCenter.distanceTo(newLatLng) > 500) {
+        Customers.map.flyTo(newLatLng, 17, { duration: 0.6 });
       }
+      if (Customers._flashPin) Customers._flashPin(newLatLng);   // กระพริบให้เห็นว่าหมุดอยู่ตรงนี้
     }
+
+    // ===== 2) ส่งขึ้นเว็บเบื้องหลัง + แจ้งสถานะบนจอ =====
+    this.setSaveStatus('saving');
+    Utils.toast(isEdit ? '✏️ แก้ไขแล้ว · กำลังบันทึกขึ้นเว็บ...' : '📝 เพิ่มลูกค้าแล้ว · กำลังบันทึกขึ้นเว็บ...', 'info');
+    const settled = (isEdit && savedCustomer && savedCustomer.cif)
+      ? await Storage.uploadCustomer(savedCustomer.cif, this._customerUploadFields(data))
+      : await Storage.push().then((r) => ({ synced: !!(r && r.success), error: r && r.error }));
+    if (settled && settled.synced) {
+      this.setSaveStatus('saved');
+      Utils.toast(isEdit ? '✅ แก้ไขลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย' : '✅ เพิ่มลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย');
+    } else {
+      this.setSaveStatus('error');
+      Utils.toast('⚠️ บันทึกในเครื่องนี้แล้ว แต่ยังส่งขึ้นเว็บไม่สำเร็จ · กดปุ่ม sync ล่างขวาเพื่อลองใหม่', 'error');
+    }
+  },
+
+  // เตรียมข้อมูลจากฟอร์มก่อนส่งขึ้นเว็บ
+  // - ตัดช่องที่เซิร์ฟเวอร์ไม่รับ (cif/debtNote)
+  // - ช่องพิกัดว่าง = ไม่แตะพิกัดเดิม (กัน lat/lng กลายเป็น 0 แล้วหมุดเด้งไปกลางทะเล)
+  // - แปลงพิกัดจากข้อความ ("13.77") เป็นตัวเลข → หมุดขึ้นทันที
+  _customerUploadFields(data) {
+    const f = { ...data };
+    delete f.cif;
+    delete f.debtNote;
+    const nlat = Storage._normCoord(f.lat);
+    const nlng = Storage._normCoord(f.lng);
+    if (nlat === null || nlng === null) { delete f.lat; delete f.lng; }
+    else { f.lat = nlat; f.lng = nlng; }
+    return f;
   },
 
   // Use GPS
