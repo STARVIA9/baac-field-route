@@ -1667,6 +1667,7 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 
 .customers-sort {
   flex-shrink: 0;
+  margin-left: auto;   /* ชิดขวาเสมอ (ปุ่มกรองถูกตัดออกแล้ว ไม่มีอะไรดัน) */
 }
 
 .sort-select {
