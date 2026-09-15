@@ -102,6 +102,7 @@ const DebtDB = {
     const urgent = debt.max_tier >= 2;
     const color = this.tierColor(debt.max_tier);
     return `
+      ${DebtUI.zoomBarHTML()}
       <div class="debt-summary ${urgent ? 'debt-urgent' : ''}" style="border-left-color:${color}">
         <div class="debt-row">
           <span class="debt-label">💰 หนี้รวม</span>
@@ -179,6 +180,36 @@ window.DebtDB = DebtDB;
 
 // ===== DebtUI — ตัวช่วย UI สำหรับการ์ดหนี้ =====
 const DebtUI = {
+  KEY_ZOOM: 'bfr_debt_zoom',
+
+  // สถานะซูมตัวอักษรการ์ดหนี้ (จำข้ามการเปิด/ปิดแอป)
+  isZoomOn() {
+    try { return localStorage.getItem(this.KEY_ZOOM) === '1'; } catch (e) { return false; }
+  },
+
+  // แถบปุ่ม 🔍 ในการ์ดหนี้ — ใช้ร่วมกันทั้ง popup บนแผนที่และหน้าจัดการข้อมูลลูกค้า
+  zoomBarHTML() {
+    return `<div class="debt-zoom-bar"><button type="button" class="debt-zoom-btn" onclick="DebtUI.toggleZoom(this)">${this.isZoomOn() ? '🔎 ย่อตัวอักษร' : '🔍 ขยายตัวอักษร'}</button></div>`;
+  },
+
+  // ติดคลาส debt-zoom ที่ body → CSS ขยายตัวอักษรทุกการ์ดหนี้ที่เปิดอยู่
+  _paint(on) {
+    if (document.body) document.body.classList.toggle('debt-zoom', on);
+    document.querySelectorAll('.debt-zoom-btn').forEach((b) => {
+      b.textContent = on ? '🔎 ย่อตัวอักษร' : '🔍 ขยายตัวอักษร';
+    });
+  },
+
+  toggleZoom(btn) {
+    const on = !this.isZoomOn();
+    try { localStorage.setItem(this.KEY_ZOOM, on ? '1' : '0'); } catch (e) {}
+    this._paint(on);
+    if (btn && btn.blur) btn.blur();
+  },
+
+  // เรียกตอนโหลดหน้า — ถ้าเคยเปิดซูมไว้ ให้การ์ดหนี้ใหญ่ทันที
+  init() { this._paint(this.isZoomOn()); },
+
   // ขยาย/ย่อรายการสัญญาในการ์ด popup
   expand(cif) {
     const detail = document.getElementById('debt-contracts-' + cif);
@@ -189,3 +220,10 @@ const DebtUI = {
   },
 };
 window.DebtUI = DebtUI;
+
+// เปิดหน้าแล้วใช้สถานะซูมที่จำไว้ (ตัวอักษรการ์ดหนี้ใหญ่/ปรกติ)
+if (document.body) {
+  DebtUI.init();
+} else {
+  document.addEventListener('DOMContentLoaded', () => DebtUI.init());
+}

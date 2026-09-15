@@ -331,6 +331,34 @@ table.data-table td .gps-no { color: var(--text-muted); }
   color: var(--text-muted);
   padding: 4px 0;
 }
+/* ===== 🔍 ขยายตัวอักษรการ์ดหนี้ (ปุ่มในการ์ด) ===== */
+.debt-zoom-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 6px;
+}
+.debt-zoom-btn {
+  background: #e8f6ec;
+  border: 1px solid #9fd8b4;
+  color: #0a7a33;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.debt-zoom-btn:hover { background: #d7edd9; }
+body.debt-zoom .debt-zoom-btn { font-size: 15px; padding: 7px 12px; }
+/* โหมดขยาย: ตัวอักษรในการ์ดหนี้ใหญ่ขึ้น */
+body.debt-zoom .debt-card-head .dc-name { font-size: 22px; }
+body.debt-zoom .debt-card-head .dc-cif { font-size: 16px; }
+body.debt-zoom .debt-summary { padding: 12px; }
+body.debt-zoom .debt-row { font-size: 17px; padding: 4px 0; }
+body.debt-zoom .debt-contract { font-size: 17px; padding: 10px; }
+body.debt-zoom .debt-contract .dc-head { font-size: 17px; margin-bottom: 6px; }
+body.debt-zoom .debt-contract .dc-line { font-size: 16px; padding: 3px 0; }
+body.debt-zoom .debt-contracts { max-height: max(365px, 60vh); }
 .meta-badge.red-debt {
   background: #b30000;
   color: #fff;
