@@ -24,8 +24,12 @@ export async function onRequestPost(context) {
   if (!payload) return json({ success: false, error: 'Session หมดอายุ กรุณา login ใหม่' }, 401);
 
   // PIN-login users cannot change password (no password stored)
-  if (payload.pin) {
-    return json({ success: false, error: 'ผู้ใช้ที่เข้าสู่ระบบด้วย PIN ไม่สามารถเปลี่ยนรหัสผ่านได้' }, 400);
+  // ⚠️ JWT ที่ออกให้ผู้ใช้ PIN ไม่มี field `pin` (login.js สร้าง {sub:'pin-xxxx'} / {sub:'admin-pin'})
+  // จึงต้องดูจาก sub ไม่งั้นเช็คไม่ติด แล้วไปตายที่ "ไม่พบผู้ใช้"
+  const isPinUser = payload.pin
+    || (typeof payload.sub === 'string' && (payload.sub.startsWith('pin-') || payload.sub === 'admin-pin'));
+  if (isPinUser) {
+    return json({ success: false, error: 'บัญชีนี้เข้าสู่ระบบด้วย PIN — ไม่มีรหัสผ่านให้เปลี่ยน' }, 400);
   }
 
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);

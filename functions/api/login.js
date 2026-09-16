@@ -42,8 +42,9 @@ const DEFAULT_ADMIN = {
 
 /**
  * Idempotent seed — if KV has no `users:all`, write default admin.
- * Also migrates existing admin user's password hash if it's using
- * the old 100K-iteration format (which caused Worker CPU timeout).
+ * Also migrates admin's hash ONLY if it's still the old 100K-iteration format
+ * (which caused Worker CPU timeout). ⚠️ ห้ามเทียบกับ DEFAULT_ADMIN_HASH ตรง ๆ:
+ * ทำแบบนั้นแล้วรหัสที่ผู้ใช้เปลี่ยนเองจะถูกล้างกลับเป็นค่าโรงงานทุกครั้งที่ล็อกอิน
  * Uses pre-computed hash so PBKDF2 runs ZERO times during login.
  */
 async function seedDefaultAdminIfMissing(kv) {
@@ -53,7 +54,7 @@ async function seedDefaultAdminIfMissing(kv) {
     const users = JSON.parse(raw);
     let needsUpdate = false;
     for (const u of users) {
-      if (u.username === 'admin' && u.password && u.password !== DEFAULT_ADMIN_HASH) {
+      if (u.username === 'admin' && u.password && u.password.startsWith('100000.')) {
         // Old hash format detected — upgrade to pre-computed hash
         u.password = DEFAULT_ADMIN_HASH;
         u.updatedAt = new Date().toISOString();

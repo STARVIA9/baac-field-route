@@ -3169,6 +3169,10 @@ const App = {
     const pane = document.getElementById(idMap[name] || 'sheet-route');
     if (pane) pane.classList.add('active');
     if (name !== 'route') this.setSheetState('half');
+    // วาดเนื้อหาใหม่ทุกครั้งที่เปิดแท็บ — เดิมสลับแค่คลาส CSS ทำให้เปิดแท็บ "เข้าพบ"/"ลูกค้า"
+    // แล้วเห็นหน้าว่างทั้งที่มีข้อมูล (ต้องเรียก render เองจากที่อื่นถึงจะขึ้น)
+    if (name === 'visit' && typeof Visit !== 'undefined') Visit.render();
+    if (name === 'customers' && typeof Customers !== 'undefined') Customers.renderList();
     // Render debt summary เมื่อเปิดแท็บสรุปหนี้
     if (name === 'debtsummary' && typeof DebtDB !== 'undefined' && DebtDB._loaded && window.DebtSummary) {
       DebtSummary.render();
