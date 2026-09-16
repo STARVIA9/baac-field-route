@@ -559,6 +559,19 @@ const API = {
       && (path.startsWith('/api/login') || path.startsWith('/api/auth/login'));
   },
 
+  // POST แบบคืนทั้งสถานะและข้อความ — ใช้เมื่อต้องเอาข้อความ error จากเซิร์ฟเวอร์มาโชว์ตรง ๆ
+  // (API.post โยน Error ที่มีแค่รหัส HTTP ผู้ใช้จึงเห็น "HTTP 400" แทนข้อความภาษาไทย)
+  async postRaw(path, body) {
+    const res = await fetch(this.baseUrl() + path, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* not JSON */ }
+    return { ok: res.ok, status: res.status, data };
+  },
+
   // PUT request
   async put(path, body) {
     const res = await fetch(this.baseUrl() + path, {

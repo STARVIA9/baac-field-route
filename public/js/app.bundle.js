@@ -4477,8 +4477,9 @@ const App = {
     btn.textContent = 'กำลังเปลี่ยน...';
 
     try {
-      const res = await API.post('/api/change-password', { currentPassword, newPassword });
-      if (res.success) {
+      // postRaw เพื่อเอาข้อความ error ภาษาไทยจากเซิร์ฟเวอร์มาโชว์ (API.post ให้แค่ "HTTP 400")
+      const res = await API.postRaw('/api/change-password', { currentPassword, newPassword });
+      if (res.ok && res.data && res.data.success) {
         successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
         successEl.style.display = 'block';
         document.getElementById('cp-current').value = '';
@@ -4486,7 +4487,7 @@ const App = {
         document.getElementById('cp-confirm').value = '';
         Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
       } else {
-        errEl.textContent = res.error || 'เปลี่ยนรหัสไม่สำเร็จ';
+        errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
       }
     } catch (err) {
       errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
@@ -4517,8 +4518,9 @@ const App = {
     }
 
     try {
-      const res = await API.post('/api/change-password', { currentPassword, newPassword });
-      if (res.success) {
+      // postRaw เพื่อเอาข้อความ error ภาษาไทยจากเซิร์ฟเวอร์มาโชว์ (API.post ให้แค่ "HTTP 400")
+      const res = await API.postRaw('/api/change-password', { currentPassword, newPassword });
+      if (res.ok && res.data && res.data.success) {
         successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
         successEl.style.display = 'block';
         document.getElementById('cp-current-standalone').value = '';
@@ -4526,7 +4528,7 @@ const App = {
         document.getElementById('cp-confirm-standalone').value = '';
         Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
       } else {
-        errEl.textContent = res.error || 'เปลี่ยนรหัสไม่สำเร็จ';
+        errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
       }
     } catch (err) {
       errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
