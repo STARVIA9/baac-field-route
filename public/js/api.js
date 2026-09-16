@@ -45,7 +45,7 @@ const API = {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        if (res.status === 401) {
+        if (res.status === 401 && !this.isAuthPath(path)) {
           Auth.logout();
         }
         throw new Error(`HTTP ${res.status}`);
@@ -55,6 +55,15 @@ const API = {
       console.warn(`API POST ${path} failed:`, err.message);
       throw err;
     }
+  },
+
+  // ===== Login endpoints =====
+  // 401 จากประตูเข้าสู่ระบบ = "PIN/รหัสผ่านผิด" ซึ่งเป็นคำตอบปกติ ไม่ใช่ session หมดอายุ
+  // ถ้าเรียก Auth.logout() ตรงนี้ หน้าจะรีโหลดทันที แล้ว fallback ของผู้เรียก
+  // (Auth.loginPIN → _tryLegacyAuth) จะไม่มีโอกาสทำงาน → ปุ่ม PIN เหมือนกดไม่ติด
+  isAuthPath(path) {
+    return typeof path === 'string'
+      && (path.startsWith('/api/login') || path.startsWith('/api/auth/login'));
   },
 
   // PUT request

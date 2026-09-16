@@ -538,7 +538,7 @@ const API = {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        if (res.status === 401) {
+        if (res.status === 401 && !this.isAuthPath(path)) {
           Auth.logout();
         }
         throw new Error(`HTTP ${res.status}`);
@@ -548,6 +548,15 @@ const API = {
       console.warn(`API POST ${path} failed:`, err.message);
       throw err;
     }
+  },
+
+  // ===== Login endpoints =====
+  // 401 จากประตูเข้าสู่ระบบ = "PIN/รหัสผ่านผิด" ซึ่งเป็นคำตอบปกติ ไม่ใช่ session หมดอายุ
+  // ถ้าเรียก Auth.logout() ตรงนี้ หน้าจะรีโหลดทันที แล้ว fallback ของผู้เรียก
+  // (Auth.loginPIN → _tryLegacyAuth) จะไม่มีโอกาสทำงาน → ปุ่ม PIN เหมือนกดไม่ติด
+  isAuthPath(path) {
+    return typeof path === 'string'
+      && (path.startsWith('/api/login') || path.startsWith('/api/auth/login'));
   },
 
   // PUT request
@@ -636,6 +645,17 @@ const Storage = {
     for (const cif of cifs) s.delete(String(cif).trim());
     this._dirtyCifs = s;
     try { localStorage.setItem(this.KEY_DIRTY, JSON.stringify([...s])); } catch {}
+  },
+
+  // จำนวนงานที่แก้/เพิ่มในเครื่องแล้วแต่ยังไม่ขึ้นเว็บ — ใช้เตือนตอนเน็ตกลับมา
+  pendingCount() {
+    return this._loadDirty().size;
+  },
+
+  // ล้างรายการค้างทั้งหมด — เรียกหลัง push ทั้งก้อนสำเร็จ (เช่นตอนเน็ตกลับมา)
+  clearAllDirty() {
+    this._dirtyCifs = new Set();
+    try { localStorage.removeItem(this.KEY_DIRTY); } catch {}
   },
 
   saveCustomers(list) {

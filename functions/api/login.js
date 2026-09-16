@@ -7,6 +7,17 @@ import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin } from './admin/pin.js';
 
 // Legacy team PINs (non-admin offline fallback)
+// ⚠️ TEAM_PIN ต้องตรงกับ functions/api/auth/login.js เสมอ — 0000/1001-1004 คือ PIN ที่ทีมใช้จริง
+// (ก่อนหน้านี้ชุดนี้อยู่แค่ฝั่ง auth/login.js ทำให้ POST /api/login ตอบ 401 ทุกครั้ง
+//  แล้วต้องรอ client fallback ซึ่งเดิมถูก Auth.logout() ตัดจบไปก่อน)
+const TEAM_PIN = {
+  '0000': { name: 'Admin', role: 'admin', branch: 'WTC' },
+  '1001': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
+  '1002': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
+  '1003': { name: 'ประยุทธ์ มั่นคง', role: 'user', branch: 'WTC' },
+  '1004': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
+};
+
 const PIN_TEAM = {
   '4944': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
   '3242': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
@@ -187,7 +198,7 @@ export async function onRequestPost(context) {
     }
 
     // Fallback: legacy team PINs
-    const userInfo = PIN_TEAM[pin];
+    const userInfo = TEAM_PIN[pin] || PIN_TEAM[pin];
     if (!userInfo) return json({ success: false, error: 'PIN ไม่ถูกต้อง' }, 401);
 
     const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';

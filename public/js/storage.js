@@ -45,6 +45,17 @@ const Storage = {
     try { localStorage.setItem(this.KEY_DIRTY, JSON.stringify([...s])); } catch {}
   },
 
+  // จำนวนงานที่แก้/เพิ่มในเครื่องแล้วแต่ยังไม่ขึ้นเว็บ — ใช้เตือนตอนเน็ตกลับมา
+  pendingCount() {
+    return this._loadDirty().size;
+  },
+
+  // ล้างรายการค้างทั้งหมด — เรียกหลัง push ทั้งก้อนสำเร็จ (เช่นตอนเน็ตกลับมา)
+  clearAllDirty() {
+    this._dirtyCifs = new Set();
+    try { localStorage.removeItem(this.KEY_DIRTY); } catch {}
+  },
+
   saveCustomers(list) {
     try {
       localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));

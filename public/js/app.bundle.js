@@ -2749,7 +2749,22 @@ const App = {
       const pollNow = () => { if (!document.hidden && navigator.onLine) Storage.pollOnce(); };
       document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
       window.addEventListener('focus', pollNow);
-      window.addEventListener('online', pollNow);
+      // เน็ตกลับมา → ส่งงานที่ทำค้างไว้ในเครื่องก่อน แล้วค่อยเช็คของใหม่
+      // (เดิมทำแค่ poll = ดึงของใหม่ งานที่ปักหมุด/บันทึกตอนเน็ตหลุดไม่ถูกส่งขึ้นเว็บ
+      //  จนกว่าจะมีการบันทึกครั้งถัดไป — ถ้าเครื่อง/เบราว์เซอร์ล้างข้อมูลก็หายถาวร)
+      window.addEventListener('online', async () => {
+        if (!navigator.onLine) return;
+        const pending = Storage.pendingCount();
+        if (pending > 0) Utils.toast(`📤 เน็ตกลับมาแล้ว — กำลังส่งงานค้าง ${pending} รายการ`);
+        const res = await Storage.push();
+        if (res && res.success) {
+          Storage.clearAllDirty();   // ส่งขึ้นเว็บครบแล้ว → ล้างตัวนับงานค้าง
+          if (pending > 0) Utils.toast(`✅ ส่งงานค้างขึ้นเว็บแล้ว ${pending} รายการ`);
+        } else if (res && res.error) {
+          Utils.toast('⚠️ ยังส่งงานค้างไม่สำเร็จ — จะลองใหม่เมื่อเน็ตกลับมา', 'error');
+        }
+        pollNow();
+      });
     }
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
