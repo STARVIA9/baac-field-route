@@ -1,0 +1,48 @@
+name: ⛽ Fuel prices daily
+
+# เช็คราคาน้ำมันบางจากทุกเช้า 05:05 (ไทย) — เปลี่ยนค่อย commit + deploy
+# ต้องใส่ secrets ใน repo ก่อน (Settings → Secrets → Actions):
+#   CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (token สิทธิ Pages:Edit)
+# ยังไม่ใส่ = workflow ข้ามเงียบๆ ไม่แดง
+
+on:
+  schedule:
+    - cron: '5 22 * * *'   # 22:05 UTC = 05:05 ไทย (ราคาวันใหม่มีผล 05:00)
+  workflow_dispatch: {}      # กดมือได้จากแท็บ Actions
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - id: fuel
+        run: |
+          python3 scripts/update_fuel_prices.py; code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "1" ]; then echo "❌ Bangchak API ล่ม — ส่งสัญญาณแดง"; exit 1; fi
+          exit 0   # code 0 = ราคาเปลี่ยน, code 2 = เท่าเดิม (ข้าม)
+
+      - name: Commit new prices
+        if: steps.fuel.outputs.code == '0'
+        run: |
+          git config user.name "kara-bot"
+          git config user.email "kara-bot@users.noreply.github.com"
+          git add public/fuel-prices.json
+          git commit -m "chore: update fuel prices $(date +%F)"
+          git push
+
+      - name: Deploy to Pages
+        if: steps.fuel.outputs.code == '0'
+        run: npx wrangler pages deploy public --project-name baac-field-route --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

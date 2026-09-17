@@ -76,7 +76,7 @@ const Utils = {
     pickup: {
       name: "🛻 กระบะ",
       kmPerLiter: 10,
-      fuelPrice: 35.80,
+      fuelPrice: 35.69,
       speed: {
         highway: 70,
         road: 45,
@@ -87,7 +87,7 @@ const Utils = {
     car: {
       name: "🚗 รถเก๋ง",
       kmPerLiter: 12,
-      fuelPrice: 42.73,
+      fuelPrice: 39.57,
       speed: {
         highway: 80,
         road: 50,
@@ -98,7 +98,7 @@ const Utils = {
     motorcycle: {
       name: "🏍️ มอเตอร์ไซค์",
       kmPerLiter: 35,
-      fuelPrice: 43.10,
+      fuelPrice: 39.94,
       speed: {
         highway: 60,
         road: 40,

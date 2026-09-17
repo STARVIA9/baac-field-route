@@ -76,7 +76,7 @@ const Utils = {
     pickup: {
       name: "🛻 กระบะ",
       kmPerLiter: 10,
-      fuelPrice: 35.80,
+      fuelPrice: 35.69,
       speed: {
         highway: 70,
         road: 45,
@@ -87,7 +87,7 @@ const Utils = {
     car: {
       name: "🚗 รถเก๋ง",
       kmPerLiter: 12,
-      fuelPrice: 42.73,
+      fuelPrice: 39.57,
       speed: {
         highway: 80,
         road: 50,
@@ -98,7 +98,7 @@ const Utils = {
     motorcycle: {
       name: "🏍️ มอเตอร์ไซค์",
       kmPerLiter: 35,
-      fuelPrice: 43.10,
+      fuelPrice: 39.94,
       speed: {
         highway: 60,
         road: 40,
@@ -1513,11 +1513,11 @@ const Fuel = {
     },
   },
 
-  // Fuel type catalog (label + default price ฿/L)
+  // Fuel type catalog (label + default price ฿/L — sync กับ Bangchak 17/09/2569)
   FUEL_TYPES: {
-    diesel:       { id: 'diesel',       label: 'ดีเซล (B7)',     defaultPrice: 30.0 },
-    gasohol95:    { id: 'gasohol95',    label: 'แก๊สโซฮอล์ 95',  defaultPrice: 36.0 },
-    gasohol91:    { id: 'gasohol91',    label: 'แก๊สโซฮอล์ 91',  defaultPrice: 35.5 },
+    diesel:       { id: 'diesel',       label: 'ดีเซล (B7)',     defaultPrice: 35.69 },
+    gasohol95:    { id: 'gasohol95',    label: 'แก๊สโซฮอล์ 95',  defaultPrice: 39.94 },
+    gasohol91:    { id: 'gasohol91',    label: 'แก๊สโซฮอล์ 91',  defaultPrice: 39.57 },
   },
 
   // ===== Get vehicle =====
@@ -1525,13 +1525,21 @@ const Fuel = {
     return this.VEHICLES[id] || this.VEHICLES.car;
   },
 
-  // ===== Get fuel price (with cache + fallback to default) =====
+  // ===== Get fuel price (admin cache → fuel-prices.json → default) =====
+  // fuel-prices.json อัพเดทอัตโนมัติทุกวันจาก Bangchak API — report.js ใช้ทางนี้
+  // (กันรายงานคำนวณด้วยราคาตั้งต้นเก่า ถ้าไฟล์ JSON มีของใหม่จะชนะ default เสมอ)
+  _JSON_KEY: { diesel: 'pickup', gasohol95: 'motorcycle', gasohol91: 'car' },
   getPrice(fuelTypeId) {
     const cache = this._getCache();
     const fuel = this.FUEL_TYPES[fuelTypeId] || this.FUEL_TYPES.gasohol95;
     if (cache[fuelTypeId] && cache[fuelTypeId] > 0) {
       return cache[fuelTypeId];
     }
+    try {
+      const live = (typeof Utils !== 'undefined' && Utils._fuelData && Utils._fuelData.fuels) || null;
+      const info = live && live[this._JSON_KEY[fuelTypeId] || 'motorcycle'];
+      if (info && info.price > 0) return info.price;
+    } catch { /* ใช้ default ข้างล่าง */ }
     return fuel.defaultPrice;
   },
 
