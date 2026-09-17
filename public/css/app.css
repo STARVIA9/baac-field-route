@@ -3414,6 +3414,122 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   line-height: 1.5;
 }
 
+/* ===== Help modal body (restored 17 ก.ย.69 — เคยหลุดหาย เหลือแค่ intro/quickstart) ===== */
+.help-content section {
+  margin-bottom: 24px;
+}
+.help-content section h4 {
+  font-size: 16px;
+  color: var(--baac-green-dark);
+  margin: 0 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--baac-gold);
+  display: inline-block;
+}
+.help-content p, .help-content li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+.help-content section small {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Marker color dots — สีตรงกับหมุดจริงบนแผนที่ (customers.js _riskColors) */
+.marker-dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #999;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.marker-dot.good { background: var(--risk-good); }
+.marker-dot.warning { background: #d97706; }
+.marker-dot.bad { background: #dc2626; }
+.marker-dot.unclassified { background: #6d28d9; }
+
+/* Status table — อันไหนนับเบี้ยเลี้ยง (แถว "ไม่นับ" ใช้ class .no ตรงๆ ไม่พึ่งลำดับแถว) */
+.status-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+.status-row {
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fafafa;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.status-row b.counts {
+  color: var(--baac-green-dark);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.status-row b.counts.no {
+  color: #999;
+}
+
+/* Allowance box */
+.allowance-box {
+  background: linear-gradient(135deg, #f0f8f0 0%, #e8f5e9 100%);
+  border-left: 4px solid var(--baac-green);
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+.allowance-box ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+/* Help list */
+.help-list, .help-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.help-list li, .help-tips-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed #eee;
+}
+.help-tips-list li {
+  padding: 8px 0;
+}
+.help-list li:last-child, .help-tips-list li:last-child {
+  border-bottom: none;
+}
+
+/* Help footer */
+.help-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+}
+
+/* มือถือจอแคบ: ตารางสถานะคอลัมน์แรกย่อลง กันล้นจอ */
+@media (max-width: 480px) {
+  .status-row {
+    grid-template-columns: 104px 1fr auto;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  .help-content section h4 {
+    font-size: 15px;
+  }
+}
+
 /* ===== Route Search Results ===== */
 .route-search-results {
   max-height: 200px;

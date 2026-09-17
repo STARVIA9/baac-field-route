@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260917c" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20260917c" as="script">
+  <link rel="preload" href="css/app.css?v=20260917d" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20260917d" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20260917c">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20260917c"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20260917d">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260917d"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -961,55 +961,74 @@
 
         <section class="help-intro">
           <h4>🎯 เว็บนี้คืออะไร?</h4>
-          <p>เครื่องมือช่วย <b>วางแผนเยี่ยมลูกค้าติดตามหนี้</b> + <b>คำนวณเบี้ยเลี้ยง 160฿/วัน</b> อัตโนมัติ + <b>ออกรายงานส่งหัวหน้า</b></p>
+          <p>เครื่องมือภาคสนามสำหรับ <b>ติดตามหนี้</b>: วางแผนเส้นทางเยี่ยมลูกค้า + บันทึกผลการเข้าพบ + คำนวณเบี้ยเลี้ยง 160฿/วัน + ออกรายงานส่งหัวหน้า</p>
+        </section>
+
+        <section class="help-startmode">
+          <h4>🏠 เริ่มวันใหม่ — ป๊อบอัพ "วันนี้ทำอะไร?"</h4>
+          <p>หลังเข้าระบบ เว็บจะถามก่อน 1 ครั้ง เลือกแล้วพาไปหน้านั้นเลย:</p>
+          <ul class="help-list">
+            <li>📍 <b>ดูลูกค้า / เก็บพิกัด</b> → ไปแท็บลูกค้า</li>
+            <li>🧭 <b>ออกพื้นที่</b> → ไปแท็บวางแผน</li>
+            <li>📊 <b>ดูสรุป</b> → ไปแท็บสรุปหนี้</li>
+          </ul>
+          <small>💡 ติ๊ก "จำไว้ ไม่ถามอีก" ได้ · เปิดซ้ำทีหลังจากเมนู ⋮ → <b>🏠 เริ่มตรงนี้ (เลือกงาน)</b></small>
         </section>
 
         <section class="help-quickstart">
-          <h4>⚡ Quick Start — 5 ขั้นตอนหลัก</h4>
+          <h4>⚡ Flow งาน 1 วัน — 4 ขั้น</h4>
           <ol class="help-steps">
             <li>
-              <b>เพิ่มลูกค้า</b> แท็บ 👥 ลูกค้า → กด ➕ → กรอกชื่อ + ที่อยู่ + <b>จิ้มแผนที่</b>เพื่อเลือกตำแหน่ง → บันทึก
-              <small>💡 ตั้งระดับความเสี่ยง (เขียว/เหลือง/แดง) + ประเภทหนี้ (ถึงกำหนด/ค้าง) + ชื่อเล่น + รูปถ่าย ด้วย</small>
-              <small>🗑️ <b>ลบลูกค้า</b>: กดปุ่ม 🗑️ ที่รายการ → ยืนยัน → ลบถาวร</small>
+              <b>วางแผน</b> (แท็บ 🗺️ วางแผน) ค้นหาลูกค้า (CIF/ชื่อ/เบอร์/ที่อยู่) → กดเพิ่ม (สูงสุด 10 ราย) → เรียงลำดับ (ลาก/กด ▲▼) → เลือกจุดเริ่ม · จุดจบ · รถ · ประเภทถนน → กดปุ่มเดียว:
+              <small>🧮 <b>คำนวณเส้นทาง</b> = ไปตามลำดับที่เราเรียงเอง</small>
+              <small>🎯 <b>ให้ระบบจัดลำดับให้สั้นที่สุด</b> = ระบบเรียง 1,2,3 ใหม่ให้ (เลขลำดับในเส้นทางวันนี้เปลี่ยนตามทันที)</small>
+              <small>💡 ทั้ง 2 ปุ่มใช้ระยะทางถนนจริงเหมือนกัน ต่างกันแค่ "ใครเลือกลำดับการเยี่ยม" → ได้ กม./นาที/ค่าน้ำมัน แล้วกด <b>📤 เปิด Google Maps นำทาง</b> หรือ 💾 บันทึกเส้นทางเก็บไว้</small>
             </li>
             <li>
-              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → ค้นหาลูกค้าด้วย CIF/ชื่อ → กด ➕ เพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → เลือกวิธีกดปุ่มเดียว: <b>🧮 คำนวณเส้นทาง</b> (ไปตามลำดับที่เรียงไว้) หรือ <b>🎯 ให้ระบบจัดลำดับให้สั้นที่สุด</b> (ระบบเรียง 1,2,3 ใหม่ให้เอง) → เลือกรถ → กด 💾 บันทึก
-              <small>💡 ทั้ง 2 ปุ่มใช้ระยะทางถนนจริงเหมือนกัน — ต่างกันแค่ "ใครเลือกลำดับการเยี่ยม" (คุณเลือกเอง หรือให้ระบบจัดให้) · เพิ่มได้สูงสุด 10 รายต่อเส้นทาง</small>
+              <b>ออกเยี่ยม</b> (แท็บ 📋 เข้าพบ) รายชื่อเรียงตามเส้นทางวันนี้ มีเลขลำดับ + ป้ายหนี้ (📅 ถึงกำหนด / ⚠️ ค้าง) → แตะรายชื่อ → เลือกผลการเข้าพบ → จดโน้ต → กด <b>📍 บันทึกพิกัดปัจจุบัน</b> (เลื่อนลงในการ์ด) → 💾 บันทึก
+              <small>💡 บันทึกผิดแก้ได้ตลอด — แตะรายชื่อเดิมอีกครั้ง</small>
             </li>
             <li>
-              <b>ออกเยี่ยม</b> แท็บ 📋 เข้าพบ → กดที่ลูกค้า → เลือกผล → กด <b>📍 บันทึกพิกัด</b> → 💾 บันทึก
-            </li>
+              <b>ดูข้อมูล</b> แท็บ 👥 ลูกค้า (ค้นหา/กรองเขต/เรียง) · แท็บ 📊 สรุปหนี้ (ภาพรวมทั้งสาขา แยกตามสี/ชั้นหนี้ ธปท./เขต/เดือนถึงกำหนด/สถานะพิกัด/15 เดือน — กด 🔍 ขยายตัวอักษรได้)</li>
             <li>
-              <b>Sync อัตโนมัติ</b> ข้อมูลจะซิงก์ขึ้น ☁️ Cloud ทุก 3 วินาที — หัวหน้าดูเรียลไทม์ได้
-            </li>
-            <li>
-              <b>สร้างรายงาน</b> กด 📊 (header) → เลือกช่วงวันที่ + รถ → Export HTML/CSV/Share → <b>ส่งหัวหน้า</b>
-            </li>
+              <b>ปิดวัน</b> กด 📊 บนหัวเว็บ → เลือกช่วงวันที่ + รถ → สร้างรายงาน → ส่งหัวหน้า (HTML/PDF/CSV/Share)</li>
           </ol>
         </section>
 
-        <section class="help-markers">
-          <h4>🎨 สีหมุด = ระดับความเสี่ยง</h4>
+        <section class="help-add-customer">
+          <h4>➕ เพิ่มลูกค้าใหม่ (ปุ่ม ＋ มุมขวาล่าง)</h4>
+          <p>3 ขั้นตอน:</p>
           <ul class="help-list">
-            <li><span class="marker-dot good"></span> <b>เขียว</b> = ลูกค้าดี ติดตามง่าย</li>
-            <li><span class="marker-dot warning"></span> <b>เหลือง</b> = เริ่มมีปัญหา ยังติดต่อได้</li>
-            <li><span class="marker-dot bad"></span> <b>แดง</b> = มีปัญหามาก ติดต่อยาก/ไม่ได้</li>
-            <li><span class="marker-dot unclassified"></span> <b>❓ ไม่มีสี</b> = ยังไม่ได้จัดระดับ (เข้าไปแก้ไขลูกค้า)</li>
+            <li><b>1️⃣ ข้อมูลลูกค้า</b> — พิมพ์ CIF/ชื่อ ในช่อง "ค้นหาจากฐานข้อมูล" ด้านบน ระบบกรอกให้อัตโนมัติ (หรือกรอกเอง)</li>
+            <li><b>2️⃣ เรื่องหนี้</b> — เลือกระดับความเสี่ยง + จดโน้ตสั้น ๆ (เช่น ค้าง 2 งวด รับปากจ่ายวันที่ 20)</li>
+            <li><b>3️⃣ พิกัด</b> — จิ้มแผนที่ย่อย หรือกด <b>📍 ใช้ GPS ปัจจุบัน</b> หรือ <b>🗺️ เลือกบนแผนที่หลัก</b></li>
           </ul>
+          <small>🗑️ <b>ลบลูกค้า</b>: กด 🗑️ ที่รายการ → ยืนยัน → ย้ายไปถังขยะ (แอดมินกู้คืนได้จากหน้าจัดการข้อมูล)</small>
+        </section>
+
+        <section class="help-markers">
+          <h4>🎨 สีหมุดบนแผนที่ = ระดับความเสี่ยง</h4>
+          <ul class="help-list">
+            <li><span class="marker-dot good"></span> <b>เขียว</b> = ลูกค้าดี ติดตามง่าย (เยี่ยมสำเร็จวันนี้ก็เปลี่ยนเป็นเขียว)</li>
+            <li><span class="marker-dot warning"></span> <b>ส้ม</b> = เริ่มมีปัญหา ยังติดต่อได้</li>
+            <li><span class="marker-dot bad"></span> <b>แดง</b> = มีปัญหามาก ติดต่อยาก/ไม่ได้</li>
+            <li><span class="marker-dot unclassified"></span> <b>ม่วง</b> = ยังไม่ได้จัดระดับ (แตะหมุด → ✏️ แก้ไข เพื่อจัดระดับ)</li>
+          </ul>
+          <small>💡 แตะหมุด = เปิดการ์ดลูกค้า (🧭 นำทาง / ✏️ แก้ไข / 🗑️ ลบ / 🔍 ขยายตัวอักษร) — ปิดการ์ดด้วยปุ่ม <b>✕</b> มุมการ์ด (แตะพื้นว่างการ์ดจะไม่ปิดเองแล้ว)</small>
         </section>
 
         <section class="help-status">
-          <h4>📋 สถานะการเข้าพบ (เลือกตอนบันทึก)</h4>
+          <h4>📋 สถานะการเข้าพบ — อันไหนนับเยี่ยม?</h4>
           <div class="status-table">
-            <div class="status-row"><b>✅ visited</b><span>พบลูกค้า · คุยเรื่องหนี้แล้ว</span><b class="counts">นับ ✓</b></div>
-            <div class="status-row"><b>🤝 interested</b><span>รับปากจ่าย</span><b class="counts">นับ ✓</b></div>
-            <div class="status-row"><b>⏳ wait_income</b><span>รอรายได้</span><b class="counts">นับ ✓</b></div>
-            <div class="status-row"><b>❌ no_answer</b><span>ไม่พบลูกค้า</span><b class="counts">ไม่นับ</b></div>
-            <div class="status-row"><b>🚪 not_home</b><span>ไม่อยู่บ้าน</span><b class="counts">ไม่นับ</b></div>
-            <div class="status-row"><b>📅 reschedule</b><span>นัดใหม่</span><b class="counts">ไม่นับ</b></div>
-            <div class="status-row"><b>🚫 not_interested</b><span>ไม่จ่าย</span><b class="counts">ไม่นับ</b></div>
+            <div class="status-row"><b>✅ พบลูกค้า</b><span>คุยเรื่องหนี้แล้ว</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>🤝 รับปากจ่าย</b><span>เท่าไหร่ / เมื่อไร / จ่ายยังไง</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>⏳ รอรายได้</b><span>พบแล้ว ยังไม่มีจ่าย</span><b class="counts">นับ ✓</b></div>
+            <div class="status-row"><b>❌ ไม่พบ</b><span>ไปแล้วไม่เจอตัว</span><b class="counts no">ไม่นับ</b></div>
+            <div class="status-row"><b>🚪 ไม่อยู่</b><span>บ้านปิด / ออกไปนา</span><b class="counts no">ไม่นับ</b></div>
+            <div class="status-row"><b>📅 นัดใหม่</b><span>นัดพบ / นัดจ่ายใหม่</span><b class="counts no">ไม่นับ</b></div>
+            <div class="status-row"><b>🚫 ไม่จ่าย</b><span>บ่ายเบี่ยง / ปฏิเสธ</span><b class="counts no">ไม่นับ</b></div>
           </div>
-          <small>💡 ต้องเลือก <b>visited</b> / <b>interested</b> / <b>wait_income</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
+          <small>💡 ต้องเลือก <b>พบลูกค้า</b> / <b>รับปากจ่าย</b> / <b>รอรายได้</b> เท่านั้น → จึงจะนับเบี้ยเลี้ยง</small>
         </section>
 
         <section class="help-allowance">
@@ -1023,41 +1042,51 @@
             <p><small>(ถึงเกณฑ์ใดเกณฑ์หนึ่งก็ได้ ไม่บวกกัน)</small></p>
             <p><b>📌 ตัวอย่าง:</b></p>
             <ul>
-              <li>จันทร์: เยี่ยม upcoming 12 + overdue 3 → ได้ 160฿ (ถึงเกณฑ์แรก)</li>
-              <li>อังคาร: เยี่ยม upcoming 7 + overdue 6 → ได้ 160฿ (ถึงเกณฑ์สอง)</li>
-              <li>พุธ: เยี่ยม upcoming 5 + overdue 2 → ได้ 0฿ (ไม่ถึง)</li>
+              <li>จันทร์: เยี่ยมถึงกำหนด 12 + ค้าง 3 → ได้ 160฿ (ถึงเกณฑ์แรก)</li>
+              <li>อังคาร: เยี่ยมถึงกำหนด 7 + ค้าง 6 → ได้ 160฿ (ถึงเกณฑ์สอง)</li>
+              <li>พุธ: เยี่ยมถึงกำหนด 5 + ค้าง 2 → ได้ 0฿ (ไม่ถึง)</li>
             </ul>
           </div>
         </section>
 
         <section class="help-vehicle">
-          <h4>🚗 รถ + น้ำมัน</h4>
+          <h4>🚗 รถ + น้ำมัน + ถนน</h4>
           <ul class="help-list">
             <li>🏍️ <b>มอเตอร์ไซด์</b> — 35 กม./ลิตร · แก๊สโซฮอล์ 95</li>
             <li>🚗 <b>รถเก๋ง</b> — 12 กม./ลิตร · แก๊สโซฮอล์ 95</li>
             <li>🛻 <b>รถกระบะ</b> — 10 กม./ลิตร · <b>ดีเซล</b></li>
           </ul>
-          <small>💡 เลือกตอนสร้างรายงาน — ระบบคำนวณค่าน้ำมันอัตโนมัติ</small>
+          <small>💡 เลือกตอนวางแผน/สร้างรายงาน — ระบบคำนวณค่าน้ำมันอัตโนมัติ · เลือกประเภทถนน (หลัก/รอง/ในหมู่บ้าน/ลูกรัง) ช่วยให้เวลาเดินทางแม่นขึ้น</small>
         </section>
 
         <section class="help-report">
-          <h4>📊 รายงาน — 3 ทางเลือกส่งหัวหน้า</h4>
+          <h4>📊 รายงาน — 4 ทางเลือกส่งหัวหน้า</h4>
           <ul class="help-list">
-            <li>🖨️ <b>HTML</b> — เปิดพิมพ์ → Save PDF → ส่ง LINE/Email</li>
-            <li>📊 <b>CSV</b> — เปิด Excel → แก้ไขได้ → ส่ง Email</li>
-            <li>📱 <b>Share</b> — Copy text → Paste ใน Messenger/LINE</li>
+            <li>📄 <b>HTML (พิมพ์)</b> — เปิดพิมพ์ → Save PDF → ส่ง LINE/Email</li>
+            <li>📑 <b>PDF</b> — เปิดหน้าพิมพ์อัตโนมัติ → เลือก "Save as PDF"</li>
+            <li>📊 <b>CSV (Excel)</b> — เปิด Excel → แก้ไขได้ → ส่ง Email</li>
+            <li>📱 <b>Share / Copy</b> — Copy text → Paste ใน Messenger/LINE</li>
           </ul>
           <small>💡 รายงานแสดงพิกัด GPS (กดลิงก์เปิด Google Maps ตรวจสอบได้) + ชื่อผู้บันทึก + เวลา</small>
+        </section>
+
+        <section class="help-sync">
+          <h4>🔄 Sync + ใช้ตอนเน็ตหลุด</h4>
+          <ul class="help-list">
+            <li>☁️ ซิงก์อัตโนมัติทุก <b>20 วินาที</b> — ทีมเห็นข้อมูลตรงกัน หัวหน้าดูได้เกือบเรียลไทม์</li>
+            <li>🌐 <b>เน็ตหลุดทำงานต่อได้</b> — งานที่ทำค้างไว้จะส่งขึ้นเองอัตโนมัติเมื่อเน็ตกลับมา (มีป้ายแจ้ง "📤 กำลังส่งงานค้าง")</li>
+            <li>📍 พิกัดอ้างอิงจากเว็บเป็นหลัก — แอดมินอัพไฟล์พิกัดแล้วทุกเครื่องเห็นตรงกันภายในไม่กี่วินาที</li>
+          </ul>
         </section>
 
         <section class="help-tips">
           <h4>💡 Tips ใช้งานจริง</h4>
           <ul class="help-tips-list">
-            <li>📌 <b>ก่อนออก</b>: วางแผนเส้นทาง + เช็คลูกค้า debtType ที่ต้องเยี่ยม</li>
-            <li>📍 <b>หน้างาน</b>: กดบันทึก GPS ทุกครั้ง (ยืนยันว่าไปถึง)</li>
-            <li>🌐 <b>Offline ได้</b>: แอพทำงานแม้ไม่มีเน็ต — sync อัตโนมัติเมื่อกลับมา</li>
-            <li>👥 <b>ทำงานเป็นทีม</b>: ข้อมูลซิงก์ทุกเครื่อง — หัวหน้าดู realtime ได้</li>
-            <li>📷 <b>ถ่ายรูป</b>: เก็บรูปลูกค้าไว้ช่วยจำ — ย่ออัตโนมัติไม่เปลืองเน็ต</li>
+            <li>📌 <b>ก่อนออก</b>: วางแผนเส้นทาง + เช็คป้ายหนี้ (ถึงกำหนด/ค้าง) ของแต่ละคนในแท็บเข้าพบ</li>
+            <li>📍 <b>หน้างาน</b>: กดบันทึก GPS ทุกครั้ง (ยืนยันว่าไปถึงจริง)</li>
+            <li>🗺️ <b>การ์ดบนแผนที่</b>: แตะหมุดแล้วกด 🧭 นำทาง เปิด Google Maps ไปหาลูกค้าได้เลย</li>
+            <li>🔍 <b>ตัวอักษรเล็ก</b>: กดปุ่ม 🔍 ในการ์ดหนี้เพื่อขยายตัวอักษร (จำค่าไว้ให้ครั้งหน้า)</li>
+            <li>👥 <b>ทำงานเป็นทีม</b>: ผลเข้าพบเป็นของรวม — เห็นว่าใครไปแล้ว ไม่วิ่งซ้ำกัน · เส้นทางวันนี้เป็นของแต่ละเครื่อง</li>
           </ul>
         </section>
 
@@ -1296,8 +1325,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20260917c"></script>
-  <script src="js/app.bundle.js?v=20260917c"></script>
+  <script src="js/vendor.js?v=20260917d"></script>
+  <script src="js/app.bundle.js?v=20260917d"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
