@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20260916c" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20260916c" as="script">
+  <link rel="preload" href="css/app.css?v=20260917a" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20260917a" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20260916c">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20260916c"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20260917a">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20260917a"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -543,17 +543,20 @@
             </select>
           </div>
 <div class="road-classification">            <label>🛣️ จำแนกถนน <span class="hint">(ใช้คำนวณความเร็ว)</span></label>            <select id="road-classification">              <option value="auto">🚗 อัตโนมัติ (จาก OpenStreetMap)</option>              <option value="highway">🛣️ ถนนหลัก (Highway)</option>              <option value="road">🛤️ ถนนรอง (Road)</option>              <option value="village">🏘️ ถนนใน (Village Road)</option>              <option value="dirt">🚜 ถนนลูกรัง (Dirt Road)</option>            </select>          </div>
-          <div class="route-actions-row">
-            <button class="btn-primary btn-large" id="btn-calculate-route" disabled>
-              🧮 คำนวณเส้นทาง (ตามลำดับที่เรียง)
+          <div class="route-actions-col">
+            <button class="route-action-card primary" id="btn-calculate-route" disabled>
+              <span class="ra-title">🧮 คำนวณเส้นทาง — ตามลำดับที่เรียงไว้</span>
+              <span class="ra-desc">ระบบคิดระยะทางถนนจริง ตามลำดับ 1 → 2 → 3 ที่คุณตั้งเอง</span>
             </button>
-            <button class="btn-secondary" id="btn-optimize-route" disabled title="เรียงลำดับอัตโนมัติด้วย TSP — เร็วที่สุด">
-              🎯 เรียงอัตโนมัติ (TSP)
+            <button class="route-action-card" id="btn-optimize-route" disabled>
+              <span class="ra-title">🎯 ให้ระบบจัดลำดับให้สั้นที่สุด</span>
+              <span class="ra-desc">ระบบเลือกลำดับการเยี่ยมให้เอง แล้วคิดระยะทางถนนจริง (ลำดับ 1,2,3 จะถูกจัดใหม่ให้)</span>
             </button>
           </div>
           <div class="route-result hidden" id="route-result">
             <div class="result-card">
               <h3>📊 สรุปเส้นทาง <span class="result-route-type" id="result-route-type"></span></h3>
+              <div class="result-order-note hidden" id="result-order-note"></div>
               <div class="result-stats">
                 <div class="stat">
                   <span class="stat-value" id="result-distance">0</span>
@@ -970,8 +973,8 @@
               <small>🗑️ <b>ลบลูกค้า</b>: กดปุ่ม 🗑️ ที่รายการ → ยืนยัน → ลบถาวร</small>
             </li>
             <li>
-              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → ค้นหาลูกค้าด้วย CIF/ชื่อ → กด ➕ เพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → กด <b>🧮 คำนวณเส้นทาง</b> (ใช้ลำดับที่เรียง) หรือ <b>🎯 เรียงอัตโนมัติ (TSP)</b> → เลือกรถ → กด 💾 บันทึก
-              <small>💡 เพิ่มได้สูงสุด 10 รายต่อเส้นทาง</small>
+              <b>วางแผนเส้นทาง</b> แท็บ 🧭 เส้นทาง → ค้นหาลูกค้าด้วย CIF/ชื่อ → กด ➕ เพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → เลือกวิธีกดปุ่มเดียว: <b>🧮 คำนวณเส้นทาง</b> (ไปตามลำดับที่เรียงไว้) หรือ <b>🎯 ให้ระบบจัดลำดับให้สั้นที่สุด</b> (ระบบเรียง 1,2,3 ใหม่ให้เอง) → เลือกรถ → กด 💾 บันทึก
+              <small>💡 ทั้ง 2 ปุ่มใช้ระยะทางถนนจริงเหมือนกัน — ต่างกันแค่ "ใครเลือกลำดับการเยี่ยม" (คุณเลือกเอง หรือให้ระบบจัดให้) · เพิ่มได้สูงสุด 10 รายต่อเส้นทาง</small>
             </li>
             <li>
               <b>ออกเยี่ยม</b> แท็บ 📋 เข้าพบ → กดที่ลูกค้า → เลือกผล → กด <b>📍 บันทึกพิกัด</b> → 💾 บันทึก
@@ -1293,8 +1296,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20260916c"></script>
-  <script src="js/app.bundle.js?v=20260916c"></script>
+  <script src="js/vendor.js?v=20260917a"></script>
+  <script src="js/app.bundle.js?v=20260917a"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

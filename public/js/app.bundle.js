@@ -1414,6 +1414,20 @@ const Route = {
         ? '🔀 เปิด (มีจุดสิ้นสุด)'
         : '🔄 ไป-กลับ';
     }
+
+    // แจ้งผลการจัดลำดับ (เฉพาะเมื่อกดปุ่ม "ให้ระบบจัดลำดับให้สั้นที่สุด")
+    const noteEl = document.getElementById('result-order-note');
+    if (noteEl) {
+      if (result.autoOrderTried) {
+        noteEl.classList.remove('hidden');
+        noteEl.textContent = result.autoOrdered
+          ? '🎯 ระบบจัดลำดับการเยี่ยมให้ใหม่แล้ว — เลข 1,2,3,… ในเส้นทางวันนี้ เรียงตามรายชื่อด้านล่างนี้'
+          : '🎯 ลำดับที่คุณเรียงไว้สั้นที่สุดอยู่แล้ว — ไม่ต้องสลับ';
+      } else {
+        noteEl.classList.add('hidden');
+        noteEl.textContent = '';
+      }
+    }
     
     // Show vehicle and road info
     if (result.vehicleProfile) {
@@ -4033,14 +4047,25 @@ const App = {
     // Manual order (default) or TSP optimize (opt-in)
     const ordered = useTSP ? TSP.plan(start, route, end) : route;
 
+    // 🎯 TSP คิดลำดับใหม่ → บันทึกกลับเป็น "เส้นทางวันนี้"
+    // เดิม: ลำดับใหม่ถูกใช้คำนวณครั้งเดียวแล้วหายไป → ชิปด้านบนกับแท็บ "เข้าพบ" ยังเรียงเก่า (ขัดกับผลที่โชว์)
+    let reordered = false;
+    if (useTSP && ordered.length === route.length && ordered.join('|') !== route.join('|')) {
+      Storage.saveRoute(ordered);
+      this.updateRouteUI();
+      reordered = true;
+    }
+
     // Get real route from OSRM
     const result = await Route.calculate(start, ordered, end);
     if (result) {
+      result.autoOrdered = reordered;
+      result.autoOrderTried = useTSP;
       Route.showResult(result);
       this.switchTab('map'); // show route on map
       const routeType = result.isOpenPath ? ' (เปิด)' : '';
-      const tspNote = useTSP ? ' (TSP)' : '';
-      Utils.toast(`✅ เส้นทาง${routeType}${tspNote}พร้อม: ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
+      const tspNote = reordered ? ' · 🎯 จัดลำดับให้ใหม่แล้ว' : (useTSP ? ' · ลำดับเดิมสั้นที่สุดอยู่แล้ว' : '');
+      Utils.toast(`✅ เส้นทาง${routeType}${tspNote} — ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
     }
   },
 

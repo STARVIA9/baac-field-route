@@ -289,6 +289,20 @@ const Route = {
         ? '🔀 เปิด (มีจุดสิ้นสุด)'
         : '🔄 ไป-กลับ';
     }
+
+    // แจ้งผลการจัดลำดับ (เฉพาะเมื่อกดปุ่ม "ให้ระบบจัดลำดับให้สั้นที่สุด")
+    const noteEl = document.getElementById('result-order-note');
+    if (noteEl) {
+      if (result.autoOrderTried) {
+        noteEl.classList.remove('hidden');
+        noteEl.textContent = result.autoOrdered
+          ? '🎯 ระบบจัดลำดับการเยี่ยมให้ใหม่แล้ว — เลข 1,2,3,… ในเส้นทางวันนี้ เรียงตามรายชื่อด้านล่างนี้'
+          : '🎯 ลำดับที่คุณเรียงไว้สั้นที่สุดอยู่แล้ว — ไม่ต้องสลับ';
+      } else {
+        noteEl.classList.add('hidden');
+        noteEl.textContent = '';
+      }
+    }
     
     // Show vehicle and road info
     if (result.vehicleProfile) {

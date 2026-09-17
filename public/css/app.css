@@ -2057,6 +2057,72 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   flex: 1;
 }
 
+/* ปุ่มคำนวณเส้นทาง 2 ทาง — การ์ดเต็มความกว้าง อ่านง่าย แตะง่าย (ผู้ใช้สูงวัย) */
+.route-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.route-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 64px;
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.route-action-card .ra-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.route-action-card .ra-desc {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.route-action-card.primary {
+  background: var(--baac-green);
+  border-color: var(--baac-green);
+  color: #fff;
+}
+
+.route-action-card.primary .ra-desc {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.route-action-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.route-action-card:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+/* หมายเหตุใต้หัวข้อสรุปเส้นทาง (โชว์เมื่อระบบจัดลำดับให้) */
+.result-order-note {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 /* Route Result */
 .route-result {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
