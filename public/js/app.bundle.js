@@ -22,7 +22,37 @@ const Customers = {
       preferCanvas: true,  // Render vector layers on <canvas> — GPU accelerated, NO DOM per marker
       maxZoom: 20,
       zoomControl: false,  // B: ปิด topleft (โดนแผงตัวกรองบัง) → custom zoom control ล่างขวา
+      // มือถือ: นิ้วแตะพลาดไปโดนแผนที่รอบการ์ด (นิ้วลื่น/การ์ดเกือบเต็มจอ) ทำให้การ์ดปิดเอง
+      // → ปิดการปิดอัตโนมัติ ปิดการ์ดด้วยปุ่ม ✕ ในการ์ด หรือแตะหมุดตัวอื่นแทน
+      closePopupOnClick: false,
     }).setView([office0.lat, office0.lng], 13);
+
+    // การ์ดป๊อบอัพ: จำกัดความสูงให้พอดีกรอบแผนที่ (มือถือ) → ส่วนล่าง (ปุ่มนำทาง/แก้ไข/ลบ) ไม่ตกขอบ
+    // ตั้งค่าไว้ที่ตัวแผนที่ (ไม่ใช่ตอน popupopen) เพราะ Leaflet คิดตำแหน่ง/เลื่อนแผนที่ (autoPan)
+    // ตอน "เปิดการ์ด" — ถ้าไปย่อทีหลัง การ์ดจะลอยค้างครึ่งจอบน
+    const applyCardMaxHeight = () => {
+      if (!this.map) return;
+      const avail = Math.max(220, Math.round(this.map.getSize().y) - 16);
+      this.map.getContainer().style.setProperty('--card-max-h', avail + 'px');
+    };
+    applyCardMaxHeight();
+    this.map.on('resize', applyCardMaxHeight);
+
+    // กันการ์ดโผล่ครึ่งจอ (บน/ล่าง): Leaflet เลื่อนแผนที่เอง (autoPan) แต่ถ้าการ์ดสูงเกือบเท่าแผนที่
+    // จะยังเหลือส่วนที่หลุดขอบ → เช็คหลังเปิดเสร็จแล้วเลื่อนแผนที่ให้การ์ดอยู่ในกรอบเต็มใบ
+    this.map.on('popupopen', (e) => {
+      const el = e.popup && e.popup.getElement();
+      if (!el) return;
+      setTimeout(() => {
+        if (!this.map || !el.isConnected) return;
+        const r = el.getBoundingClientRect();
+        const m = this.map.getContainer().getBoundingClientRect();
+        let dy = 0;
+        if (r.top < m.top + 4) dy = r.top - m.top - 4;
+        else if (r.bottom > m.bottom - 4) dy = r.bottom - m.bottom + 4;
+        if (Math.abs(dy) > 2) this.map.panBy([0, dy], { animate: true });
+      }, 350);
+    });
 
     // Define 2 base layers: roadmap + satellite
     this._baseLayers = {
@@ -402,7 +432,10 @@ const Customers = {
       ? `<div class="popup-addr">📍 มีพิกัดแล้ว</div>`
       : `<div class="popup-addr">⚪ ยังไม่มีพิกัด</div>`;
     return `
-      <div class="popup-name">${this.escapeHTML(c.name)}</div>
+      <div class="popup-head">
+        <div class="popup-name">${this.escapeHTML(c.name)}</div>
+        <button type="button" class="popup-close" onclick="Customers.closeCard()" title="ปิดการ์ด" aria-label="ปิดการ์ด">✕</button>
+      </div>
       ${c.cif ? `<div class="popup-addr">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
       ${metaHTML}
       ${debtHTML}
@@ -415,6 +448,11 @@ const Customers = {
         <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️ ลบ</button>
       </div>
     `;
+  },
+
+  // ปิดการ์ดลูกค้าบนแผนที่ (ปุ่ม ✕) — จำเป็นเพราะปิดการปิดอัตโนมัติเมื่อแตะแผนที่แล้ว (กันนิ้วพลาดบนมือถือ)
+  closeCard() {
+    if (this.map) this.map.closePopup();
   },
 
   // 📍 เซฟพิกัดด่วนในหน้าเดียวกับดูข้อมูล — กดปุ๊บเก็บพิกัดมือถือทันที ไม่ต้องเปิดฟอร์มแก้ไข
