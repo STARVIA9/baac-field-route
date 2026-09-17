@@ -15,16 +15,29 @@ permissions:
 
 jobs:
   update:
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
+      # ด่าน 1: ยังไม่ใส่ secrets = ข้ามเงียบๆ (กัน cron แดงทุกวันก่อน setup)
+      # หมายเหตุ: GitHub ห้ามใช้ secrets ใน if ระดับ job — ต้องเช็คใน step แทน
+      - id: guard
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "⏭️ ยังไม่ใส่ secrets CLOUDFLARE_API_TOKEN — ข้ามรอบนี้" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.guard.outputs.ready == 'true'
 
       - uses: actions/setup-python@v5
+        if: steps.guard.outputs.ready == 'true'
         with:
           python-version: '3.12'
 
       - id: fuel
+        if: steps.guard.outputs.ready == 'true'
         run: |
           python3 scripts/update_fuel_prices.py; code=$?
           echo "code=$code" >> "$GITHUB_OUTPUT"
@@ -32,7 +45,7 @@ jobs:
           exit 0   # code 0 = ราคาเปลี่ยน, code 2 = เท่าเดิม (ข้าม)
 
       - name: Commit new prices
-        if: steps.fuel.outputs.code == '0'
+        if: steps.guard.outputs.ready == 'true' && steps.fuel.outputs.code == '0'
         run: |
           git config user.name "kara-bot"
           git config user.email "kara-bot@users.noreply.github.com"
@@ -41,7 +54,7 @@ jobs:
           git push
 
       - name: Deploy to Pages
-        if: steps.fuel.outputs.code == '0'
+        if: steps.guard.outputs.ready == 'true' && steps.fuel.outputs.code == '0'
         run: npx wrangler pages deploy public --project-name baac-field-route --branch=main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
