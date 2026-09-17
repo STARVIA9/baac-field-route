@@ -39,7 +39,8 @@ jobs:
       - id: fuel
         if: steps.guard.outputs.ready == 'true'
         run: |
-          python3 scripts/update_fuel_prices.py; code=$?
+          code=0
+          python3 scripts/update_fuel_prices.py || code=$?
           echo "code=$code" >> "$GITHUB_OUTPUT"
           if [ "$code" = "1" ]; then echo "❌ Bangchak API ล่ม — ส่งสัญญาณแดง"; exit 1; fi
           exit 0   # code 0 = ราคาเปลี่ยน, code 2 = เท่าเดิม (ข้าม)
