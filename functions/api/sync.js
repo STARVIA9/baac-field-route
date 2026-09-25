@@ -24,11 +24,11 @@ async function authCheck(request, env) {
   return { user: payload };
 }
 
-// ===== สโคปข้อมูลเส้นทาง: ผู้ใช้ + เครื่อง =====
-// ปัญหาเดิม: ทุกคนใช้คีย์เดียว 'routes:user:default' (login ด้วย PIN ไม่มี username)
-// → 10 คนใช้พร้อมกันเห็นเส้นทางที่บันทึกไว้รวมกันหมด ทั้งที่ไปกันคนละเส้นทาง
-// ตอนนี้ client ส่ง deviceId (รหัสประจำเครื่อง) ขึ้นมาด้วย → เซิร์ฟเวอร์ผูกกับผู้ใช้ที่ล็อกอินให้เอง
-// (client ปลอม deviceId ของคนอื่นไม่ได้ เพราะส่วนชื่อผู้ใช้เซิร์ฟเวอร์เป็นคนใส่)
+// ===== สโคปข้อมูล: แยกตามผู้ใช้ =====
+// ปัญหาเดิม visits:all → 10 คนใช้พร้อมกัน visit ทับกัน
+// routes:user:scope → แยกตามผู้ใช้+เครื่อง (เส้นทางที่บันทึก)
+// visits:user:who → แยกตามผู้ใช้ (ไม่ต้องมี device — visit ตาม user ข้ามเครื่องได้)
+
 function scopeSanitize(v) {
   return String(v == null ? '' : v).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 48);
 }
@@ -40,6 +40,13 @@ function routeScope(user, rawDeviceId) {
   return dev ? who + '_' + dev : who;
 }
 
+// สโคป visit: ใช้แค่ username (ตาม user ไม่ว่าใช้เครื่องอะไร)
+function visitScope(user) {
+  const u = user || {};
+  const who = scopeSanitize(u.username || u.sub || u.name) || 'default';
+  return 'visits:user:' + who;
+}
+
 // คีย์เดิม (ก่อนแยกตามเครื่อง) ของผู้ใช้คนนี้ — ครั้งแรกจะย้ายเส้นทางเดิมมาให้ แล้วลบคีย์เดิม
 function legacyRoutesKey(user, scope) {
   const u = user || {};
@@ -49,7 +56,51 @@ function legacyRoutesKey(user, scope) {
   return legacy === 'routes:user:' + scope ? null : legacy;
 }
 
-// อ่านรายการเส้นทางของสโคปนี้ + ย้ายข้อมูลจากคีย์เดิม (ครั้งเดียว)
+// อ่าน visits ของ user + migration จากคีย์เก่า (visits:all) ครั้งแรก
+async function readVisitsList(env, visitsKey, user) {
+  let visits = {};
+  try {
+    const raw = await env.BFR_KV.get(visitsKey);
+    if (raw && raw !== '{}') visits = JSON.parse(raw);
+  } catch (e) { visits = {}; }
+
+  // ถ้ายังว่าง → ลอง migrate จาก visits:all
+  if (!visits || Object.keys(visits).length === 0) {
+    try {
+      const allRaw = await env.BFR_KV.get('visits:all');
+      if (allRaw && allRaw !== '{}') {
+        const allVisits = JSON.parse(allRaw);
+        const who = scopeSanitize(user?.username || user?.sub || user?.name);
+        const myVisits = {};
+        for (const [cid, v] of Object.entries(allVisits)) {
+          // visit ที่มี _by ตรงกับ user นี้ → ย้ายมา
+          if (v._by && scopeSanitize(v._by) === who) {
+            myVisits[cid] = v;
+          }
+          // visit ที่ไม่มี _by (ข้อมูลเก่า) → เอามาให้ user แรกที่ร้องขอ
+          if (!v._by) {
+            myVisits[cid] = { ...v, _by: who };
+          }
+        }
+        if (Object.keys(myVisits).length > 0) {
+          visits = myVisits;
+          await env.BFR_KV.put(visitsKey, JSON.stringify(visits));
+          // ลบคีย์เก่า ถ้าย้ายหมดแล้ว
+          const remaining = {};
+          for (const [cid, v] of Object.entries(allVisits)) {
+            if (v._by && scopeSanitize(v._by) !== who) remaining[cid] = v;
+          }
+          if (Object.keys(remaining).length > 0) {
+            await env.BFR_KV.put('visits:all', JSON.stringify(remaining));
+          } else {
+            await env.BFR_KV.delete('visits:all');
+          }
+        }
+      }
+    } catch (e) { console.warn('visit migrate failed:', e.message); }
+  }
+  return visits;
+}
 async function readRoutesList(env, routesKey, legacyKey) {
   let list = [];
   try {
@@ -127,11 +178,11 @@ export async function onRequestPost(context) {
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  // Customers now live in D1 (single source of truth).
-  // visits ยังเป็นก้อนรวม (visits:all) — savedRoutes แยกตาม "ผู้ใช้ + เครื่อง"
+  // Customers in D1, visits แยกตามผู้ใช้, savedRoutes แยกตามผู้ใช้+เครื่อง
   const scope = routeScope(auth.user, body.deviceId);
   const routesKey = 'routes:user:' + scope;
-  const visitsRaw = await env.BFR_KV.get('visits:all');
+  const visitsKey = visitScope(auth.user);
+  const visitsRaw = await env.BFR_KV.get(visitsKey);
 
   const existingVisits = visitsRaw ? JSON.parse(visitsRaw) : {};
   const existingRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
@@ -146,7 +197,18 @@ export async function onRequestPost(context) {
   const visitsChanged = JSON.stringify(mergedVisits) !== JSON.stringify(existingVisits);
   const routesChanged = JSON.stringify(mergedRoutes) !== JSON.stringify(existingRoutes);
 
-  if (visitsChanged) await env.BFR_KV.put('visits:all', JSON.stringify(mergedVisits));
+  if (visitsChanged) {
+    await env.BFR_KV.put(visitsKey, JSON.stringify(mergedVisits));
+    // เก็บรายชื่อ users ที่มี visit (admin ใช้ดูทุกคน)
+    const who = scopeSanitize(auth.user.username || auth.user.sub || auth.user.name) || 'default';
+    try {
+      const idxRaw = await env.BFR_KV.get('visits:users_index');
+      const idx = idxRaw ? JSON.parse(idxRaw) : { users: [] };
+      if (!idx.users.includes(who)) idx.users.push(who);
+      idx.updated = serverTime;
+      await env.BFR_KV.put('visits:users_index', JSON.stringify(idx));
+    } catch (e) { /* skip index update on fail */ }
+  }
   if (routesChanged) await env.BFR_KV.put(routesKey, JSON.stringify(mergedRoutes));
 
   // Sync incoming customers into D1 (single source of truth)
@@ -154,10 +216,13 @@ export async function onRequestPost(context) {
   // หมายเหตุ: ไม่เรียก touchCustomers() แล้ว — ไม่มีใครอ่าน meta:customers-updated
   // การเปลี่ยนข้อมูลลูกค้าตรวจได้จาก MAX(updated_at) ใน D1 อยู่แล้ว (ประหยัด 1 write/ครั้ง)
 
-  // meta:lastwrite = สัญญาณ "มีของใหม่" ที่เครื่องอื่นใช้เช็ค (โหมด probe)
-  // เขียนเฉพาะเมื่อมีการเปลี่ยนจริง
+  // meta:lastwrite (global) = เฉพาะ D1 customers เปลี่ยน (ทุกคนต้องรู้)
+  // meta:lastwrite:user:<who> = visit/route ของ user นี้เปลี่ยน (เฉพาะ user นั้น)
   const serverTime = new Date().toISOString();
-  if (visitsChanged || routesChanged) await env.BFR_KV.put('meta:lastwrite', serverTime);
+  if (visitsChanged || routesChanged) {
+    const who = scopeSanitize(auth.user.username || auth.user.sub || auth.user.name) || 'default';
+    await env.BFR_KV.put('meta:lastwrite:user:' + who, serverTime);
+  }
   const visitsUpdated = visitsChanged ? serverTime : null;
 
   const d1Count = await d1CountCustomers(env);
@@ -194,6 +259,9 @@ export async function onRequestGet(context) {
   // ผล: ปกติ 1 รอบ = 2 reads (เดิม 8) → 10 เครื่องเปิด 8 ชม. รอบ 20 วิ = 29% ของโควตา
   if (probe) {
     const lastWriteProbe = env.BFR_KV ? await env.BFR_KV.get('meta:lastwrite') : null;
+    // per-user probe: visit/route ของ user นี้เปลี่ยนรึเปล่า
+    const who = scopeSanitize(auth.user.username || auth.user.sub || auth.user.name) || 'default';
+    const userLastWrite = env.BFR_KV ? await env.BFR_KV.get('meta:lastwrite:user:' + who) : null;
     const overlayProbe = env.BFR_KV ? await env.BFR_KV.get('meta:overlay-updated') : null;
     let maxIso = null;
     if (env.BFR_DB) {
@@ -202,8 +270,13 @@ export async function onRequestGet(context) {
         maxIso = maxResProbe?.m || null;
       } catch (e) { maxIso = null; }
     }
-    // serverTime ต้องคำนวณแบบเดียวกับโหมดเต็ม (client ใช้เทียบว่ามีของใหม่ไหม)
-    const serverTimeProbe = (maxIso && (!lastWriteProbe || maxIso > lastWriteProbe)) ? maxIso : (lastWriteProbe || new Date().toISOString());
+    // serverTime = ค่าล่าสุดจาก D1 customers OR global lastwrite OR per-user lastwrite
+    const candidates = [];
+    if (maxIso) candidates.push(maxIso);
+    if (lastWriteProbe) candidates.push(lastWriteProbe);
+    if (userLastWrite) candidates.push(userLastWrite);
+    candidates.sort().reverse();
+    const serverTimeProbe = candidates[0] || new Date().toISOString();
     return json({
       success: true,
       probe: true,
@@ -218,13 +291,47 @@ export async function onRequestGet(context) {
     });
   }
 
-  const visitsRaw = await env.BFR_KV.get('visits:all');
-  const visits = visitsRaw ? JSON.parse(visitsRaw) : {};
+  // ===== ADMIN: ดึง visit ของทุกคน (?admin_all_visits=1) =====
+  // admin เห็น visit ของพนักงานทุกคน + แยกตาม user
+  const adminAllVisits = url.searchParams.get('admin_all_visits') === '1';
+  let visitsByUser = null;
 
-  // เส้นทางที่บันทึกไว้: แยกตามผู้ใช้ + เครื่องนี้ (client ส่ง ?device= มา)
+  if (adminAllVisits) {
+    if (auth.user.role !== 'admin') {
+      return json({ success: false, error: 'เฉพาะ Admin เท่านั้น' }, 403);
+    }
+    visitsByUser = {};
+    try {
+      const idxRaw = await env.BFR_KV.get('visits:users_index');
+      const idx = idxRaw ? JSON.parse(idxRaw) : { users: [] };
+      for (const u of idx.users) {
+        try {
+          const raw = await env.BFR_KV.get('visits:user:' + scopeSanitize(u));
+          if (raw) visitsByUser[u] = JSON.parse(raw);
+        } catch (e) { /* skip */ }
+      }
+    } catch (e) { /* skip */ }
+    // ส่ง visitsByUser กลับไป + visits รวมทั้งหมด
+  }
+
   const scope = routeScope(auth.user, url.searchParams.get('device'));
   const routesKey = 'routes:user:' + scope;
   const savedRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
+
+  if (adminAllVisits && visitsByUser) {
+    // Admin: merge visits จากทุก user (+ ใส่ _by)
+    const merged = {};
+    for (const [u, userVisits] of Object.entries(visitsByUser)) {
+      for (const [cid, v] of Object.entries(userVisits)) {
+        merged[cid] = { ...v, _by: u };
+      }
+    }
+    var visits = merged;  // eslint-disable-line
+  } else {
+    // ปกติ: visits แยกตามผู้ใช้ (client ดึงของตัวเองเท่านั้น)
+    const visitsKey = visitScope(auth.user);
+    var visits = await readVisitsList(env, visitsKey, auth.user);
+  }
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
   // ไม่ต้องอ่าน meta:visits-updated ทุกครั้ง — client ไม่ได้ใช้ค่านี้ (ตัด 1 read/รอบ)
@@ -306,6 +413,7 @@ export async function onRequestGet(context) {
     customers,
     visits,
     savedRoutes,
+    ...(adminAllVisits ? { visitsByUser } : {}),  // ส่งเฉพาะตอน admin ร้องขอ
     counts: {
       customers: allCustomersCount,
       gps: gpsCount,

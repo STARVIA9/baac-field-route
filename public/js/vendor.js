@@ -1039,6 +1039,10 @@ const Storage = {
 
   _routeSuffix() { return '_' + this.routeScope(); },
 
+  // สโคป visit: ใช้แค่ username (ตาม user ไม่ว่าใช้เครื่องอะไร — ตรงกับเซิร์ฟเวอร์ visits:user:<who>)
+  _visitSuffix() { return '_' + this._userId(); },
+  _visitsKey() { return this.KEY_VISITS + this._visitSuffix(); },
+
   // คีย์เดิมก่อนแยกตามเครื่อง — ใช้ย้ายข้อมูลครั้งแรก แล้วลบทิ้ง
   _legacyKeys(base) {
     const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
@@ -1095,8 +1099,28 @@ const Storage = {
   },
 
   getVisits() {
-    try { return JSON.parse(localStorage.getItem(this.KEY_VISITS) || '{}'); }
-    catch { return {}; }
+    // อ่าน visit ของ user นี้ (scoped key)
+    let visits = {};
+    try {
+      const raw = localStorage.getItem(this._visitsKey());
+      if (raw && raw !== '{}') visits = JSON.parse(raw);
+    } catch (e) { visits = {}; }
+
+    // migration จากคีย์เก่า (bfr_visits) ครั้งแรกเท่านั้น
+    if (!visits || Object.keys(visits).length === 0) {
+      try {
+        const legacyRaw = localStorage.getItem(this.KEY_VISITS);
+        if (legacyRaw && legacyRaw !== '{}') {
+          const legacyVisits = JSON.parse(legacyRaw);
+          if (Object.keys(legacyVisits).length > 0) {
+            visits = legacyVisits;
+            localStorage.setItem(this._visitsKey(), JSON.stringify(visits));
+            localStorage.removeItem(this.KEY_VISITS);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return visits;
   },
 
   async saveVisit(customerId, visit) {
@@ -1106,7 +1130,7 @@ const Storage = {
       timestamp: new Date().toISOString(),
       by: Auth.getUser()?.name || 'unknown',
     };
-    localStorage.setItem(this.KEY_VISITS, JSON.stringify(visits));
+    localStorage.setItem(this._visitsKey(), JSON.stringify(visits));
     const result = await this.push();
     return { synced: !!(result && result.success), error: result?.error };
   },
@@ -1271,7 +1295,7 @@ const Storage = {
     const mergedRoutes = mergeByUpdatedAt(localSavedRoutes, remote.savedRoutes || []);
 
     this.saveCustomers(mergedCustomers);
-    localStorage.setItem(this.KEY_VISITS, JSON.stringify(mergedVisits));
+    localStorage.setItem(this._visitsKey(), JSON.stringify(mergedVisits));
     // เขียนลงคีย์ของเครื่องนี้เท่านั้น (เดิมเขียนคีย์กลาง → เครื่องอื่นบนเครื่องเดียวกันเห็นข้อมูลกัน)
     this._savedRoutesKey = this.KEY_SAVED_ROUTES + this._routeSuffix();
     localStorage.setItem(this._savedRoutesKey, JSON.stringify(mergedRoutes));
