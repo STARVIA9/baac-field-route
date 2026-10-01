@@ -32,6 +32,7 @@ function rowToCustomer(r) {
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
     zone: r.zone || '',
+    branch: r.branch || '',
     customerClass: r.customer_class || '',
     potential: r.potential || '',
     photo: r.photo || '',
