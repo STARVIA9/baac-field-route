@@ -2,6 +2,7 @@
 // D1-backed (single source of truth).
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { toBaacCode } from '../../_lib/branches.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -62,6 +63,14 @@ function esc(v) {
   return "'" + String(v).replace(/'/g, "''") + "'";
 }
 
+// ล็อกสาขา (แผน B): non-admin เห็น/แตะได้เฉพาะสาขาตัวเอง
+// ของสาขาอื่นตอบ 404 เหมือนไม่มีตัวตน (กันเดา CIF) — logic เดียวกับ customers.js
+function branchBlocked(user, row) {
+  if (user.role === 'admin') return false;
+  const code = toBaacCode(user.branch);
+  return !!(code && row.branch && row.branch !== code);
+}
+
 export async function onRequestGet(context) {
   const { request, env, params } = context;
   const auth = await authCheck(request, env);
@@ -71,6 +80,7 @@ export async function onRequestGet(context) {
   const cif = decodeURIComponent(params.cif || '');
   const row = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   if (!row) return json({ success: false, error: 'Customer not found' }, 404);
+  if (branchBlocked(auth.user, row)) return json({ success: false, error: 'Customer not found' }, 404);
   return json({ success: true, customer: rowToCustomer(row) });
 }
 
@@ -83,6 +93,7 @@ export async function onRequestPut(context) {
   const cif = decodeURIComponent(params.cif || '');
   const existing = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   if (!existing) return json({ success: false, error: 'Customer not found' }, 404);
+  if (branchBlocked(auth.user, existing)) return json({ success: false, error: 'Customer not found' }, 404);
 
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
@@ -157,6 +168,7 @@ export async function onRequestDelete(context) {
   const cif = decodeURIComponent(params.cif || '');
   const existing = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   if (!existing) return json({ success: false, error: 'Customer not found' }, 404);
+  if (branchBlocked(auth.user, existing)) return json({ success: false, error: 'Customer not found' }, 404);
 
   const now = new Date().toISOString();
   try {
