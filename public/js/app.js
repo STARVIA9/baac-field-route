@@ -45,6 +45,8 @@ const App = {
             pinForm.classList.remove('hidden');
             const toggleBtn = document.getElementById('toggle-pin-login');
             if (toggleBtn) toggleBtn.textContent = 'ซ่อน PIN';
+            // โหลดปุ่มรายชื่อพนักงาน (แตะชื่อ+PIN) — พังก็ช่าง ยังใส่ PIN แอดมินได้
+            try { this.loadStaffGrid(); } catch {}
           }
         } catch {}
       }
@@ -515,20 +517,22 @@ const App = {
       pinForm.classList.toggle('hidden');
       toggleBtn.textContent = pinForm.classList.contains('hidden') ? 'เข้าสู่ระบบด้วย PIN' : 'ซ่อน PIN';
       if (!pinForm.classList.contains('hidden')) {
+        try { this.loadStaffGrid(); } catch {}
         setTimeout(() => { const pi = document.getElementById('pin-input'); if (pi) pi.focus(); }, 100);
       }
     });
 
-    // PIN form (legacy fallback)
+    // PIN form — staff แตะชื่อ+PIN, ไม่เลือกชื่อ = PIN แอดมินเดิม
     on('pin-form', 'submit', async (e) => {
       e.preventDefault();
       const pin = document.getElementById('pin-input').value;
+      const username = (document.getElementById('pin-username') || {}).value || '';
       const errEl = document.getElementById('pin-error');
       errEl.textContent = '';
       const btn = document.getElementById('pin-btn');
       setLoginLoading(btn, true);
-      const ok = await Auth.loginPIN(pin);
-      if (ok) { await this.afterLogin(); } else { errEl.textContent = 'PIN ไม่ถูกต้อง'; }
+      const ok = username ? await Auth.loginStaff(username, pin) : await Auth.loginPIN(pin);
+      if (ok) { await this.afterLogin(); } else { errEl.textContent = username ? 'ชื่อหรือ PIN ไม่ถูกต้อง' : 'PIN ไม่ถูกต้อง'; }
       setLoginLoading(btn, false);
       btn.textContent = 'เข้าสู่ระบบ (PIN)';
     });
@@ -1696,11 +1700,19 @@ const App = {
       errEl.textContent = '';
       const username = document.getElementById('new-username').value.trim();
       const password = document.getElementById('new-password').value;
+      const pin = ((document.getElementById('new-staff-pin') || {}).value || '').trim();
       const displayName = document.getElementById('new-display-name').value.trim();
       const branch = document.getElementById('new-branch').value;
+      if (!password && !pin) {
+        errEl.textContent = 'ต้องใส่รหัสผ่านหรือ PIN อย่างใดอย่างหนึ่ง';
+        return;
+      }
 
       try {
-        const res = await API.post('/api/admin/users', { username, password, displayName, branch });
+        const body = { username, displayName, branch };
+        if (password) body.password = password;
+        if (pin) body.pin = pin;
+        const res = await API.post('/api/admin/users', body);
         if (res.success) {
           Utils.toast(`✅ สร้างผู้ใช้ "${displayName}" สำเร็จ`);
           document.getElementById('admin-add-user-form').reset();
@@ -1795,12 +1807,16 @@ const App = {
       }
 
       try {
-        const res = await API.post('/api/admin/pin', { currentPin, newPin });
-        if (res.success) {
+        const res = await API.postRaw('/api/admin/pin', { currentPin, newPin });
+        if (res.ok && res.data?.success) {
           Utils.toast('🔐 เปลี่ยน PIN สำเร็จ');
           successEl.textContent = '✅ เปลี่ยน PIN สำเร็จแล้ว';
           successEl.style.display = 'block';
           document.getElementById('admin-change-pin-form').reset();
+        } else if (res.data?.error) {
+          errEl.textContent = res.data.error;
+        } else {
+          errEl.textContent = 'เปลี่ยน PIN ไม่สำเร็จ (HTTP ' + res.status + ')';
         }
       } catch (err) {
         errEl.textContent = err.message || 'เปลี่ยน PIN ไม่สำเร็จ';
@@ -2004,13 +2020,69 @@ const App = {
         <div class="admin-user-card">
           <div class="admin-user-info">
             <span class="admin-user-name">${this.escapeHTML(u.displayName)}</span>
-            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'}</span>
+            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'} · ${u.hasPin ? '🔑มี PIN' : '— ไม่มี PIN'}</span>
           </div>
+          ${u.role !== 'admin' ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.setStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🔑</button>` : ''}
+          ${u.role !== 'admin' && u.hasPin ? `<button class="btn-icon-sm" title="ปิด login ด้วย PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🚫</button>` : ''}
           <button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>
         </div>
       `).join('');
     } catch (err) {
       listEl.innerHTML = `<p class="login-error">โหลดรายชื่อไม่สำเร็จ: ${err.message}</p>`;
+    }
+  },
+
+  // ===== Staff grid: แตะชื่อ + PIN (แผน B) =====
+  async loadStaffGrid() {
+    const grid = document.getElementById('staff-grid');
+    if (!grid) return;
+    try {
+      const staff = await Auth.loadStaffList();
+      if (!staff.length) {
+        grid.innerHTML = '<p class="text-muted">ยังไม่มีรายชื่อพนักงาน — แอดมินใส่ PIN ได้เลย</p>';
+        return;
+      }
+      grid.innerHTML = staff.map(s => `
+        <button type="button" class="staff-btn" data-username="${this.escapeHTML(s.username)}">
+          <span class="staff-name">${this.escapeHTML(s.displayName)}</span>
+        </button>
+      `).join('');
+      grid.querySelectorAll('.staff-btn').forEach(btn => {
+        btn.onclick = () => {
+          grid.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('staff-selected'));
+          btn.classList.add('staff-selected');
+          document.getElementById('pin-username').value = btn.dataset.username;
+          const pi = document.getElementById('pin-input');
+          if (pi) pi.focus();
+        };
+      });
+    } catch {
+      grid.innerHTML = '<p class="text-muted">โหลดรายชื่อไม่ได้ — แอดมินใส่ PIN ได้เลย</p>';
+    }
+  },
+
+  // ===== Admin: ตั้ง/ปิด PIN พนักงาน =====
+  async setStaffPin(id, name) {
+    const pin = prompt(`ตั้ง PIN ให้ "${name}" (ตัวเลข 4-8 หลัก):`, '');
+    if (pin === null) return;
+    if (!/^\d{4,8}$/.test(pin.trim())) { Utils.toast('PIN ต้องเป็นตัวเลข 4-8 หลัก', 'error'); return; }
+    try {
+      const res = await API.put('/api/admin/users', { id, pin: pin.trim() });
+      if (res.success) { Utils.toast(`🔑 ตั้ง PIN ให้ "${name}" แล้ว`); await this.loadAdminUsers(); }
+      else Utils.toast(res.error || 'ตั้ง PIN ไม่สำเร็จ', 'error');
+    } catch (err) {
+      Utils.toast('ตั้ง PIN ไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
+  async clearStaffPin(id, name) {
+    if (!confirm(`ปิด login ด้วย PIN ของ "${name}"? (ยังเข้าด้วยรหัสผ่านได้ถ้ามี)`)) return;
+    try {
+      const res = await API.put('/api/admin/users', { id, clearPin: true });
+      if (res.success) { Utils.toast(`ปิด PIN ของ "${name}" แล้ว`); await this.loadAdminUsers(); }
+      else Utils.toast(res.error || 'ปิด PIN ไม่สำเร็จ', 'error');
+    } catch (err) {
+      Utils.toast('ปิด PIN ไม่สำเร็จ: ' + err.message, 'error');
     }
   },
 

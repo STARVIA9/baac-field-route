@@ -457,6 +457,30 @@ const Auth = {
     return false;
   },
 
+  // ===== Staff login: แตะชื่อ + PIN (แผน B วังท่าช้าง) =====
+  async loginStaff(username, pin) {
+    try {
+      const data = await API.post('/api/login', { username, pin });
+      if (data?.success) return this._finalizeLogin(data, ' 🌟');
+    } catch (err) {
+      console.warn('Staff PIN login failed:', err);
+      Utils.toast('ชื่อหรือ PIN ไม่ถูกต้อง');
+      return false;
+    }
+    return false;
+  },
+
+  // ===== รายชื่อพนักงานสำหรับปุ่มแตะชื่อ (สาธารณะ ไม่ต้อง login) =====
+  async loadStaffList() {
+    try {
+      const data = await API.get('/api/staff');
+      if (data?.success) return data.staff || [];
+    } catch (err) {
+      console.warn('Load staff list failed:', err);
+    }
+    return [];
+  },
+
   // ===== Internal helpers =====
   _finalizeLogin(data, suffix) {
     localStorage.setItem(this.TOKEN_KEY, data.token);

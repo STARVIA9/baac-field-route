@@ -5036,3 +5036,40 @@ html.keyboard-open .confirm-card {
   .msb-result-meta { color: #aab2aa; }
   .msb-no-results { color: #aab2aa; }
 }
+
+/* ===== Staff grid: แตะชื่อ + PIN (แผน B วังท่าช้าง) ===== */
+.staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.staff-btn {
+  padding: 12px 8px;
+  font-size: 15px;
+  border: 2px solid #b6e2c5;
+  border-radius: 10px;
+  background: #f0f9f4;
+  color: #0a5c28;
+  cursor: pointer;
+}
+.staff-btn:active { transform: scale(0.97); }
+.staff-btn.staff-selected {
+  border-color: #0a8f3c;
+  background: #0a8f3c;
+  color: #fff;
+  font-weight: 700;
+}
+/* ปุ่มเล็กในการ์ดรายชื่อแอดมิน (ใช้กับปุ่มลบเดิมด้วย) */
+.btn-icon-sm, .btn-danger-sm {
+  padding: 6px 10px;
+  font-size: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.btn-danger-sm { border-color: #fecaca; }
