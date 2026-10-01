@@ -82,6 +82,19 @@ export async function onRequestGet(context) {
   const row = await env.BFR_DB.prepare('SELECT * FROM customers WHERE cif=?1').bind(cif).first();
   if (!row) return json({ success: false, error: 'Customer not found' }, 404);
   if (branchBlocked(auth.user, row)) return json({ success: false, error: 'Customer not found' }, 404);
+  // สมุดคุม (แผน B ขั้น 4): จดทุกครั้งที่เปิดการ์ด — พังก็ช่าง ห้ามกระทบการอ่าน
+  try {
+    await env.BFR_DB.prepare(
+      'INSERT INTO customer_views (viewer, viewer_name, cif, customer_name, branch, viewed_at) VALUES (?1,?2,?3,?4,?5,?6)'
+    ).bind(
+      auth.user.username || auth.user.sub || 'unknown',
+      auth.user.name || '',
+      row.cif, row.name || '', row.branch || '',
+      new Date().toISOString()
+    ).run();
+  } catch (e) {
+    console.error('[views] log failed:', e?.message);
+  }
   return json({ success: true, customer: rowToCustomer(row) });
 }
 

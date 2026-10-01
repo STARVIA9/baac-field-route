@@ -1688,6 +1688,15 @@ const App = {
     // Load data
     await this.loadAdminUsers();
     await this.loadAdminBranches();
+    await this.loadAdminViews();
+
+    // สมุดคุม: พิมพ์ชื่อ user แล้วกด Enter เพื่อกรอง
+    const viewsFilter = document.getElementById('admin-views-filter');
+    if (viewsFilter && !viewsFilter.dataset.bound) {
+      viewsFilter.dataset.bound = '1';
+      viewsFilter.addEventListener('change', () => this.loadAdminViews());
+      document.getElementById('admin-views-refresh').onclick = () => this.loadAdminViews();
+    }
 
     // Close handler
     document.getElementById('close-admin-users').onclick = () => modal.classList.add('hidden');
@@ -2032,17 +2041,23 @@ const App = {
     }
   },
 
-  // ===== Staff grid: แตะชื่อ + PIN (แผน B) =====
+  // ===== Staff grid: แตะชื่อ + PIN (แผน B, แยกสาขาอัตโนมัติ) =====
+  // pure: จัดรายชื่อตามสาขา (เทสได้โดยไม่ต้องมี backend)
+  groupStaffByBranch(staff) {
+    const map = {};
+    (staff || []).forEach(s => {
+      const key = s.branch || '';
+      if (!map[key]) map[key] = { branch: s.branch, branchName: s.branchName || s.branch, members: [] };
+      map[key].members.push(s);
+    });
+    return Object.values(map);
+  },
+
   async loadStaffGrid() {
     const grid = document.getElementById('staff-grid');
     if (!grid) return;
-    try {
-      const staff = await Auth.loadStaffList();
-      if (!staff.length) {
-        grid.innerHTML = '<p class="text-muted">ยังไม่มีรายชื่อพนักงาน — แอดมินใส่ PIN ได้เลย</p>';
-        return;
-      }
-      grid.innerHTML = staff.map(s => `
+    const renderNames = (members) => {
+      grid.innerHTML = members.map(s => `
         <button type="button" class="staff-btn" data-username="${this.escapeHTML(s.username)}">
           <span class="staff-name">${this.escapeHTML(s.displayName)}</span>
         </button>
@@ -2056,8 +2071,64 @@ const App = {
           if (pi) pi.focus();
         };
       });
+    };
+    try {
+      const staff = await Auth.loadStaffList();
+      if (!staff.length) {
+        grid.innerHTML = '<p class="text-muted">ยังไม่มีรายชื่อพนักงาน — แอดมินใส่ PIN ได้เลย</p>';
+        return;
+      }
+      const groups = this.groupStaffByBranch(staff);
+      if (groups.length <= 1) {
+        // สาขาเดียว (วันนี้: 854) — โชว์ชื่อเลย ไม่ถามสาขา
+        renderNames(groups[0].members);
+        return;
+      }
+      // หลายสาขา — เลือกสาขาก่อน แล้วค่อยโชว์ชื่อสาขานั้น
+      grid.innerHTML = '<p class="text-muted">เลือกสาขาก่อน</p>' + groups.map((g, i) => `
+        <button type="button" class="staff-btn staff-branch" data-gi="${i}">
+          <span class="staff-name">🏢 ${this.escapeHTML(g.branchName)}</span>
+        </button>
+      `).join('');
+      grid.querySelectorAll('.staff-branch').forEach(btn => {
+        btn.onclick = () => {
+          document.getElementById('pin-username').value = '';
+          renderNames(groups[Number(btn.dataset.gi)].members);
+          const back = document.createElement('button');
+          back.type = 'button';
+          back.className = 'staff-btn staff-back';
+          back.innerHTML = '<span class="staff-name">‹ เปลี่ยนสาขา</span>';
+          back.onclick = () => { document.getElementById('pin-username').value = ''; this.loadStaffGrid(); };
+          grid.prepend(back);
+        };
+      });
     } catch {
       grid.innerHTML = '<p class="text-muted">โหลดรายชื่อไม่ได้ — แอดมินใส่ PIN ได้เลย</p>';
+    }
+  },
+
+  // ===== Admin: สมุดคุมเปิดดูการ์ด (ขั้น 4) =====
+  async loadAdminViews() {
+    const listEl = document.getElementById('admin-views-list');
+    if (!listEl) return;
+    const filter = (document.getElementById('admin-views-filter') || {}).value || '';
+    listEl.innerHTML = '<p class="text-muted">กำลังโหลด...</p>';
+    try {
+      const q = filter.trim() ? ('?viewer=' + encodeURIComponent(filter.trim())) : '';
+      const res = await API.get('/api/admin/views' + q);
+      if (!res.success || !res.views.length) {
+        listEl.innerHTML = '<p class="text-muted">ยังไม่มีประวัติเปิดดูการ์ด</p>';
+        return;
+      }
+      listEl.innerHTML = res.views.map(v => {
+        const when = (v.viewed_at || '').replace('T', ' ').slice(0, 16);
+        return `<div class="admin-user-card"><div class="admin-user-info">`
+          + `<span class="admin-user-name">${this.escapeHTML(v.customer_name || v.cif)}</span>`
+          + `<span class="admin-user-meta">👤 ${this.escapeHTML(v.viewer_name || v.viewer)} · 🕘 ${this.escapeHTML(when)}</span>`
+          + `</div></div>`;
+      }).join('');
+    } catch (err) {
+      listEl.innerHTML = `<p class="login-error">โหลดไม่สำเร็จ: ${this.escapeHTML(err.message)}</p>`;
     }
   },
 
