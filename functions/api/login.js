@@ -6,24 +6,8 @@ import { verifyPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin } from './admin/pin.js';
 
-// Legacy team PINs (non-admin offline fallback)
-// ⚠️ TEAM_PIN ต้องตรงกับ functions/api/auth/login.js เสมอ — 0000/1001-1004 คือ PIN ที่ทีมใช้จริง
-// (ก่อนหน้านี้ชุดนี้อยู่แค่ฝั่ง auth/login.js ทำให้ POST /api/login ตอบ 401 ทุกครั้ง
-//  แล้วต้องรอ client fallback ซึ่งเดิมถูก Auth.logout() ตัดจบไปก่อน)
-const TEAM_PIN = {
-  '0000': { name: 'Admin', role: 'admin', branch: 'WTC' },
-  '1001': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
-  '1002': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
-  '1003': { name: 'ประยุทธ์ มั่นคง', role: 'user', branch: 'WTC' },
-  '1004': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
-};
-
-const PIN_TEAM = {
-  '4944': { name: 'สมชาย ใจดี', role: 'user', branch: 'WTC' },
-  '3242': { name: 'สมหญิง รักไทย', role: 'user', branch: 'WTC' },
-  '9302': { name: 'ประยูทธ์ มั่นคง', role: 'user', branch: 'WTC' },
-  '5129': { name: 'มาลี สดใส', role: 'user', branch: 'WTC' },
-};
+// Admin PIN login — admin-pin (กับ KV) เท่านั้น
+// ผู้ใช้ทั่วไปต้องสร้างผ่าน /api/admin/users (username+password+สาขา)
 
 // Default admin user (seeded into KV if missing) — survives total KV wipe
 // ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of 'admin1234'.
@@ -35,31 +19,33 @@ const DEFAULT_ADMIN_HASH = '500.R8a6ojXPiGLTsYLF7TSLGnHynomzOqNi-xpT366Y3GY._gZI
 const DEFAULT_ADMIN = {
   username: 'admin',
   displayName: 'Admin',
-  password: DEFAULT_ADMIN_HASH, // Pre-computed hash — no PBKDF2 at runtime
+  // password: null = ปิด login ด้วยรหัสผ่านโรงงาน (admin/admin1234) ถาวร
+  // เหตุผล: verifyPassword ถูกแก้ให้ทำงานจริงแล้ว ถ้า seed hash โรงงานไว้
+  // รหัส admin1234 ที่เขียนอยู่ในคอมเมนต์จะกลายเป็นประตูหลังทันที
+  // admin เข้าทาง Admin PIN (3117 ใน KV) อย่างเดียว อยากได้ password ค่อยตั้งผ่าน PUT /api/admin/users
+  password: null,
   role: 'admin',
   branch: 'WTC',
 };
 
 /**
- * Idempotent seed — if KV has no `users:all`, write default admin.
- * Also migrates admin's hash ONLY if it's still the old 100K-iteration format
- * (which caused Worker CPU timeout). ⚠️ ห้ามเทียบกับ DEFAULT_ADMIN_HASH ตรง ๆ:
- * ทำแบบนั้นแล้วรหัสที่ผู้ใช้เปลี่ยนเองจะถูกล้างกลับเป็นค่าโรงงานทุกครั้งที่ล็อกอิน
- * Uses pre-computed hash so PBKDF2 runs ZERO times during login.
+ * Idempotent seed — if KV has no `users:all`, write default admin (password=null).
+ * Migration: รหัสโรงงานทุกรูปแบบ (hash 100000 รอบเก่า / hash admin1234)
+ * ถูกปิดเป็น null — เหลือแค่ Admin PIN เป็นทางเข้า (รหัส custom ที่ admin ตั้งเองไม่โดนแตะ)
  */
 async function seedDefaultAdminIfMissing(kv) {
   const raw = await kv.get('users:all');
   if (raw) {
-    // Check if existing admin needs hash migration (old 100K → new 500)
+    // Check if existing admin still carries a factory password → disable it
     const users = JSON.parse(raw);
     let needsUpdate = false;
     for (const u of users) {
-      if (u.username === 'admin' && u.password && u.password.startsWith('100000.')) {
-        // Old hash format detected — upgrade to pre-computed hash
-        u.password = DEFAULT_ADMIN_HASH;
+      if (u.username === 'admin' && u.password && (u.password.startsWith('100000.') || u.password === DEFAULT_ADMIN_HASH)) {
+        // รหัสโรงงาน (เก่า 100K หรือ admin1234) — ปิดทิ้ง, admin ใช้ PIN อย่างเดียว
+        u.password = null;
         u.updatedAt = new Date().toISOString();
         needsUpdate = true;
-        console.log('[login] Migrated admin password hash to pre-computed 500-iter hash');
+        console.log('[login] Disabled factory admin password — admin PIN only from now on');
       }
     }
     if (needsUpdate) {
@@ -67,18 +53,18 @@ async function seedDefaultAdminIfMissing(kv) {
     }
     return; // Already seeded
   }
-  // KV empty — seed with pre-computed hash
+  // KV empty — seed with NO password (admin PIN only)
   const user = {
     id: 'admin',
     username: DEFAULT_ADMIN.username,
     displayName: DEFAULT_ADMIN.displayName,
-    password: DEFAULT_ADMIN_HASH,
+    password: null,
     role: DEFAULT_ADMIN.role,
     branch: DEFAULT_ADMIN.branch,
     createdAt: new Date().toISOString(),
   };
   await kv.put('users:all', JSON.stringify([user]));
-  console.log('[login] Seeded default admin (KV was empty) — used pre-computed hash, 0 PBKDF2');
+  console.log('[login] Seeded default admin with NO password (admin PIN only)');
 }
 
 function json(data, status = 200) {
@@ -198,17 +184,42 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Fallback: legacy team PINs
-    const userInfo = TEAM_PIN[pin] || PIN_TEAM[pin];
-    if (!userInfo) return json({ success: false, error: 'PIN ไม่ถูกต้อง' }, 401);
+    // ===== Staff PIN login (แตะชื่อ + PIN) =====
+    // ponytail: PIN อย่างเดียวไม่พอ ต้องคู่ username เสมอ (กันเดาเลขถูกชุดเดียวแล้วเข้าเลย)
+    if (username && env.BFR_KV) {
+      const staffRaw = await env.BFR_KV.get('users:all');
+      const staffList = staffRaw ? JSON.parse(staffRaw) : [];
+      const staff = staffList.find(u => u.username === username && !u.deleted);
+      if (staff?.pinHash) {
+        let ok = false;
+        try { ok = await verifyPassword(pin, staff.pinHash); } catch { ok = false; }
+        if (ok) {
+          const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+          const branchName = await getBranchName(staff.branch, env.BFR_KV);
+          const tokenPayload = {
+            sub: staff.id,
+            username: staff.username,
+            name: staff.displayName,
+            role: staff.role,
+            branch: staff.branch,
+            branchName,
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 86400 * 7,
+          };
+          const token = await signHS256(tokenPayload, secret);
+          if (env.BFR_KV) { try { await env.BFR_KV.delete(rateKey); } catch {} }
+          return json({
+            success: true,
+            token,
+            user: { id: staff.id, username: staff.username, name: staff.displayName, role: staff.role, branch: staff.branch, branchName },
+          });
+        }
+      }
+      return json({ success: false, error: 'ชื่อหรือ PIN ไม่ถูกต้อง' }, 401);
+    }
 
-    const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
-    const branchName = await getBranchName(userInfo.branch, env.BFR_KV);
-    const token = await signHS256(
-      { sub: 'pin-' + pin, ...userInfo, branchName, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 7 },
-      secret,
-    );
-    return json({ success: true, token, user: { ...userInfo, branchName } });
+    // ไม่มี PIN ทีมแล้ว — staff ต้องส่ง username+pin, admin ใช้ PIN เดิม
+    return json({ success: false, error: 'กรุณาเลือกชื่อก่อนใส่ PIN' }, 401);
   }
 
   return json({ success: false, error: 'กรุณากรอก username+password หรือ PIN' }, 400);

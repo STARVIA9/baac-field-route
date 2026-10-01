@@ -5,7 +5,7 @@
 // DELETE: delete user (admin only)
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
-import { hashPassword } from '../../_lib/crypto.js';
+import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../../_lib/branches.js';
 
 const KV_KEY = 'users:all';
@@ -62,6 +62,7 @@ export async function onRequestGet(context) {
       role: u.role,
       branch: u.branch,
       branchName: (branchList.find(b => b.code === u.branch) || {}).name || u.branch,
+      hasPin: !!u.pinHash,
       createdAt: u.createdAt,
     }));
 
@@ -80,17 +81,21 @@ export async function onRequestPost(context) {
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { username, password, displayName, role, branch } = body;
+  const { username, password, pin, displayName, role, branch } = body;
 
-  // Validate
-  if (!username || !password || !displayName || !branch) {
-    return json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบ (username, password, displayName, branch)' }, 400);
+  // Validate — ต้องมี password หรือ pin อย่างใดอย่างหนึ่ง (staff ใช้ pin, admin ใช้ password)
+  if (!username || !displayName || !branch || (!password && !pin)) {
+    return json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบ (username, displayName, branch + password หรือ PIN)' }, 400);
   }
   if (username.length < 3) {
     return json({ success: false, error: 'username ต้องมีอย่างน้อย 3 ตัวอักษร' }, 400);
   }
-  if (password.length < 4) {
+  if (password && password.length < 4) {
     return json({ success: false, error: 'password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400);
+  }
+  // ponytail: staff PIN = ตัวเลข 4-8 หลักเท่านั้น (กดง่ายบนมือถือ)
+  if (pin && !/^\d{4,8}$/.test(pin)) {
+    return json({ success: false, error: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }, 400);
   }
   // Validate branch against KV branches (includes admin-added ones)
   const branches = await loadBranches(env.BFR_KV);
@@ -105,13 +110,25 @@ export async function onRequestPost(context) {
     return json({ success: false, error: `ชื่อผู้ใช้ "${username}" มีอยู่แล้ว` }, 409);
   }
 
-  // Hash password
-  const passwordHash = await hashPassword(password);
+  // Check duplicate PIN — hash มี salt เลยเทียบตรงไม่ได้ ต้อง verify ทีละคน (staff ไม่เยอะ ทำได้)
+  if (pin) {
+    for (const u of users) {
+      if (u.deleted || !u.pinHash) continue;
+      if (await verifyPassword(pin, u.pinHash)) {
+        return json({ success: false, error: 'PIN นี้มีคนใช้แล้ว กรุณาใช้เลขอื่น' }, 409);
+      }
+    }
+  }
+
+  // Hash password และ/หรือ PIN
+  const passwordHash = password ? await hashPassword(password) : null;
+  const pinHash = pin ? await hashPassword(pin) : null;
 
   const newUser = {
     id: genId(),
     username,
     password: passwordHash,
+    pinHash,
     displayName,
     role: role === 'admin' ? 'admin' : 'user',
     branch,
@@ -140,7 +157,7 @@ export async function onRequestPut(context) {
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { id, password, displayName, role, branch } = body;
+  const { id, password, pin, clearPin, displayName, role, branch } = body;
   if (!id) return json({ success: false, error: 'ต้องระบุ user id' }, 400);
 
   const raw = await env.BFR_KV.get(KV_KEY);
@@ -156,6 +173,19 @@ export async function onRequestPut(context) {
     if (branchList.find(b => b.code === branch)) users[idx].branch = branch;
   }
   if (password && password.length >= 4) users[idx].password = await hashPassword(password);
+  // ตั้ง/เปลี่ยน PIN staff — เช็คซ้ำยกเว้นตัวเอง, clearPin=true = ปิด login ด้วย PIN
+  if (pin) {
+    if (!/^\d{4,8}$/.test(pin)) return json({ success: false, error: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }, 400);
+    for (const u of users) {
+      if (u.deleted || u.id === id || !u.pinHash) continue;
+      if (await verifyPassword(pin, u.pinHash)) {
+        return json({ success: false, error: 'PIN นี้มีคนใช้แล้ว กรุณาใช้เลขอื่น' }, 409);
+      }
+    }
+    users[idx].pinHash = await hashPassword(pin);
+  } else if (clearPin) {
+    delete users[idx].pinHash;
+  }
 
   await env.BFR_KV.put(KV_KEY, JSON.stringify(users));
 

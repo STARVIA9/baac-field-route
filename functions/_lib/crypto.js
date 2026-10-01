@@ -65,8 +65,13 @@ export async function verifyPassword(password, stored) {
     const expectedVerify = base64UrlDecode(verifyB64);
 
     const derived = await deriveKey(password, salt);
-    const authKey = derived.slice(0, 32);
-    const verifyKey = derived.slice(32, 64);
+    // ponytail/root-cause: deriveBits คืน ArrayBuffer ซึ่งไม่มี .every
+    // เดิมตก catch → verify คืน false ตลอด (password/PIN ไม่มีวันผ่าน)
+    const authKey = new Uint8Array(derived.slice(0, 32));
+    const verifyKey = new Uint8Array(derived.slice(32, 64));
+
+    // กัน hash ปลอมที่สั้นกว่ามาหลอก (.every จะข้าม index ที่ไม่มี)
+    if (authKey.length !== expectedAuth.length || verifyKey.length !== expectedVerify.length) return false;
 
     // Constant-time comparison
     const authMatch = crypto.subtle.timingSafeEqual
