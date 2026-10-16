@@ -281,7 +281,7 @@ export async function onRequestPost(context) {
     // Group by CIF → สรุป + รายสัญญา
     const { summaries, debtRows } = groupByCIF(contracts);
     const cifList = Object.keys(summaries);
-    const BATCH_SIZE = 100;
+    const BATCH_SIZE = 90; // D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง — 90 เผื่อเหลือ
     const now = new Date().toISOString();
 
     // ดึง CIF ที่มีอยู่ในตาราง customers (แบ่ง batch 100 CIF ต่อครั้ง)
@@ -373,7 +373,8 @@ export async function onRequestPost(context) {
     // — CIF เหล่านี้เกิดจากไฟล์ Customer Indicator ล้วน ถ้าไม่อยู่ในไฟล์ใหม่ = ไม่มีหนี้จริง
     // ลูกค้าจริง (AutoImport/GPS/Admin) ไม่โดนล้าง — คงข้อมูลเดิม (เผื่อไฟล์ย่อย/ไม่ครบ)
     // Fix too many SQL variables: แทนการใช้ NOT IN (?) กับ cifList ทั้งก้อน (เกิน 999 vars)
-    // → query หา CIF Debt-Import ที่มีอยู่ แล้ว diff ใน JS แล้ว clear เป็น batch 100
+    // → query หา CIF Debt-Import ที่มีอยู่ แล้ว diff ใน JS แล้ว clear เป็น batch 90
+    // (D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง — 2 + 90 = 92 เผื่อเหลือ)
     if (cifList.length > 0) {
       try {
         const cifSet = new Set(cifList);
@@ -381,8 +382,8 @@ export async function onRequestPost(context) {
           `SELECT cif FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
         ).all();
         const toClear = (existingDebtRows.results || []).map(r => r.cif).filter(cif => !cifSet.has(cif));
-        for (let i = 0; i < toClear.length; i += 100) {
-          const chunk = toClear.slice(i, i + 100);
+        for (let i = 0; i < toClear.length; i += 90) {
+          const chunk = toClear.slice(i, i + 90);
           const ph = chunk.map(() => '?').join(',');
           statements.push(
             env.BFR_DB.prepare(
