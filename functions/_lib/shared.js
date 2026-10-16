@@ -30,6 +30,28 @@ export function esc(v) {
   return "'" + String(v).replace(/'/g, "''") + "'";
 }
 
+// GPS history — บันทึกทุกครั้งที่พิกัดเปลี่ยน (กันพิกัดเคลื่อน/หายแล้วกู้ไม่ได้)
+// - ข้ามเมื่อพิกัดไม่เปลี่ยน หรือไม่มีพิกัดทั้งก่อนและหลัง
+// - try/catch ข้างใน: ถ้าตารางยังไม่มี (migration ยังไม่รัน) จะข้ามเงียบๆ ไม่พังงานหลัก
+export async function logGpsHistory(env, { cif, oldLat, oldLng, newLat, newLng, by, source }) {
+  try {
+    if (!env?.BFR_DB || !cif) return false;
+    const oLat = oldLat ?? null, oLng = oldLng ?? null;
+    const nLat = newLat ?? null, nLng = newLng ?? null;
+    if (oLat === nLat && oLng === nLng) return false;
+    if (oLat == null && oLng == null && nLat == null && nLng == null) return false;
+    await env.BFR_DB.prepare(
+      `INSERT INTO gps_history (cif, old_lat, old_lng, new_lat, new_lng, changed_by, source, changed_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+    ).bind(
+      String(cif), oLat, oLng, nLat, nLng,
+      String(by || ''), String(source || ''),
+      new Date().toISOString()
+    ).run();
+    return true;
+  } catch (e) { console.warn('logGpsHistory skip:', e.message); return false; }
+}
+
 // ===== D1 ETAG GATE helpers (ลด rows_read — D1 free quota 5M rows/day) =====
 // หลัก: ทุก write ลงตาราง customers ต้องเรียก touchCustomers(env) → เขียน KV
 // meta:customers-updated = ตอนเขียน. GET /api/sync ใช้ตัวนี้เทียบกับ since ของ client:

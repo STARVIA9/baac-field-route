@@ -340,6 +340,8 @@ const Admin = {
     document.getElementById('edit-risk').value = 'unclassified';
     document.getElementById('edit-debt').value = '';
     document.getElementById('edit-tags').value = '';
+    document.getElementById('gps-history-group').style.display = 'none';
+    document.getElementById('gps-history-list').innerHTML = '';
     document.getElementById('edit-modal').classList.add('visible');
   },
 
@@ -361,6 +363,47 @@ const Admin = {
     document.getElementById('edit-debt').value = c.debtType || '';
     document.getElementById('edit-tags').value = (c.tags || []).join(', ');
     document.getElementById('edit-modal').classList.add('visible');
+    this.loadGpsHistory(c.cif);
+  },
+
+  // ===== ประวัติพิกัด + กู้คืน =====
+  async loadGpsHistory(cif) {
+    const group = document.getElementById('gps-history-group');
+    const list = document.getElementById('gps-history-list');
+    group.style.display = 'none';
+    list.innerHTML = '';
+    if (!cif) return;
+    try {
+      const data = await API.get('/api/admin/gps-history?cif=' + encodeURIComponent(cif) + '&limit=20');
+      const items = data.history || [];
+      if (items.length === 0) return;
+      group.style.display = '';
+      list.innerHTML = items.map(h => {
+        const fmt = v => (v == null ? '—' : Number(v).toFixed(6));
+        const when = (h.changed_at || '').slice(0, 16).replace('T', ' ');
+        return `<div style="padding:4px 0;border-bottom:1px solid #eef2ee;">` +
+          `${this.escapeHtml(when)} · ${this.escapeHtml(h.changed_by || '')} (${this.escapeHtml(h.source || '')})<br>` +
+          `(${fmt(h.old_lat)}, ${fmt(h.old_lng)}) → <b>(${fmt(h.new_lat)}, ${fmt(h.new_lng)})</b> ` +
+          `<button data-restore="${h.id}" style="margin-left:6px;cursor:pointer;">↩️ กู้จุดนี้</button></div>`;
+      }).join('');
+      list.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => this.restoreGps(cif, b.dataset.restore)));
+    } catch (err) { console.warn('loadGpsHistory failed:', err.message); }
+  },
+
+  async restoreGps(cif, historyId) {
+    if (!confirm('กู้พิกัดกลับเป็นจุดนี้? พิกัดปัจจุบันจะถูกทับ')) return;
+    try {
+      const res = await API.post('/api/admin/gps-history', { cif, historyId: +historyId });
+      if (res.success) {
+        document.getElementById('edit-lat').value = res.lat;
+        document.getElementById('edit-lng').value = res.lng;
+        Utils.toast('✅ กู้พิกัดแล้ว', 'success');
+        this.loadGpsHistory(cif);
+        this.loadAll();
+      } else {
+        Utils.toast('กู้ไม่สำเร็จ: ' + (res.error || ''), 'error');
+      }
+    } catch (err) { Utils.toast('กู้ไม่สำเร็จ: ' + err.message, 'error'); }
   },
 
   closeEdit() {

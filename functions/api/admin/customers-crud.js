@@ -9,6 +9,7 @@
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 import { toBaacCode, baacCodeToName } from '../../_lib/branches.js';
+import { logGpsHistory } from '../../_lib/shared.js';
 
 const RECYCLE_TTL_DAYS = 30;
 
@@ -473,6 +474,12 @@ export async function onRequestPut(context) {
   await log(env, auth.user, 'update', { id, changed });
   if (changed.includes('lat') || changed.includes('lng')) {
     await bumpOverlay(env);
+    // ประวัติพิกัด: บันทึกเมื่อ admin แก้พิกัด
+    await logGpsHistory(env, {
+      cif, oldLat: exists.lat, oldLng: exists.lng,
+      newLat: fresh.lat, newLng: fresh.lng,
+      by: auth.user.username || auth.user.sub || 'admin', source: 'admin-edit',
+    });
   }
   await env.BFR_KV.put('meta:lastwrite', now);
 

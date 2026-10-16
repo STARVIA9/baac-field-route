@@ -3,6 +3,7 @@
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
 import { toBaacCode } from '../../_lib/branches.js';
+import { logGpsHistory } from '../../_lib/shared.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -160,6 +161,15 @@ export async function onRequestPut(context) {
 
   bindParams.push(cif);
   await env.BFR_DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE cif=?${paramIdx}`).bind(...bindParams).run();
+  // ประวัติพิกัด: บันทึกเมื่อมีการส่ง lat/lng มาและค่าเปลี่ยน
+  if (body.lat !== undefined && body.lng !== undefined) {
+    await logGpsHistory(env, {
+      cif, oldLat: existing.lat, oldLng: existing.lng,
+      newLat: body.lat != null && Number.isFinite(Number(body.lat)) ? Number(body.lat) : null,
+      newLng: body.lng != null && Number.isFinite(Number(body.lng)) ? Number(body.lng) : null,
+      by: auth.user.username || auth.user.sub || auth.user.name || 'unknown', source: 'edit',
+    });
+  }
   if (env.BFR_KV) {
     await env.BFR_KV.put('meta:overlay-updated', now);
     // FIX: bump lastwrite ด้วย — client poll เช็ค serverTime เพื่อดึง delta

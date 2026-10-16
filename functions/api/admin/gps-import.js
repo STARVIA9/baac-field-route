@@ -4,6 +4,7 @@
 // for the live marker-refresh trigger. D1 is authoritative.
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { logGpsHistory } from '../../_lib/shared.js';
 
 const KV_OVERLAY = 'gps:overlay';
 
@@ -54,15 +55,16 @@ export async function onRequestPost(context) {
   // Batch: check existence for all valid CIFs (single query with IN clause)
   const cifList = validRecords.map(r => r.cif);
   const existingSet = new Set();
+  const oldCoords = new Map(); // cif → {lat,lng} ก่อนอัพ (ไว้เขียนประวัติพิกัด)
   if (cifList.length > 0) {
     // D1 has parameter limits, so batch in chunks of 100
     for (let i = 0; i < cifList.length; i += 100) {
       const chunk = cifList.slice(i, i + 100);
       const placeholders = chunk.map((_, j) => `?${j + 1}`).join(',');
       const { results } = await env.BFR_DB.prepare(
-        `SELECT cif FROM customers WHERE cif IN (${placeholders})`
+        `SELECT cif, lat, lng FROM customers WHERE cif IN (${placeholders})`
       ).bind(...chunk).all();
-      for (const row of results) existingSet.add(row.cif);
+      for (const row of results) { existingSet.add(row.cif); oldCoords.set(row.cif, { lat: row.lat, lng: row.lng }); }
     }
   }
 
@@ -94,6 +96,16 @@ export async function onRequestPost(context) {
       const chunk = statements.slice(i, i + 100);
       await env.BFR_DB.batch(chunk);
     }
+  }
+
+  // ประวัติพิกัด: บันทึกเฉพาะรายที่พิกัดเปลี่ยน (ข้ามรายที่เท่าเดิม — logGpsHistory เช็คให้)
+  const byName = payload.username || payload.sub || 'admin';
+  for (const r of validRecords) {
+    const old = oldCoords.get(r.cif) || { lat: null, lng: null };
+    await logGpsHistory(env, {
+      cif: r.cif, oldLat: old.lat, oldLng: old.lng,
+      newLat: r.lat, newLng: r.lng, by: byName, source: 'gps-import',
+    });
   }
 
   if (env.BFR_KV) {

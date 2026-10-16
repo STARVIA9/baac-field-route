@@ -4,7 +4,7 @@
 // Returns: full state of all data
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
-import { touchCustomers } from '../_lib/shared.js';
+import { touchCustomers, logGpsHistory } from '../_lib/shared.js';
 import { toBaacCode } from '../_lib/branches.js';
 
 function json(data, status = 200) {
@@ -213,7 +213,8 @@ export async function onRequestPost(context) {
   if (routesChanged) await env.BFR_KV.put(routesKey, JSON.stringify(mergedRoutes));
 
   // Sync incoming customers into D1 (single source of truth)
-  const customersSynced = await syncCustomersToD1(env, body.customers || []);
+  const byUser = auth.user.username || auth.user.sub || auth.user.name || 'unknown';
+  const customersSynced = await syncCustomersToD1(env, body.customers || [], byUser);
   // หมายเหตุ: ไม่เรียก touchCustomers() แล้ว — ไม่มีใครอ่าน meta:customers-updated
   // การเปลี่ยนข้อมูลลูกค้าตรวจได้จาก MAX(updated_at) ใน D1 อยู่แล้ว (ประหยัด 1 write/ครั้ง)
 
@@ -510,7 +511,7 @@ async function d1GpsCount(env, baacCode) {
 }
 
 // Upsert incoming customers into D1 (soft-delete honored)
-async function syncCustomersToD1(env, incoming) {
+async function syncCustomersToD1(env, incoming, byUser) {
   if (!env.BFR_DB || !Array.isArray(incoming) || incoming.length === 0) return 0;
   let synced = 0;
   let conflicts = 0;
@@ -522,7 +523,7 @@ async function syncCustomersToD1(env, incoming) {
 
     // Check existence (+ S1: conflict guard — compare updated_at)
     const exists = await env.BFR_DB.prepare(
-      'SELECT cif, updated_at FROM customers WHERE cif = ?1'
+      'SELECT cif, updated_at, lat, lng FROM customers WHERE cif = ?1'
     ).bind(cif).first();
 
     // S1: Server row is NEWER than what this device has → skip push (don't clobber)
@@ -570,6 +571,14 @@ async function syncCustomersToD1(env, incoming) {
           deleted, c.createdBy || 'user', now
         ).run();
       }
+      // ประวัติพิกัด: บันทึกเมื่อพิกัดเปลี่ยน (ข้ามรายที่เท่าเดิม)
+      await logGpsHistory(env, {
+        cif,
+        oldLat: exists ? exists.lat : null, oldLng: exists ? exists.lng : null,
+        newLat: (c.lat != null && Number.isFinite(Number(c.lat))) ? Number(c.lat) : null,
+        newLng: (c.lng != null && Number.isFinite(Number(c.lng))) ? Number(c.lng) : null,
+        by: byUser, source: 'sync',
+      });
       synced++;
     } catch (e) {
       console.warn('sync customer failed', cif, e.message);
