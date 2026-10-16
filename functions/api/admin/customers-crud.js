@@ -213,7 +213,7 @@ export async function onRequestGet(context) {
   // เหมือน /api/sync: MAX(updated_at) ใช้ index → 1 rows_read/ตรวจ
   // ถ้า MAX เท่าเดิม + cache สด → ข้าม COUNT (3,949) + debtMonths (6,673) ได้
   // page SELECT ใช้ index name → แค่ 50 rows — รวม poll ปกติ = ~51 rows!
-  const hasNoFilter = !includeDeleted && !q && !hasGps && !riskFilter &&
+  const hasNoFilter = !includeDeleted && !q && !hasGps && !riskFilter && !branchFilter &&
     (!debtClass || debtClass === 'all') && (!debt15m || debt15m === 'all') &&
     (!hasDebt || hasDebt === 'all') && (!debtMonth || debtMonth === 'all');
   let totalOverride = null;
