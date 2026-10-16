@@ -245,6 +245,44 @@ function groupByCIF(contracts) {
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
 import { extractBaacCode } from '../_lib/branches.js';
+import { trackWrites, getWriteBudget } from '../_lib/shared.js';
+
+// ชื่อช่องภาษาไทย (โชว์บนจอ preview ว่าแต่ละช่องเปลี่ยนกี่ราย)
+const FIELD_TH = {
+  debt_class: 'ชั้นหนี้', debt_balance: 'ยอดหนี้', zone: 'เขต', branch: 'สาขา',
+  reserve_pct: 'กันสำรอง', recognition: 'รับรู้รายได้', overdue_15m: 'ค้าง 15 ด.',
+  next_due: 'งวดถัดไป', subsidy: 'ชดเชย', commitment_date: 'สิ้นสุดสัญญา',
+};
+
+// เทียบค่าหนี้ในไฟล์ (s) กับในถัง (cur) → คืนรายชื่อช่องที่เปลี่ยน (ว่าง = เท่าเดิม ไม่ต้องเขียน)
+function debtDiff(cur, s) {
+  const str = (v) => String(v ?? '').trim();
+  const num = (v) => Number(String(v ?? '').replace(/,/g, '')) || 0;
+  const out = [];
+  if (str(cur.debt_class) !== str(s.debtClass)) out.push('debt_class');
+  if (str(cur.zone) !== str(s.zone || '')) out.push('zone');
+  if (str(cur.branch) !== str(s.branch || '')) out.push('branch');
+  if (num(cur.debt_balance) !== num(s.debtBalance)) out.push('debt_balance');
+  if (str(cur.reserve_pct) !== str(s.reservePct)) out.push('reserve_pct');
+  if (str(cur.recognition) !== str(s.recognition)) out.push('recognition');
+  if (str(cur.overdue_15m) !== str(s.overdue15m)) out.push('overdue_15m');
+  if (str(cur.next_due) !== str(s.nextDue)) out.push('next_due');
+  if (str(cur.subsidy) !== str(s.subsidy)) out.push('subsidy');
+  if (str(cur.commitment_date) !== str(s.commitmentDate)) out.push('commitment_date');
+  return out;
+}
+
+// แถวถูกล้างหนี้แล้วหรือยัง (ล้างแล้ว = ข้าม ไม่ต้องเขียนซ้ำ)
+function isDebtClean(r) {
+  return !String(r.debt_class || '').trim()
+    && !(Number(r.debt_balance) || 0)
+    && !String(r.reserve_pct || '').trim()
+    && !String(r.recognition || '').trim()
+    && !String(r.overdue_15m || '').trim()
+    && !String(r.next_due || '').trim()
+    && !String(r.subsidy || '').trim()
+    && !String(r.commitment_date || '').trim();
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -255,6 +293,10 @@ export async function onRequestPost(context) {
   const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
   if (!payload) return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
   if (payload.role !== 'admin') return new Response(JSON.stringify({ error: 'ต้องเป็น Admin เท่านั้น' }), { status: 403 });
+
+  // dryrun=1 → วิเคราะห์ไฟล์เทียบของเดิมแล้วตอบกลับเลย ไม่เขียนอะไร (16 ต.ค.69)
+  const url = new URL(request.url);
+  const dryrun = url.searchParams.get('dryrun') === '1';
 
   try {
     // รับไฟล์ CSV
@@ -284,26 +326,34 @@ export async function onRequestPost(context) {
     const BATCH_SIZE = 90; // D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง — 90 เผื่อเหลือ
     const now = new Date().toISOString();
 
-    // ดึง CIF ที่มีอยู่ในตาราง customers (แบ่ง batch 100 CIF ต่อครั้ง)
+    // ดึงค่าปัจจุบันในถัง (มีอยู่ไหม + ค่าหนี้ 10 ช่อง + ที่มา + สาขา) — รอบเดียว
     // ต้องเช็คทุก CIF รวมที่ถูกลบ (deleted=1) ด้วย — ไม่งั้น INSERT จะชน UNIQUE (PK) กับ CIF ในถังขยะ
-    const existingCIFs = new Set();
+    const current = new Map();
     for (let i = 0; i < cifList.length; i += BATCH_SIZE) {
       const batch = cifList.slice(i, i + BATCH_SIZE);
       const placeholders = batch.map(() => '?').join(',');
       const rows = await env.BFR_DB.prepare(
-        `SELECT cif FROM customers WHERE cif IN (${placeholders})`
+        `SELECT cif, deleted, created_by, branch, zone, debt_class, debt_balance, reserve_pct,
+                recognition, overdue_15m, next_due, subsidy, commitment_date
+         FROM customers WHERE cif IN (${placeholders})`
       ).bind(...batch).all();
-      (rows.results || []).forEach(r => existingCIFs.add(r.cif));
+      (rows.results || []).forEach(r => current.set(r.cif, r));
     }
 
-    // อัปเดต/เพิ่มข้อมูลหนี้ (ทุกสัญญารวมกัน)
+    // เทียบทีละ CIF → เขียนเฉพาะที่เปลี่ยนจริง (เท่าเดิม = ข้าม ไม่เปลืองโควต้า)
     let updated = 0;
     let added = 0;
+    let skipped = 0;
     const statements = [];
+    const fieldDiff = {}; // ช่อง → จำนวนรายที่เปลี่ยน (โชว์บนจอ preview)
 
     for (const cif of cifList) {
       const s = summaries[cif];
-      if (existingCIFs.has(cif)) {
+      const cur = current.get(cif);
+      if (cur && !cur.deleted) {
+        const diff = debtDiff(cur, s);
+        if (diff.length === 0) { skipped++; continue; }
+        diff.forEach(f => { fieldDiff[f] = (fieldDiff[f] || 0) + 1; });
         statements.push(
           env.BFR_DB.prepare(
             `UPDATE customers SET
@@ -337,7 +387,7 @@ export async function onRequestPost(context) {
           )
         );
         updated++;
-      } else {
+      } else if (!cur) {
         // INSERT ลูกค้าใหม่
         statements.push(
           env.BFR_DB.prepare(
@@ -365,27 +415,26 @@ export async function onRequestPost(context) {
           )
         );
         added++;
+      } else {
+        // CIF อยู่ในถังขยะ (deleted=1) — ข้าม (กันชน PK) นับเป็นข้าม
+        skipped++;
       }
     }
 
-    // ล้างข้อมูลหนี้ของ CIF ที่ไม่อยู่ในไฟล์ใหม่
-    // ⚠️ ปลอดภัย: ล้างเฉพาะ CIF ที่ระบบสร้างจากไฟล์หนี้ (created_by='Debt-Import')
-    // — CIF เหล่านี้เกิดจากไฟล์ Customer Indicator ล้วน ถ้าไม่อยู่ในไฟล์ใหม่ = ไม่มีหนี้จริง
-    // ลูกค้าจริง (AutoImport/GPS/Admin) ไม่โดนล้าง — คงข้อมูลเดิม (เผื่อไฟล์ย่อย/ไม่ครบ)
+    // ล้างข้อมูลหนี้ของ CIF ที่ไม่อยู่ในไฟล์ใหม่ (เฉพาะที่ยังมีหนี้ค้าง — ล้างแล้วข้าม)
     // ⛔ ห้ามล้างข้ามสาขา: ไฟล์แต่ละรอบเป็นของสาขาเดียว → ล้างเฉพาะ CIF ที่ branch ตรงกับในไฟล์
-    // (16 ต.ค.69: อัพไฟล์ 145 ล้างหนี้ 854 ไป 98 ราย เพราะไม่มี guard นี้)
-    // Fix too many SQL variables: แทนการใช้ NOT IN (?) กับ cifList ทั้งก้อน (เกิน 999 vars)
-    // → query หา CIF Debt-Import ที่มีอยู่ แล้ว diff ใน JS แล้ว clear เป็น batch 90
-    // (D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง — 2 + 90 = 92 เผื่อเหลือ)
+    let cleared = 0;
     if (cifList.length > 0) {
       try {
         const cifSet = new Set(cifList);
         const fileBranches = new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
         const existingDebtRows = await env.BFR_DB.prepare(
-          `SELECT cif, branch FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
+          `SELECT cif, branch, debt_class, debt_balance, reserve_pct, recognition,
+                  overdue_15m, next_due, subsidy, commitment_date
+           FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
         ).all();
         const toClear = (existingDebtRows.results || [])
-          .filter(r => !cifSet.has(r.cif) && (fileBranches.size === 0 || fileBranches.has((r.branch || '').trim())))
+          .filter(r => !cifSet.has(r.cif) && (fileBranches.size === 0 || fileBranches.has((r.branch || '').trim())) && !isDebtClean(r))
           .map(r => r.cif);
         for (let i = 0; i < toClear.length; i += 90) {
           const chunk = toClear.slice(i, i + 90);
@@ -407,9 +456,40 @@ export async function onRequestPost(context) {
             ).bind(now, now, ...chunk)
           );
         }
+        cleared = toClear.length;
       } catch (e) {
         console.warn('clear stale debt skip:', e.message);
       }
+    }
+
+    const estimatedWrites = statements.length;
+    const quota = await getWriteBudget(env);
+
+    // โหมดวิเคราะห์: ตอบอย่างเดียว ไม่เขียน D1/KV ไม่นับโควต้า
+    if (dryrun) {
+      const fieldTh = {};
+      for (const [f, n] of Object.entries(fieldDiff)) fieldTh[FIELD_TH[f] || f] = n;
+      return new Response(JSON.stringify({
+        success: true, dryrun: true,
+        total_contracts: contracts.length,
+        unique_cifs: cifList.length,
+        will_update: updated,
+        will_add: added,
+        will_skip_identical: skipped,
+        will_clear: cleared,
+        field_diff: fieldTh,
+        estimated_writes: estimatedWrites,
+        quota,
+      }), { status: 200 });
+    }
+
+    // โหมดเขียนจริง: เช็คโควต้าก่อน (กันล็อก 100k/วัน)
+    if (quota.blockBulk || estimatedWrites > quota.remaining) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `โควต้าเขียนวันนี้ไม่พอ (ใช้ไป ${quota.used.toLocaleString()}/${quota.limit.toLocaleString()} เหลือ ${quota.remaining.toLocaleString()} แต่รอบนี้ต้องเขียน ~${estimatedWrites.toLocaleString()} แถว) — รอพรุ่งนี้เช้า 07:00 หรืออัพไฟล์ที่เล็กลง`,
+        quota, estimated_writes: estimatedWrites,
+      }), { status: 429 });
     }
 
     // Execute batch (D1 batch API — batch ละ 100 statements)
@@ -419,6 +499,8 @@ export async function onRequestPost(context) {
         await env.BFR_DB.batch(chunk);
       }
     }
+    await trackWrites(env, estimatedWrites, 'debt-import');
+    const quotaAfter = await getWriteBudget(env);
 
     // เขียน debt-data.json ฉบับใหม่ลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด
     let kvWritten = false;
@@ -438,6 +520,11 @@ export async function onRequestPost(context) {
       unique_cifs: cifList.length,
       updated,
       added,
+      skipped_identical: skipped,
+      cleared,
+      field_diff: Object.fromEntries(Object.entries(fieldDiff).map(([f, n]) => [FIELD_TH[f] || f, n])),
+      estimated_writes: estimatedWrites,
+      quota: quotaAfter,
       zones_synced: cifList.filter(c => summaries[c] && summaries[c].zone).length,
       debt_rows: debtRows.length,
       kv_written: kvWritten,

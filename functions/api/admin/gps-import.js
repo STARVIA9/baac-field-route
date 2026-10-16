@@ -4,7 +4,7 @@
 // for the live marker-refresh trigger. D1 is authoritative.
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
-import { logGpsHistory } from '../../_lib/shared.js';
+import { logGpsHistory, trackWrites, getWriteBudget } from '../../_lib/shared.js';
 
 const KV_OVERLAY = 'gps:overlay';
 
@@ -68,15 +68,19 @@ export async function onRequestPost(context) {
     }
   }
 
-  // Build batch statements for insert/update
+  // Build batch statements — เขียนเฉพาะพิกัดเปลี่ยนจริง (เท่าเดิมข้าม ไม่เปลืองโควต้า) (16 ต.ค.69)
   const statements = [];
+  const changedRecords = [];
   for (const r of validRecords) {
+    const old = oldCoords.get(r.cif);
     if (existingSet.has(r.cif)) {
+      if (old && Number(old.lat) === r.lat && Number(old.lng) === r.lng) continue; // เท่าเดิม
       statements.push(
         env.BFR_DB.prepare('UPDATE customers SET lat = ?1, lng = ?2, updated_at = ?3 WHERE cif = ?4')
           .bind(r.lat, r.lng, now, r.cif)
       );
       updated++;
+      changedRecords.push(r);
     } else {
       statements.push(
         env.BFR_DB.prepare(
@@ -85,8 +89,29 @@ export async function onRequestPost(context) {
         ).bind(r.cif, r.name, r.lat, r.lng, now)
       );
       added++;
+      changedRecords.push(r);
     }
     overlay[r.cif] = { lat: r.lat, lng: r.lng, name: r.name, updatedAt: now };
+  }
+  const skippedIdentical = validRecords.length - changedRecords.length;
+  const quota = await getWriteBudget(env);
+
+  // โหมดวิเคราะห์: ตอบอย่างเดียว ไม่เขียนอะไร
+  if (body.dryrun) {
+    return json({
+      success: true, dryrun: true,
+      will_add: added, will_update: updated, will_skip_identical: skippedIdentical,
+      estimated_writes: statements.length, quota,
+    });
+  }
+
+  // โหมดเขียนจริง: เช็คโควต้าก่อน
+  if (quota.blockBulk || statements.length > quota.remaining) {
+    return json({
+      success: false,
+      error: `โควต้าเขียนวันนี้ไม่พอ (เหลือ ${quota.remaining.toLocaleString()} แต่รอบนี้ต้องเขียน ~${statements.length.toLocaleString()} แถว) — รอพรุ่งนี้เช้า 07:00`,
+      quota, estimated_writes: statements.length,
+    }, 429);
   }
 
   // Execute batch (D1 batch API — single round-trip for all statements)
@@ -97,22 +122,26 @@ export async function onRequestPost(context) {
       await env.BFR_DB.batch(chunk);
     }
   }
+  await trackWrites(env, statements.length, 'gps-import');
 
   // ประวัติพิกัด: บันทึกเฉพาะรายที่พิกัดเปลี่ยน (ข้ามรายที่เท่าเดิม — logGpsHistory เช็คให้)
   const byName = payload.username || payload.sub || 'admin';
-  for (const r of validRecords) {
+  let histWrites = 0;
+  for (const r of changedRecords) {
     const old = oldCoords.get(r.cif) || { lat: null, lng: null };
-    await logGpsHistory(env, {
+    if (await logGpsHistory(env, {
       cif: r.cif, oldLat: old.lat, oldLng: old.lng,
       newLat: r.lat, newLng: r.lng, by: byName, source: 'gps-import',
-    });
+    })) histWrites++;
   }
+  await trackWrites(env, histWrites, 'gps-history');
 
   if (env.BFR_KV) {
     await env.BFR_KV.put(KV_OVERLAY, JSON.stringify(overlay));
     await env.BFR_KV.put('meta:overlay-updated', now);
   }
-  return json({ success: true, added, updated, skipped, total: Object.keys(overlay).length, overlayUpdatedAt: now });
+  const quotaAfter = await getWriteBudget(env);
+  return json({ success: true, added, updated, skipped: skipped + skippedIdentical, total: Object.keys(overlay).length, overlayUpdatedAt: now, estimated_writes: statements.length + histWrites, quota: quotaAfter });
 }
 
 // DELETE /api/admin/gps-import?cif=4642836,4642883 — remove specific CIFs

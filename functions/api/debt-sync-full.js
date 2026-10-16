@@ -6,6 +6,7 @@
  * - Batch 100 statements/round-trip (D1 limit)
  */
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { trackWrites, getWriteBudget } from '../_lib/shared.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -102,12 +103,22 @@ export async function onRequestPost(context) {
       updated++;
     }
 
+    // โควต้า D1 รายวัน: เช็คก่อนเขียนทั้งก้อน (กันล็อก 100k/วัน) (16 ต.ค.69)
+    const quota = await getWriteBudget(env);
+    if (quota.blockBulk || statements.length > quota.remaining) {
+      return json({
+        success: false,
+        error: `โควต้าเขียนวันนี้ไม่พอ (เหลือ ${quota.remaining.toLocaleString()} แต่รอบนี้ต้องเขียน ~${statements.length.toLocaleString()} แถว) — รอพรุ่งนี้เช้า 07:00`,
+      });
+    }
+
     // Execute batch (D1 batch API — batch ละ 100 statements)
     if (statements.length > 0) {
       for (let i = 0; i < statements.length; i += 100) {
         await env.BFR_DB.batch(statements.slice(i, i + 100));
       }
     }
+    await trackWrites(env, statements.length, 'debt-sync-full');
 
     return json({
       success: true,

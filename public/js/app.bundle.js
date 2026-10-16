@@ -4378,79 +4378,165 @@ const App = {
     // ปุ่มเลือกไฟล์
     uploadBtn.onclick = () => fileInput.click();
     
-    // เมื่อเลือกไฟล์
+    // เมื่อเลือกไฟล์ → ขั้น 1: วิเคราะห์ก่อน (dryrun ยังไม่เขียนอะไร)
+    let pendingFile = null;
     fileInput.onchange = async () => {
       const file = fileInput.files[0];
       if (!file) return;
-      
+      pendingFile = file;
+
       fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
-      
+
       // ซ่อนผลลัพธ์เก่า + แสดง progress
       result.style.display = 'none';
+      document.getElementById('debt-preview').style.display = 'none';
       progress.style.display = 'block';
-      progressText.textContent = 'กำลังอัปโหลดไฟล์...';
+      progressText.textContent = 'กำลังตรวจไฟล์เทียบข้อมูลเดิม...';
       uploadBtn.disabled = true;
-      uploadBtn.textContent = '⏳ กำลังประมวลผล...';
-      
+
       try {
-        // สร้าง FormData
         const formData = new FormData();
         formData.append('file', file);
-        
-        progressText.textContent = 'กำลังอัปโหลดและประมวลผลข้อมูลหนี้...';
-        
-        // ส่งไปยัง API
+
         const token = Auth.getToken();
-        const res = await fetch('/api/debt-import', {
+        const res = await fetch('/api/debt-import?dryrun=1', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData,
         });
-        
+
         const data = await res.json();
-        
+
         if (!res.ok) {
-          throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+          throw new Error(data.error || 'ตรวจไฟล์ไม่สำเร็จ');
         }
-        
-        // แสดงผลลัพธ์
+
         progress.style.display = 'none';
-        result.style.display = 'block';
-        
-        resultStats.innerHTML = `
-          📋 สัญญาทั้งหมด: <strong>${data.total_contracts.toLocaleString()}</strong> รายการ<br>
-          👥 CIF ไม่ซ้ำ: <strong>${data.unique_cifs.toLocaleString()}</strong> ราย<br>
-          ✅ อัปเดตสำเร็จ: <strong>${data.updated.toLocaleString()}</strong> ราย<br>
-          ${data.added > 0 ? `🆕 สร้างใหม่: <strong>${data.added.toLocaleString()}</strong> ราย<br>` : ''}
-          ${data.not_found > 0 ? `⚠️ ไม่พบ CIF ในระบบ: <strong>${data.not_found.toLocaleString()}</strong> ราย` : ''}
-        `;
-        
-        resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
-        
-        // อัปเดตวันที่ล่าสุด
-        if (lastUpdate) {
-          lastUpdate.textContent = new Date(data.debt_updated_at).toLocaleString('th-TH');
-        }
-        
-        Utils.toast(`📊 อัปเดตหนี้สำเร็จ ${data.updated} ราย${data.added > 0 ? ` +${data.added} ใหม่` : ''}`);
-        
-        // รีเฟรชข้อมูลลูกค้าบนแผนที่
-        if (typeof Customers !== 'undefined' && Customers.renderAll) {
-          setTimeout(() => Customers.renderAll(), 500);
-        }
-        
+        this.showDebtPreview(data);
+
       } catch (err) {
         progress.style.display = 'none';
         result.style.display = 'block';
         resultStats.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
         resultTime.textContent = '';
-        Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ', 'error');
+        Utils.toast('❌ ตรวจไฟล์ไม่สำเร็จ', 'error');
       } finally {
         uploadBtn.disabled = false;
         uploadBtn.textContent = '📂 เลือกไฟล์ Customer Indicator';
-        fileInput.value = ''; // reset file input
       }
     };
+
+    // ขั้น 2: ยืนยันอัพจริง / ยกเลิก
+    document.getElementById('debt-confirm-btn').onclick = () => this.confirmDebtImport(pendingFile);
+    document.getElementById('debt-cancel-btn').onclick = () => {
+      document.getElementById('debt-preview').style.display = 'none';
+      fileInput.value = '';
+      pendingFile = null;
+    };
+
+    // โควต้าเขียนวันนี้ (แถบใต้ปุ่มอัพ)
+    this.loadDebtQuota();
+  },
+
+  // ===== Debt Import: แถบโควต้าเขียนวันนี้ =====
+  renderDebtQuota(el, quota) {
+    if (!el || !quota) return;
+    const pct = quota.pct || 0;
+    const color = quota.blockBulk ? 'var(--danger)' : (quota.warn ? '#f9a825' : 'var(--baac-green)');
+    const ops = quota.byOp ? Object.entries(quota.byOp).map(([k, v]) => `${k} ${Number(v).toLocaleString()}`).join(' · ') : '';
+    el.innerHTML = `📝 โควต้าเขียนวันนี้: <strong>${quota.used.toLocaleString()}/${quota.limit.toLocaleString()}</strong> (เหลือ ${quota.remaining.toLocaleString()})`
+      + `<div style="height:8px;background:#eee;border-radius:4px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div></div>`
+      + (ops ? `<small class="text-muted">ใช้ไป: ${ops}</small>` : '');
+  },
+
+  async loadDebtQuota() {
+    try {
+      const token = Auth.getToken();
+      const res = await fetch('/api/admin/quota', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (data && data.success) this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
+    } catch (e) { /* เงียบไว้ — แถบโควต้าเป็นของเสริม */ }
+  },
+
+  // ===== Debt Import: โชว์ผลวิเคราะห์ก่อนยืนยัน =====
+  showDebtPreview(data) {
+    const stats = document.getElementById('debt-preview-stats');
+    const fields = document.getElementById('debt-preview-fields');
+    stats.innerHTML =
+      `📋 ในไฟล์: <strong>${data.unique_cifs.toLocaleString()}</strong> CIF (${data.total_contracts.toLocaleString()} สัญญา)<br>`
+      + `✏️ เปลี่ยนจริง: <strong>${data.will_update.toLocaleString()}</strong> ราย`
+      + (data.will_add > 0 ? ` · 🆕 ใหม่: <strong>${data.will_add.toLocaleString()}</strong> ราย` : '')
+      + (data.will_clear > 0 ? ` · 🧹 หมดหนี้: <strong>${data.will_clear.toLocaleString()}</strong> ราย` : '')
+      + `<br>⏭️ เท่าเดิมข้าม: <strong>${data.will_skip_identical.toLocaleString()}</strong> ราย (ไม่เปลืองโควต้า)<br>`
+      + `💾 รอบนี้จะเขียน ~<strong>${data.estimated_writes.toLocaleString()}</strong> แถว`;
+    const fds = data.field_diff || {};
+    const keys = Object.keys(fds);
+    fields.innerHTML = keys.length
+      ? `📌 ช่องที่เปลี่ยน: ` + keys.map(k => `${k} <strong>${fds[k].toLocaleString()}</strong>`).join(' · ')
+      : `📌 ไม่มีช่องไหนเปลี่ยน — กดยืนยันก็ไม่เขียนอะไรเพิ่ม`;
+    this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
+    document.getElementById('debt-confirm-btn').textContent = `✅ ยืนยันอัพข้อมูล (~${data.estimated_writes.toLocaleString()} แถว)`;
+    document.getElementById('debt-preview').style.display = 'block';
+    document.getElementById('debt-preview').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  // ===== Debt Import: ยืนยันอัพจริง =====
+  async confirmDebtImport(file) {
+    if (!file) { Utils.toast('❌ ไม่พบไฟล์ กรุณาเลือกใหม่', 'error'); return; }
+    const progress = document.getElementById('debt-progress');
+    const progressText = document.getElementById('debt-progress-text');
+    const result = document.getElementById('debt-result');
+    const resultStats = document.getElementById('debt-result-stats');
+    const resultTime = document.getElementById('debt-result-time');
+    const lastUpdate = document.getElementById('debt-last-update-time');
+    const confirmBtn = document.getElementById('debt-confirm-btn');
+
+    document.getElementById('debt-preview').style.display = 'none';
+    progress.style.display = 'block';
+    progressText.textContent = 'กำลังอัพข้อมูลหนี้...';
+    confirmBtn.disabled = true;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = Auth.getToken();
+      const res = await fetch('/api/debt-import', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+
+      progress.style.display = 'none';
+      result.style.display = 'block';
+      resultStats.innerHTML =
+        `✅ อัปเดต: <strong>${data.updated.toLocaleString()}</strong> ราย`
+        + (data.added > 0 ? ` · 🆕 ใหม่: <strong>${data.added.toLocaleString()}</strong> ราย` : '')
+        + (data.cleared > 0 ? ` · 🧹 หมดหนี้: <strong>${data.cleared.toLocaleString()}</strong> ราย` : '')
+        + `<br>⏭️ ข้าม (เท่าเดิม): <strong>${(data.skipped_identical || 0).toLocaleString()}</strong> ราย<br>`
+        + (data.quota ? `📝 โควต้าวันนี้เหลือ <strong>${data.quota.remaining.toLocaleString()}</strong> แถว` : '');
+
+      resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
+      if (lastUpdate) lastUpdate.textContent = new Date(data.debt_updated_at).toLocaleString('th-TH');
+      this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
+
+      Utils.toast(`📊 อัปเดตหนี้สำเร็จ ${data.updated} ราย${data.added > 0 ? ` +${data.added} ใหม่` : ''}`);
+
+      // รีเฟรชข้อมูลลูกค้าบนแผนที่
+      if (typeof Customers !== 'undefined' && Customers.renderAll) {
+        setTimeout(() => Customers.renderAll(), 500);
+      }
+    } catch (err) {
+      progress.style.display = 'none';
+      result.style.display = 'block';
+      resultStats.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
+      resultTime.textContent = '';
+      Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ', 'error');
+    } finally {
+      confirmBtn.disabled = false;
+      document.getElementById('debt-file-input').value = '';
+    }
   },
 
   // ===== Debt Import: โหลดวันที่อัปเดตหนี้ล่าสุด =====

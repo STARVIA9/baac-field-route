@@ -695,11 +695,28 @@ const Admin = {
 
   async handleDebtFile(file) {
     if (!file) return;
-    Utils.toast('⏳ กำลังอัปโหลดและประมวลผลข้อมูลหนี้...');
+    Utils.toast('⏳ กำลังตรวจไฟล์เทียบข้อมูลเดิม...');
     try {
+      const token = Auth.getToken();
+      // ขั้น 1: วิเคราะห์ก่อน (dryrun ไม่เขียนอะไร)
+      const fd1 = new FormData();
+      fd1.append('file', file);
+      const pre = await fetch('/api/debt-import?dryrun=1', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd1,
+      });
+      const ana = await pre.json();
+      if (!pre.ok) throw new Error(ana.error || 'ตรวจไฟล์ไม่สำเร็จ');
+      const fds = ana.field_diff || {};
+      const fline = Object.keys(fds).length
+        ? `\nช่องที่เปลี่ยน: ` + Object.entries(fds).map(([k, v]) => `${k} ${v}`).join(', ')
+        : '\nไม่มีช่องไหนเปลี่ยน';
+      const q = ana.quota || {};
+      if (!confirm(`ตรวจไฟล์แล้ว:\n• ในไฟล์ ${ana.unique_cifs} CIF — เปลี่ยนจริง ${ana.will_update} + ใหม่ ${ana.will_add} + หมดหนี้ ${ana.will_clear} + ข้าม ${ana.will_skip_identical}${fline}\n• รอบนี้เขียน ~${ana.estimated_writes} แถว (โควต้าเหลือ ${q.remaining ?? '?'})\n\nยืนยันอัพ?`)) return;
+      // ขั้น 2: อัพจริง
       const formData = new FormData();
       formData.append('file', file);
-      const token = Auth.getToken();
       const res = await fetch('/api/debt-import', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -707,7 +724,7 @@ const Admin = {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
-      Utils.toast(`📊 อัปเดตหนี้สำเร็จ: ${data.updated} รายอัปเดต${data.added > 0 ? ` +${data.added} รายใหม่` : ''} (จาก ${data.unique_cifs} CIF)`, 'success');
+      Utils.toast(`📊 อัปเดตหนี้สำเร็จ: ${data.updated} รายอัปเดต${data.added > 0 ? ` +${data.added} รายใหม่` : ''} (ข้าม ${data.skipped_identical || 0})`, 'success');
       this.loadAll();
     } catch (err) {
       Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ: ' + err.message, 'error');
@@ -734,14 +751,24 @@ const Admin = {
       }
 
       const skipped = rows.length - records.length;
-      if (!confirm(`พบ ${records.length} รายการมีพิกัด${skipped ? ` (ข้าม ${skipped} ที่ไม่มีพิกัด/ค่าผิด)` : ''}\n\nระบบจะ match ตาม CIF:\n• ลูกค้าเดิม → อัพเดทพิกัด\n• CIF ใหม่ → สร้างลูกค้าใหม่\n• ลูกค้าที่ไม่อยู่ในไฟล์ → ไม่แตะต้อง\n\nยืนยัน?`)) return;
+      // ตรวจก่อนว่าเปลี่ยนจริงกี่ราย + โควต้าพอไหม (dryrun ไม่เขียนอะไร)
+      let pre = null;
+      try {
+        pre = await API.post('/api/admin/gps-import', { records, dryrun: true });
+      } catch (e) { pre = null; }
+      const preLine = (pre && pre.success)
+        ? `\n\nตรวจแล้ว: เปลี่ยนจริง ${pre.will_update} + ใหม่ ${pre.will_add} + ข้าม ${pre.will_skip_identical} (เขียน ~${pre.estimated_writes} แถว, โควต้าเหลือ ${(pre.quota || {}).remaining ?? '?'})`
+        : '';
+      if (!confirm(`พบ ${records.length} รายการมีพิกัด${skipped ? ` (ข้าม ${skipped} ที่ไม่มีพิกัด/ค่าผิด)` : ''}\n\nระบบจะ match ตาม CIF:\n• ลูกค้าเดิม → อัพเดทพิกัด\n• CIF ใหม่ → สร้างลูกค้าใหม่\n• ลูกค้าที่ไม่อยู่ในไฟล์ → ไม่แตะต้อง${preLine}\n\nยืนยัน?`)) return;
 
-      const result = await API.post('/api/admin/gps-import', { records });
-      if (result && result.success) {
+      // postRaw: 429 โควต้าไม่พอจะได้ข้อความไทย ไม่ใช่ "HTTP 429"
+      const rawRes = await API.postRaw('/api/admin/gps-import', { records });
+      const result = (rawRes && rawRes.data) || {};
+      if (rawRes.ok && result.success) {
         Utils.toast(`✅ อัพพิกัดแล้ว: +${result.added} ใหม่, ↻${result.updated} อัพเดท, ⊘${result.skipped} ข้าม`, 'success');
         this.loadAll();
       } else {
-        Utils.toast((result && result.error) || 'อัพพิกัดไม่สำเร็จ', 'error');
+        Utils.toast(result.error || 'อัพพิกัดไม่สำเร็จ', 'error');
       }
     } catch (err) {
       Utils.toast('อัพพิกัดไม่สำเร็จ: ' + err.message, 'error');

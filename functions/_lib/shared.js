@@ -52,6 +52,51 @@ export async function logGpsHistory(env, { cif, oldLat, oldLng, newLat, newLng, 
   } catch (e) { console.warn('logGpsHistory skip:', e.message); return false; }
 }
 
+// ===== D1 WRITE BUDGET (โควต้าเขียน D1 — กันล็อก 100,000 แถว/วัน) =====
+// ที่มา: 16 ต.ค.69 เขียนไป 130,930 แถวในวันเดียว (อัพไฟล์หนี้ซ้ำ + backfill ทั้งตาราง)
+// โดนล็อกเขียนถึง 00:00 UTC. หลัก: งาน bulk ต้อง dryrun → เทียบของเดิม → เขียนเฉพาะที่เปลี่ยน
+// + เช็คโควต้าก่อนเขียนทุกครั้ง. นับแบบประมาณ (1 statement ≈ 1 แถว) ฝั่งปลอดภัย (ปัดขึ้น)
+
+export const D1_DAILY_WRITE_LIMIT = 100000;
+const D1_WRITE_WARN_AT = 70000;   // เตือน (แถบเหลือง)
+const D1_WRITE_BLOCK_AT = 90000;  // งาน bulk ห้ามเกินนี้ (เหลือ 10k ให้งานแก้รายใบ)
+
+function todayKey() {
+  return 'd1writes:' + new Date().toISOString().slice(0, 10);
+}
+
+// บวกยอดเขียนของวันนี้ { total, byOp } — 1 KV read + 1 KV write (งาน bulk เรียกครั้งเดียวต่อรอบ)
+export async function trackWrites(env, n, op) {
+  try {
+    if (!env?.BFR_KV || !n) return;
+    const key = todayKey();
+    const raw = await env.BFR_KV.get(key);
+    const cur = raw ? JSON.parse(raw) : { total: 0, byOp: {} };
+    cur.total = (cur.total || 0) + n;
+    cur.byOp = cur.byOp || {};
+    cur.byOp[op || 'other'] = (cur.byOp[op || 'other'] || 0) + n;
+    await env.BFR_KV.put(key, JSON.stringify(cur));
+  } catch (e) { console.warn('trackWrites skip:', e.message); }
+}
+
+// อ่านโควต้าวันนี้ (ไม่เขียนอะไร — เรียกโชว์บนจอได้บ่อย)
+export async function getWriteBudget(env) {
+  const d = { date: new Date().toISOString().slice(0, 10), used: 0, byOp: {}, limit: D1_DAILY_WRITE_LIMIT };
+  try {
+    if (!env?.BFR_KV) return { ...d, remaining: d.limit, warn: false };
+    const raw = await env.BFR_KV.get(todayKey());
+    if (raw) {
+      const cur = JSON.parse(raw);
+      d.used = cur.total || 0;
+      d.byOp = cur.byOp || {};
+    }
+  } catch (e) { console.warn('getWriteBudget skip:', e.message); }
+  d.remaining = Math.max(0, d.limit - d.used);
+  d.warn = d.used >= D1_WRITE_WARN_AT;
+  d.blockBulk = d.used >= D1_WRITE_BLOCK_AT;
+  d.pct = Math.min(100, Math.round((d.used / d.limit) * 100));
+  return d;
+}
 // ===== D1 ETAG GATE helpers (ลด rows_read — D1 free quota 5M rows/day) =====
 // หลัก: ทุก write ลงตาราง customers ต้องเรียก touchCustomers(env) → เขียน KV
 // meta:customers-updated = ตอนเขียน. GET /api/sync ใช้ตัวนี้เทียบกับ since ของ client:
