@@ -23,7 +23,8 @@ export async function onRequestPost(context) {
   const { username, password, pin } = body;
 
   // Rate limiting via KV (per IP)
-  const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+  // ponytail/security (16 ต.ค.69): เชื่อ cf-connecting-ip อย่างเดียว — x-forwarded-for ปลอมได้
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const rateKey = `ratelimit:authlogin:${ip}`;
   if (env.BFR_KV) {
     try {
@@ -56,13 +57,14 @@ export async function onRequestPost(context) {
     const token = await signHS256({
       sub: user.id, username: user.username, name: user.displayName,
       role: user.role, branch: user.branch, branchName,
+      pv: user.pwdVersion || 1, // เปลี่ยนรหัส → bump → refresh-token เช็ค
       iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 7,
     }, secret);
 
     if (env.BFR_KV) await env.BFR_KV.delete(rateKey);
     return json({
       success: true, token,
-      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName },
+      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName, loginMethod: 'password', hasPassword: true },
     });
   }
 

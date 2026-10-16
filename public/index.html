@@ -1328,12 +1328,12 @@
   <div id="change-password-modal" class="modal hidden">
     <div class="modal-card" style="max-width:400px">
       <div class="modal-header">
-        <h2>🔑 เปลี่ยนรหัสผ่าน</h2>
+        <h2 id="cp-modal-title">🔑 เปลี่ยนรหัสผ่าน</h2>
         <button class="btn-icon modal-close" id="close-change-password">✕</button>
       </div>
       <div class="modal-body">
         <form id="change-password-form-standalone">
-          <div class="form-group" style="margin-bottom:14px">
+          <div class="form-group" id="cp-current-row-standalone" style="margin-bottom:14px">
             <label for="cp-current-standalone">รหัสผ่านปัจจุบัน</label>
             <input type="password" id="cp-current-standalone" placeholder="รหัสผ่านเดิม" required minlength="4">
           </div>
@@ -1345,7 +1345,7 @@
             <label for="cp-confirm-standalone">ยืนยันรหัสผ่านใหม่</label>
             <input type="password" id="cp-confirm-standalone" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
           </div>
-          <button type="submit" class="btn-primary">เปลี่ยนรหัสผ่าน</button>
+          <button type="submit" class="btn-primary" id="btn-change-password-standalone">เปลี่ยนรหัสผ่าน</button>
           <p class="login-error" id="cp-error-standalone"></p>
           <p class="text-muted" id="cp-success-standalone" style="color:var(--baac-green);display:none"></p>
         </form>

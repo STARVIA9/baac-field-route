@@ -129,6 +129,7 @@ export async function onRequestPost(context) {
     username,
     password: passwordHash,
     pinHash,
+    pwdVersion: 1, // เปลี่ยนรหัส/PIN → bump → กุญแจเก่าต่ออายุไม่ได้ (16 ต.ค.69)
     displayName,
     role: role === 'admin' ? 'admin' : 'user',
     branch,
@@ -172,7 +173,10 @@ export async function onRequestPut(context) {
     const branchList = await loadBranches(env.BFR_KV);
     if (branchList.find(b => b.code === branch)) users[idx].branch = branch;
   }
-  if (password && password.length >= 4) users[idx].password = await hashPassword(password);
+  if (password && password.length >= 4) {
+    users[idx].password = await hashPassword(password);
+    users[idx].pwdVersion = (users[idx].pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
+  }
   // ตั้ง/เปลี่ยน PIN staff — เช็คซ้ำยกเว้นตัวเอง, clearPin=true = ปิด login ด้วย PIN
   if (pin) {
     if (!/^\d{4,8}$/.test(pin)) return json({ success: false, error: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }, 400);
@@ -183,6 +187,7 @@ export async function onRequestPut(context) {
       }
     }
     users[idx].pinHash = await hashPassword(pin);
+    users[idx].pwdVersion = (users[idx].pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
   } else if (clearPin) {
     delete users[idx].pinHash;
   }

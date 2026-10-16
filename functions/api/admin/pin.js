@@ -47,6 +47,19 @@ export async function verifyAdminPin(pin, kv) {
   return verifyPassword(pin, stored);
 }
 
+// ===== PIN version — เปลี่ยน PIN แล้วกุญแจเก่าต่ออายุไม่ได้ (refresh-token เช็ค) =====
+const PIN_VERSION_KEY = 'admin:pinVersion';
+export async function getPinVersion(kv) {
+  if (!kv) return 1;
+  const raw = await kv.get(PIN_VERSION_KEY);
+  return raw ? parseInt(raw, 10) || 1 : 1;
+}
+export async function bumpPinVersion(kv) {
+  const next = (await getPinVersion(kv)) + 1;
+  await kv.put(PIN_VERSION_KEY, String(next));
+  return next;
+}
+
 // ===== POST /api/admin/pin — change admin PIN =====
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -79,6 +92,7 @@ export async function onRequestPost(context) {
   // Hash new PIN and save
   const newHash = await hashPassword(newPin);
   await env.BFR_KV.put(KV_KEY, newHash);
+  await bumpPinVersion(env.BFR_KV); // กุญแจเก่าต่ออายุไม่ได้
 
   return json({ success: true, message: 'เปลี่ยน PIN สำเร็จ' });
 }

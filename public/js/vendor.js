@@ -418,6 +418,10 @@ const Auth = {
         ? `👤 ${user.name} · ${branchLabel}`
         : `👤 ${user.name}`;
     }
+    // Admin PIN ไม่มีรหัสให้เปลี่ยน — ซ่อนปุ่มเฉพาะสายนี้ (staff สาย PIN ยังเห็นเพื่อตั้งรหัสครั้งแรก) (16 ต.ค.69)
+    // session เก่าที่ไม่มี field loginMethod = แสดงปุ่มเหมือนเดิม (server ดักให้)
+    const cpBtn = document.getElementById('change-password-btn');
+    if (cpBtn) cpBtn.style.display = (this.isPinSession() && this.isAdmin()) ? 'none' : '';
     
     // Start token refresh and session warning timers
     this.startRefreshTimer();
@@ -511,6 +515,13 @@ const Auth = {
   isAdmin() {
     const user = this.getUser();
     return user && user.role === 'admin';
+  },
+
+  // true = เข้าด้วย PIN (admin PIN / staff PIN) — ไม่มีรหัสผ่านให้เปลี่ยน (16 ต.ค.69)
+  // หมายเหตุ: staff ที่ตั้งรหัสครั้งแรกแล้ว login ใหม่จะได้ loginMethod=password เอง
+  isPinSession() {
+    const user = this.getUser();
+    return !!(user && user.loginMethod === 'pin');
   },
 };
 

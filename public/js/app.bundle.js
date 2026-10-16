@@ -4179,6 +4179,10 @@ const App = {
       };
     });
 
+    // สาย Admin PIN ไม่มีรหัสให้เปลี่ยน — ซ่อนแท็บรหัสผ่าน (16 ต.ค.69)
+    const pwTabBtn = modal.querySelector('.admin-tab[data-admin-tab="password"]');
+    if (pwTabBtn) pwTabBtn.style.display = (Auth.isPinSession() && Auth.isAdmin()) ? 'none' : '';
+
     // Load branches into select (always refresh)
     const branchSelect = document.getElementById('new-branch');
     branchSelect.innerHTML = '<option value="">— เลือกสาขา —</option>';
@@ -4700,6 +4704,19 @@ const App = {
     document.getElementById('change-password-form-standalone').reset();
     document.getElementById('cp-error-standalone').textContent = '';
     document.getElementById('cp-success-standalone').style.display = 'none';
+    const u = Auth.getUser();
+    // Admin PIN ไม่มีรหัสให้เปลี่ยน (กัน session เก่าที่ยังเห็นปุ่ม) (16 ต.ค.69)
+    if (u && Auth.isPinSession() && u.role === 'admin') {
+      document.getElementById('cp-error-standalone').textContent = 'บัญชีนี้เข้าใช้งานด้วย PIN — ไม่มีรหัสผ่านให้เปลี่ยน (เปลี่ยน PIN ได้ที่หน้าจัดการ)';
+      modal.classList.remove('hidden');
+      return;
+    }
+    // โหมดตั้งรหัสครั้งแรก (staff สาย PIN ที่ยังไม่มีรหัส) — ซ่อนช่องรหัสเดิม (16 ต.ค.69)
+    const firstSet = !!(u && u.hasPassword === false);
+    document.getElementById('cp-current-row-standalone').style.display = firstSet ? 'none' : '';
+    document.getElementById('cp-current-standalone').required = !firstSet;
+    document.getElementById('cp-modal-title').textContent = firstSet ? '🔑 ตั้งรหัสผ่านครั้งแรก' : '🔑 เปลี่ยนรหัสผ่าน';
+    document.getElementById('btn-change-password-standalone').textContent = firstSet ? 'ตั้งรหัสผ่าน' : 'เปลี่ยนรหัสผ่าน';
     modal.classList.remove('hidden');
   },
 
@@ -4708,6 +4725,13 @@ const App = {
     const successEl = document.getElementById('cp-success');
     errEl.textContent = '';
     successEl.style.display = 'none';
+
+    // สาย PIN อย่างเดียวไม่มีรหัสให้เปลี่ยน (กัน session เก่าที่ยังเห็นฟอร์ม) (16 ต.ค.69)
+    const me = Auth.getUser();
+    if (me && me.hasPassword === false) {
+      errEl.textContent = 'บัญชีนี้เข้าใช้งานด้วย PIN — ไม่มีรหัสผ่านให้เปลี่ยน';
+      return;
+    }
 
     const currentPassword = document.getElementById('cp-current').value;
     const newPassword = document.getElementById('cp-new').value;
@@ -4736,6 +4760,7 @@ const App = {
         document.getElementById('cp-new').value = '';
         document.getElementById('cp-confirm').value = '';
         Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
+        if (res.data.relogin) this._afterPasswordChanged();
       } else {
         errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
       }
@@ -4747,6 +4772,12 @@ const App = {
     }
   },
 
+  // เปลี่ยนรหัสแล้วกุญแจเก่าใช้ต่อไม่ได้ — บังคับ login ใหม่ (16 ต.ค.69)
+  _afterPasswordChanged() {
+    Utils.toast('🔑 กรุณาเข้าสู่ระบบใหม่', 'warn');
+    setTimeout(() => Auth.logout(), 1500);
+  },
+
   // Standalone change password (for non-admin users via header button)
   async submitChangePasswordStandalone() {
     const errEl = document.getElementById('cp-error-standalone');
@@ -4754,6 +4785,8 @@ const App = {
     errEl.textContent = '';
     successEl.style.display = 'none';
 
+    // โหมดตั้งรหัสครั้งแรก: ไม่ถามรหัสเดิม ส่งแค่รหัสใหม่ (16 ต.ค.69)
+    const firstSet = !!(Auth.getUser() && Auth.getUser().hasPassword === false);
     const currentPassword = document.getElementById('cp-current-standalone').value;
     const newPassword = document.getElementById('cp-new-standalone').value;
     const confirmPassword = document.getElementById('cp-confirm-standalone').value;
@@ -4767,21 +4800,31 @@ const App = {
       return;
     }
 
+    const btn = document.getElementById('btn-change-password-standalone');
+    const btnLabel = firstSet ? 'ตั้งรหัสผ่าน' : 'เปลี่ยนรหัสผ่าน';
+    btn.disabled = true;
+    btn.textContent = 'กำลังเปลี่ยน...';
+
     try {
       // postRaw เพื่อเอาข้อความ error ภาษาไทยจากเซิร์ฟเวอร์มาโชว์ (API.post ให้แค่ "HTTP 400")
-      const res = await API.postRaw('/api/change-password', { currentPassword, newPassword });
+      const body = firstSet ? { newPassword } : { currentPassword, newPassword };
+      const res = await API.postRaw('/api/change-password', body);
       if (res.ok && res.data && res.data.success) {
-        successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
+        successEl.textContent = firstSet ? 'ตั้งรหัสผ่านสำเร็จ ✅' : 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
         successEl.style.display = 'block';
         document.getElementById('cp-current-standalone').value = '';
         document.getElementById('cp-new-standalone').value = '';
         document.getElementById('cp-confirm-standalone').value = '';
-        Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
+        Utils.toast(firstSet ? '🔑 ตั้งรหัสผ่านสำเร็จ' : '🔑 เปลี่ยนรหัสผ่านสำเร็จ');
+        if (res.data.relogin) this._afterPasswordChanged();
       } else {
         errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
       }
     } catch (err) {
       errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = btnLabel;
     }
   },
 

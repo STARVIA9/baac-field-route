@@ -4,7 +4,7 @@
 import { signHS256 } from '../_lib/jwt.js';
 import { verifyPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
-import { verifyAdminPin } from './admin/pin.js';
+import { verifyAdminPin, getPinVersion } from './admin/pin.js';
 
 // Admin PIN login — admin-pin (กับ KV) เท่านั้น
 // ผู้ใช้ทั่วไปต้องสร้างผ่าน /api/admin/users (username+password+สาขา)
@@ -95,7 +95,9 @@ export async function onRequestPost(context) {
   const { username, password, pin } = body;
 
   // Rate limiting via KV (per IP) — same as legacy /api/auth/login
-  const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+  // ponytail/security (16 ต.ค.69): เชื่อ cf-connecting-ip อย่างเดียว — x-forwarded-for
+  // ปลอมได้จาก client หมุน header หนีลิมิต 10 ครั้ง/15 นาทีได้
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const rateKey = `ratelimit:login:${ip}`;
   const MAX_ATTEMPTS = 10;
   const WINDOW_SEC = 15 * 60;
@@ -146,6 +148,7 @@ export async function onRequestPost(context) {
       role: user.role,
       branch: user.branch,
       branchName,
+      pv: user.pwdVersion || 1, // เปลี่ยนรหัส → bump → refresh-token เช็ค (กุญแจเก่าต่ออายุไม่ได้)
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 86400 * 7,
     };
@@ -157,7 +160,8 @@ export async function onRequestPost(context) {
     return json({
       success: true,
       token,
-      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName },
+      // loginMethod: หน้าบ้านใช้ซ่อนปุ่มเปลี่ยนรหัสผ่านของสาย PIN (16 ต.ค.69)
+      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName, loginMethod: 'password', hasPassword: true },
     });
   }
 
@@ -176,11 +180,12 @@ export async function onRequestPost(context) {
           role: 'admin',
           branch: 'WTC',
           branchName,
+          pv: await getPinVersion(env.BFR_KV),
           iat: Math.floor(Date.now() / 1000),
           exp: Math.floor(Date.now() / 1000) + 86400 * 7,
         };
         const token = await signHS256(tokenPayload, secret);
-        return json({ success: true, token, user: { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC', branchName } });
+        return json({ success: true, token, user: { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC', branchName, loginMethod: 'pin', hasPassword: false } });
       }
     }
 
@@ -203,6 +208,7 @@ export async function onRequestPost(context) {
             role: staff.role,
             branch: staff.branch,
             branchName,
+            pv: staff.pwdVersion || 1,
             iat: Math.floor(Date.now() / 1000),
             exp: Math.floor(Date.now() / 1000) + 86400 * 7,
           };
@@ -211,7 +217,7 @@ export async function onRequestPost(context) {
           return json({
             success: true,
             token,
-            user: { id: staff.id, username: staff.username, name: staff.displayName, role: staff.role, branch: staff.branch, branchName },
+            user: { id: staff.id, username: staff.username, name: staff.displayName, role: staff.role, branch: staff.branch, branchName, loginMethod: 'pin', hasPassword: !!staff.password },
           });
         }
       }

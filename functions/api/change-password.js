@@ -40,8 +40,8 @@ export async function onRequestPost(context) {
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
   const { currentPassword, newPassword } = body;
-  if (!currentPassword || !newPassword) {
-    return json({ success: false, error: 'กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่' }, 400);
+  if (!newPassword) {
+    return json({ success: false, error: 'กรุณากรอกรหัสผ่านใหม่' }, 400);
   }
   if (newPassword.length < 4) {
     return json({ success: false, error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400);
@@ -53,14 +53,31 @@ export async function onRequestPost(context) {
   const user = users.find(u => u.id === payload.sub && !u.deleted);
   if (!user) return json({ success: false, error: 'ไม่พบผู้ใช้' }, 404);
 
+  if (!user.password) {
+    // บัญชี PIN อย่างเดียว (password=null) — ตั้งรหัสครั้งแรก ไม่ต้องถามรหัสเดิม (16 ต.ค.69)
+    user.password = await hashPassword(newPassword);
+    user.pwdVersion = (user.pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
+    user.updatedAt = new Date().toISOString();
+    await env.BFR_KV.put(USERS_KV_KEY, JSON.stringify(users));
+    return json({ success: true, message: 'ตั้งรหัสผ่านสำเร็จ ✅ กรุณาเข้าสู่ระบบใหม่', relogin: true });
+  }
+
+  if (!currentPassword) {
+    return json({ success: false, error: 'กรุณากรอกรหัสผ่านเดิม' }, 400);
+  }
+
   // Verify current password
   const valid = await verifyPassword(currentPassword, user.password);
   if (!valid) return json({ success: false, error: 'รหัสผ่านเดิมไม่ถูกต้อง' }, 401);
+  if (newPassword === currentPassword) {
+    return json({ success: false, error: 'รหัสผ่านใหม่ต้องต่างจากรหัสเดิม' }, 400);
+  }
 
   // Hash and update
   user.password = await hashPassword(newPassword);
+  user.pwdVersion = (user.pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
   user.updatedAt = new Date().toISOString();
   await env.BFR_KV.put(USERS_KV_KEY, JSON.stringify(users));
 
-  return json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ ✅' });
+  return json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ ✅ กรุณาเข้าสู่ระบบใหม่', relogin: true });
 }
