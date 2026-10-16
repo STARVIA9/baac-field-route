@@ -14,19 +14,43 @@ const DebtSummary = {
       DebtDB._loadedAt = Date.now(); // กัน refresh ซ้ำเป็น loop
       DebtDB.refresh().then((ok) => { if (ok) this.render(); });
     }
+    const self = this;
     const data = [...DebtDB._byCif.values()];
+
+    // ===== ตัวกรองสาขา (16 ต.ค.69): ผูกหนี้กับสาขาผ่าน CIF → CustomerDB (ท่าเดียวกับบล็อกเขต)
+    const branchOf = (r) => {
+      const cust = r.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+      return cust && cust.branch ? String(cust.branch).trim() : '';
+    };
+    // dropdown เติมจากสาขาที่มีในฐานลูกค้าจริง (ท่าเดียวกับ map-branch-filter)
+    const brSel = document.getElementById('debt-branch-filter');
+    if (brSel) {
+      if (window.CustomerDB && CustomerDB._loaded) {
+        const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
+        const seen = new Set();
+        CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
+        const cur = self.selBranch || 'ALL';
+        brSel.innerHTML = `<option value="ALL">ทุกสาขา</option>` + [...seen].sort().map(b =>
+          `<option value="${b}"${b === cur ? ' selected' : ''}>${names[b] || ('สาขา ' + b)}</option>`).join('');
+        if (cur !== 'ALL' && !seen.has(cur)) self.selBranch = 'ALL';
+        brSel.onchange = () => { self.selBranch = brSel.value || 'ALL'; self.render(); };
+      } else if (window.CustomerDB && !CustomerDB._loaded) {
+        CustomerDB.load().then(() => this.render());
+      }
+    }
+    const B = self.selBranch || 'ALL';
+    const fdata = B === 'ALL' ? data : data.filter(r => branchOf(r) === B);
+
     // Good/Bad ตัวจริงจากไฟล์หนี้ (ช่องโครงการนำร่อง) — ข้อมูลเก่าที่ยังไม่มี gb ให้โชว์ทั้งหมดไปก่อน
-    const hasGb = data.some(r => r.gb === 'GOOD' || r.gb === 'BAD');
+    const hasGb = fdata.some(r => r.gb === 'GOOD' || r.gb === 'BAD');
 
     // ===== ภาพรวม =====
-    const totalCif = data.length;
-    const totalDebt = data.reduce((s, r) => s + (+r.total_debt || 0), 0);
-
-    const self = this;
+    const totalCif = fdata.length;
+    const totalDebt = fdata.reduce((s, r) => s + (+r.total_debt || 0), 0);
     const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
     const sub = document.getElementById('debt-summary-sub');
-    if (sub) sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${data.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
-      ` · หนี้รวม ${fmt(totalDebt)} บาท`;
+    if (sub) sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
+      ` · หนี้รวม ${fmt(totalDebt)} บาท` + (B !== 'ALL' ? ` · สาขา ${B}` : '');
 
     // การ์ดภาพรวม
     const ov = document.getElementById('debt-overview-cards');
@@ -34,7 +58,7 @@ const DebtSummary = {
       ov.innerHTML = `
         <div class="dov-card dov-green"><span class="dov-num">${fmt(totalDebt)}</span><span class="dov-label">หนี้รวม (บาท)</span></div>
         <div class="dov-card dov-blue"><span class="dov-num">${totalCif.toLocaleString('th-TH')}</span><span class="dov-label">ลูกค้าหนี้</span></div>
-        <div class="dov-card dov-amber"><span class="dov-num">${data.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')}</span><span class="dov-label">สัญญา</span></div>
+        <div class="dov-card dov-amber"><span class="dov-num">${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')}</span><span class="dov-label">สัญญา</span></div>
       `;
     }
 
@@ -43,9 +67,10 @@ const DebtSummary = {
     // แต่ summary นี้อิงข้อมูลหนี้เป็นหลัก; เรียงตามชั้นหนี้แทน และให้ block สีใช้จาก Storage
     const colorBlock = document.getElementById('debt-color-block');
     const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
+    const bcust = B === 'ALL' ? customers : customers.filter(c => String(c.branch || '').trim() === B);
     const colorCount = { แดง: 0, เหลือง: 0, เขียว: 0 };
     const colorDebt = { แดง: 0, เหลือง: 0, เขียว: 0 };
-    for (const c of customers) {
+    for (const c of bcust) {
       const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
       const p = db ? db.potential : null;
       if (p && colorCount[p] !== undefined) {
@@ -71,13 +96,13 @@ const DebtSummary = {
     if (tierBlock) {
       const tierCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       const tierDebt = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-      for (const r of data) {
+      for (const r of fdata) {
         const t = parseInt(r.max_tier) || 0;
         if (tierCount[t] !== undefined) { tierCount[t]++; tierDebt[t] += (+r.total_debt || 0); }
       }
       const labels = { 1: 'ชั้น 1', 2: 'ชั้น 2', 3: 'ชั้น 3', 4: 'ชั้น 4', 5: 'ชั้น 5' };
       let goodN = 0, goodD = 0, badN = 0, badD = 0;
-      for (const r of data) {
+      for (const r of fdata) {
         if (r.gb === 'BAD') { badN++; badD += (+r.total_debt || 0); }
         else if (!hasGb || r.gb === 'GOOD') { goodN++; goodD += (+r.total_debt || 0); }
       }
@@ -91,7 +116,7 @@ const DebtSummary = {
           <span class="ds-label" style="color:${DebtDB.tierColor(t)}">🏷️ ${labels[t]}</span>
           <span class="ds-val">${tierCount[t].toLocaleString('th-TH')} ราย · ${fmt(tierDebt[t])} บาท ▸</span>
         </div>
-        <div class="ds-bar"><div class="ds-bar-fill" style="width:${(tierCount[t]/data.length*100)||0}%;background:${t>=2?'#d00000':'#16a34a'}"></div></div>
+        <div class="ds-bar"><div class="ds-bar-fill" style="width:${(tierCount[t]/fdata.length*100)||0}%;background:${t>=2?'#d00000':'#16a34a'}"></div></div>
       `).join('');
     }
 
@@ -105,7 +130,7 @@ const DebtSummary = {
         const zoneCount = {};
         const zoneDebt = {};
         const zoneOrder = ['1', '2', '3', '4', '5'];
-        for (const r of data) {
+        for (const r of fdata) {
           if (hasGb && r.gb !== 'GOOD') continue;   // โซนโชว์เฉพาะ Good Bank (ตามไฟล์หนี้)
           const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
           let z = cust && cust.zone ? String(cust.zone).trim() : '';
@@ -168,7 +193,7 @@ const DebtSummary = {
           const z = cust && cust.zone ? String(cust.zone).trim() : '';
           return z || 'ไม่ระบุ';
         };
-        for (const r of data) {
+        for (const r of fdata) {
           if (hasGb && r.gb !== 'GOOD') continue;   // โซนโชว์เฉพาะ Good Bank (ตามไฟล์หนี้)
           const z = zoneOf(r);
           zc[z] = (zc[z] || 0) + 1;
@@ -224,7 +249,7 @@ const DebtSummary = {
       const monthDebt = {};    // ยอดหนี้รวมต่อเดือน (total_debt ของ CIF ที่ถึงกำหนดเดือนนั้น)
       const monthOmsom = {};   // จำนวน อสม. ต่อเดือน
       let fyTotal = 0, fyOmsom = 0, fyDebt = 0;
-      for (const r of data) {
+      for (const r of fdata) {
         const k = DebtDB.dueMonthKey(r.earliest_due);
         if (!k) continue;
         const kv = ykey(k);
@@ -266,6 +291,8 @@ const DebtSummary = {
     if (geoBlock) {
       let withGeo = 0, withoutGeo = 0;
       try {
+        // เลือกสาขา = เลขนับเฉพาะสาขานั้นจากเครื่องนี้ (ยอดรวม server รวมทุกสาขา)
+        if (B !== 'ALL') throw new Error('branch-scope');
         const res = await API.get('/api/sync');
         const c = res && res.success ? res.counts : null;
         if (c && c.gps != null && c.customers != null) {
@@ -275,13 +302,13 @@ const DebtSummary = {
           throw new Error('no counts');
         }
       } catch (e) {
-        // Fallback: local count
+        // Fallback: local count (และโหมดกรองสาขา — นับเฉพาะสาขาที่เลือก)
         const hasGeoCif = new Set(
-          (typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [])
+          bcust
             .filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng))
             .map(x => String(x.cif))
         );
-        for (const r of data) {
+        for (const r of fdata) {
           if (hasGeoCif.has(String(r.cif))) withGeo++;
           else withoutGeo++;
         }
@@ -301,7 +328,7 @@ const DebtSummary = {
       let cifM15Y=0, cifM15Amt=0, cifF08=0, cifF09=0, cifF10=0;
       let totM15Amt=0, totP08=0, totP09=0, totP10=0;
       let cntM15Y=0, cntM15Amt=0, cntF08=0, cntF09=0, cntF10=0;
-      for (const r of data) {
+      for (const r of fdata) {
         let hasY=false, hasAmt=false, hasF08=false, hasF09=false, hasF10=false;
         for (const c of (r.contracts||[])) {
           if (c.m15==='Y') cntM15Y++;
@@ -321,7 +348,7 @@ const DebtSummary = {
         if (hasF09) cifF09++;
         if (hasF10) cifF10++;
       }
-      for (const r of data) for (const c of (r.contracts||[])) {
+      for (const r of fdata) for (const c of (r.contracts||[])) {
         totM15Amt += (+c.m15_amt||0);
         totP08 += (+c.p08||0);
         totP09 += (+c.p09||0);
@@ -346,9 +373,11 @@ const DebtSummary = {
   drillDown(type, value) {
     if (type === 'tier') {
       // Switch to customers tab and filter by debt tier
+      const B = this.selBranch || 'ALL';
       const customers = Storage.getActiveCustomers();
       const filtered = customers.filter(c => {
         if (!c.cif || !DebtDB._loaded) return false;
+        if (B !== 'ALL' && String(c.branch || '').trim() !== B) return false;
         const debt = DebtDB.getByCif(c.cif);
         if (!debt) return false;
         return parseInt(debt.max_tier) === parseInt(value);
