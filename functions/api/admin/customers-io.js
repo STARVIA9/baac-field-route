@@ -80,6 +80,7 @@ export async function onRequestGet(context) {
   const fieldsParam = url.searchParams.get('fields');
   const hasGps = url.searchParams.get('hasGps');
   const query = (url.searchParams.get('q') || '').toLowerCase().trim();
+  const branchFilter = (url.searchParams.get('branch') || '').trim();
 
   // Validate fields
   let fields = ALL_FIELDS;
@@ -92,6 +93,8 @@ export async function onRequestGet(context) {
 
   // Load + filter
   let customers = (await getAll(env)).filter(c => !c.deleted);
+
+  if (branchFilter) customers = customers.filter(c => String(c.branch || '') === branchFilter);
 
   if (hasGps === 'true') customers = customers.filter(c => c.lat && c.lng && Number.isFinite(c.lat) && Number.isFinite(c.lng));
   else if (hasGps === 'false') customers = customers.filter(c => !c.lat || !c.lng || !Number.isFinite(c.lat) || !Number.isFinite(c.lng));

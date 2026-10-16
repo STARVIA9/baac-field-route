@@ -78,6 +78,7 @@ const Admin = {
     document.getElementById('filter-debt-15m').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('filter-has-debt').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('filter-debt-month').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
+    document.getElementById('filter-branch').addEventListener('change', () => { this.page = 1; this.applyFilters(); });
     document.getElementById('btn-debt-filter-reset').addEventListener('click', () => this.resetDebtFilters());
 
     document.getElementById('prev-page').addEventListener('click', () => this.changePage(-1));
@@ -131,8 +132,10 @@ const Admin = {
       const debt15m = document.getElementById('filter-debt-15m').value;
       const hasDebt = document.getElementById('filter-has-debt').value;
       const debtMonth = document.getElementById('filter-debt-month').value;
+      const branchFilter = document.getElementById('filter-branch').value;
 
       let url = `/api/admin/customers-crud?page=${this.page}&per_page=${this.pageSize}`;
+      if (branchFilter && branchFilter !== 'all') url += '&branch=' + encodeURIComponent(branchFilter);
       if (q) url += '&q=' + encodeURIComponent(q);
       if (gpsFilter === 'yes') url += '&hasGps=true';
       else if (gpsFilter === 'no') url += '&hasGps=false';
@@ -784,6 +787,8 @@ const Admin = {
     });
     if (gpsMap[hasGps]) params.set('hasGps', gpsMap[hasGps].replace('&hasGps=', ''));
     if (q) params.set('q', q);
+    const branchSel = document.getElementById('filter-branch');
+    if (branchSel && branchSel.value && branchSel.value !== 'all') params.set('branch', branchSel.value);
 
     const url = `/api/admin/customers-io?${params}`;
     const token = Auth.getToken();

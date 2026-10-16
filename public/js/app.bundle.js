@@ -157,6 +157,8 @@ const Customers = {
     if (this.m15Mode) hash += '|m15:' + this.m15Mode;
     this._zoneFilter = document.getElementById('customer-zone')?.value || '';
     if (this._zoneFilter) hash += '|zone:' + this._zoneFilter;
+    this._branchFilter = document.getElementById('map-branch-filter')?.value || '';
+    if (this._branchFilter) hash += '|br:' + this._branchFilter;
 
     // Skip rebuild if nothing changed (saves ~200-500ms on polling)
     if (!opts.force && hash === this._lastMarkerHash) return;
@@ -247,6 +249,13 @@ const Customers = {
       if (this._zoneFilter) {
         const dbz = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
         if (!dbz || String(dbz.zone) !== String(this._zoneFilter)) return;
+      }
+
+      // Branch filter: ซ่อน marker นอกสาขาที่เลือก (admin เห็นรวมหลายสาขา)
+      if (this._branchFilter) {
+        const dbb = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+        const cb = dbb ? String(dbb.branch || '') : String(c.branch || '');
+        if (cb !== String(this._branchFilter)) return;
       }
 
       const visited = !!visits[c.id];
@@ -371,6 +380,28 @@ const Customers = {
       });
     }
 
+    // Branch filter บนแผนที่: เติมตัวเลือกจากสาขาที่มีในข้อมูลจริง
+    const mapBranchSel = document.getElementById('map-branch-filter');
+    if (mapBranchSel && typeof CustomerDB !== 'undefined' && CustomerDB._loaded && mapBranchSel.options.length <= 1) {
+      const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
+      const seen = new Set();
+      CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
+      [...seen].sort().forEach(b => {
+        const o = document.createElement('option');
+        o.value = b;
+        o.textContent = names[b] || ('สาขา ' + b);
+        mapBranchSel.appendChild(o);
+      });
+    }
+    if (mapBranchSel && !mapBranchSel.dataset.bound) {
+      mapBranchSel.dataset.bound = '1';
+      mapBranchSel.addEventListener('change', () => {
+        this._branchFilter = mapBranchSel.value || '';
+        this._lastMarkerHash = null;            // force rebuild
+        this.renderAll();                       // renderMarkers + list
+      });
+    }
+
     const apply = () => {
       this.debtMonth = monthSel.value;
       this.debtTier = tierSel.value;
@@ -388,8 +419,11 @@ const Customers = {
       monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value='';
       if (mapZoneSel) mapZoneSel.value = '';
       if (tabZoneSel) tabZoneSel.value = '';
+      const mapBranchSel = document.getElementById('map-branch-filter');
+      if (mapBranchSel) mapBranchSel.value = '';
       this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode='';
       this._zoneFilter = '';
+      this._branchFilter = '';
       this._lastMarkerHash = null;
       this.renderAll();
     });
@@ -744,6 +778,16 @@ const Customers = {
       customers = customers.filter(c => {
         const db = c.cif ? CustomerDB.getByCif(c.cif) : null;
         return db && String(db.zone) === String(zoneVal);
+      });
+    }
+
+    // Branch filter (สาขา — sync กับ dropdown บนแผนที่)
+    const branchVal = document.getElementById('map-branch-filter')?.value || '';
+    if (branchVal) {
+      customers = customers.filter(c => {
+        const db = (c.cif && typeof CustomerDB !== 'undefined') ? CustomerDB.getByCif(c.cif) : null;
+        const cb = db ? String(db.branch || '') : String(c.branch || '');
+        return cb === String(branchVal);
       });
     }
 
