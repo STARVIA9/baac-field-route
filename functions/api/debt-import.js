@@ -372,16 +372,21 @@ export async function onRequestPost(context) {
     // ⚠️ ปลอดภัย: ล้างเฉพาะ CIF ที่ระบบสร้างจากไฟล์หนี้ (created_by='Debt-Import')
     // — CIF เหล่านี้เกิดจากไฟล์ Customer Indicator ล้วน ถ้าไม่อยู่ในไฟล์ใหม่ = ไม่มีหนี้จริง
     // ลูกค้าจริง (AutoImport/GPS/Admin) ไม่โดนล้าง — คงข้อมูลเดิม (เผื่อไฟล์ย่อย/ไม่ครบ)
+    // ⛔ ห้ามล้างข้ามสาขา: ไฟล์แต่ละรอบเป็นของสาขาเดียว → ล้างเฉพาะ CIF ที่ branch ตรงกับในไฟล์
+    // (16 ต.ค.69: อัพไฟล์ 145 ล้างหนี้ 854 ไป 98 ราย เพราะไม่มี guard นี้)
     // Fix too many SQL variables: แทนการใช้ NOT IN (?) กับ cifList ทั้งก้อน (เกิน 999 vars)
     // → query หา CIF Debt-Import ที่มีอยู่ แล้ว diff ใน JS แล้ว clear เป็น batch 90
     // (D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง — 2 + 90 = 92 เผื่อเหลือ)
     if (cifList.length > 0) {
       try {
         const cifSet = new Set(cifList);
+        const fileBranches = new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
         const existingDebtRows = await env.BFR_DB.prepare(
-          `SELECT cif FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
+          `SELECT cif, branch FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
         ).all();
-        const toClear = (existingDebtRows.results || []).map(r => r.cif).filter(cif => !cifSet.has(cif));
+        const toClear = (existingDebtRows.results || [])
+          .filter(r => !cifSet.has(r.cif) && (fileBranches.size === 0 || fileBranches.has((r.branch || '').trim())))
+          .map(r => r.cif);
         for (let i = 0; i < toClear.length; i += 90) {
           const chunk = toClear.slice(i, i + 90);
           const ph = chunk.map(() => '?').join(',');
