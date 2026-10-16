@@ -2492,8 +2492,13 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   border-radius: var(--radius-md);
   padding: 10px 12px;
   margin-bottom: 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--baac-green-dark);
+}
+
+/* ห้ามตัดครึ่งคำบนจอแคบ: ให้พับทีละขั้น ไม่พับกลางขั้น */
+.visit-guide-step {
+  white-space: nowrap;
 }
 
 .visit-guide-step b {

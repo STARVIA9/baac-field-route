@@ -5,6 +5,7 @@
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
 import { touchCustomers } from '../_lib/shared.js';
+import { toBaacCode } from '../_lib/branches.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -225,8 +226,11 @@ export async function onRequestPost(context) {
   }
   const visitsUpdated = visitsChanged ? serverTime : null;
 
-  const d1Count = await d1CountCustomers(env);
-  const gpsCount = await d1GpsCount(env);
+  // Branch for count queries in POST
+  const baacCodePost = auth.user.role !== 'admin' ? toBaacCode(auth.user.branch) : '';
+
+  const d1Count = await d1CountCustomers(env, baacCodePost);
+  const gpsCount = await d1GpsCount(env, baacCodePost);
 
   return json({
     success: true,
@@ -314,6 +318,11 @@ export async function onRequestGet(context) {
     // ส่ง visitsByUser กลับไป + visits รวมทั้งหมด
   }
 
+  let userBaacCode = '';
+  if (auth.user.role !== 'admin') {
+    userBaacCode = toBaacCode(auth.user.branch);
+  }
+
   const scope = routeScope(auth.user, url.searchParams.get('device'));
   const routesKey = 'routes:user:' + scope;
   const savedRoutes = await readRoutesList(env, routesKey, legacyRoutesKey(auth.user, scope));
@@ -382,12 +391,25 @@ export async function onRequestGet(context) {
       d1Hit = true;
       if (sinceTime > 0 && !isNaN(sinceTime) && maxTime > sinceTime) {
         const sinceIso = new Date(sinceTime).toISOString();
-        const { results } = await env.BFR_DB.prepare(
-          `SELECT * FROM customers WHERE updated_at > ?1 AND deleted=0 ORDER BY updated_at ASC`
-        ).bind(sinceIso).all();
+        let deltaSql = `SELECT * FROM customers WHERE updated_at > ?1 AND deleted=0`;
+        const deltaParams = [sinceIso];
+        if (userBaacCode) {
+          deltaSql += ` AND branch=?2`;
+          deltaParams.push(userBaacCode);
+        }
+        deltaSql += ` ORDER BY updated_at ASC`;
+        const { results } = await env.BFR_DB.prepare(deltaSql).bind(...deltaParams).all();
         customers = (results || []).map(d1ToCustomer);
       }
-      const countRes = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+      let countSql = 'SELECT COUNT(*) n FROM customers WHERE deleted=0';
+      const countParams = [];
+      if (userBaacCode) {
+        countSql += ' AND branch=?1';
+        countParams.push(userBaacCode);
+      }
+      const countRes = countParams.length > 0
+        ? await env.BFR_DB.prepare(countSql).bind(...countParams).first()
+        : await env.BFR_DB.prepare(countSql).first();
       allCustomersCount = countRes?.n || 0;
       gpsCount = await d1GpsCount(env);
       // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
@@ -440,6 +462,7 @@ function d1ToCustomer(r) {
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
     zone: r.zone || '',
+    branch: r.branch || '',
     potential: r.potential || '',
     photo: r.photo || '',
     createdBy: r.created_by || 'AutoImport:StaticDB',
@@ -456,19 +479,33 @@ function esc(v) {
   return "'" + String(v).replace(/'/g, "''") + "'";
 }
 
-async function d1CountCustomers(env) {
+async function d1CountCustomers(env, baacCode) {
   if (!env.BFR_DB) return 0;
-  const res = await env.BFR_DB.prepare('SELECT COUNT(*) n FROM customers WHERE deleted=0').first();
+  let sql = 'SELECT COUNT(*) n FROM customers WHERE deleted=0';
+  const params = [];
+  if (baacCode) {
+    sql += ' AND branch=?1';
+    params.push(baacCode);
+  }
+  const res = params.length > 0
+    ? await env.BFR_DB.prepare(sql).bind(...params).first()
+    : await env.BFR_DB.prepare(sql).first();
   return res?.n || 0;
 }
 
 // Count customers that have GPS coords in D1 (server-authoritative for the
 // "📍 มีพิกัดแล้ว N ราย" summary — every device reads the same number)
-async function d1GpsCount(env) {
+async function d1GpsCount(env, baacCode) {
   if (!env.BFR_DB) return 0;
-  const res = await env.BFR_DB.prepare(
-    'SELECT COUNT(*) n FROM customers WHERE deleted=0 AND lat IS NOT NULL AND lng IS NOT NULL'
-  ).first();
+  let sql = 'SELECT COUNT(*) n FROM customers WHERE deleted=0 AND lat IS NOT NULL AND lng IS NOT NULL';
+  const params = [];
+  if (baacCode) {
+    sql += ' AND branch=?1';
+    params.push(baacCode);
+  }
+  const res = params.length > 0
+    ? await env.BFR_DB.prepare(sql).bind(...params).first()
+    : await env.BFR_DB.prepare(sql).first();
   return res?.n || 0;
 }
 

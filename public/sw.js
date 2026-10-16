@@ -2,8 +2,8 @@
 // Strategy: NETWORK-FIRST for HTML/JS/CSS (always fresh), CACHE-FIRST for tiles/images
 // Enhanced: Full offline support for field work
 
-const CACHE_NAME = "bfr-v20261001b";
-const STATIC_CACHE = "bfr-static-v20260828a";
+const CACHE_NAME = "bfr-v20261004a";
+const STATIC_CACHE = "bfr-static-v20261004a";
 const TILE_CACHE = "bfr-tiles-v20260828a";
 
 const ASSETS = [
@@ -223,7 +223,7 @@ self.addEventListener('push', (event) => {
   };
   
   event.waitUntil(
-    self.registration.showNotification(data.title || 'BAAC Field Route', options)
+    self.registration.showNotification(data.title || 'Golden Route', options)
   );
 });
 

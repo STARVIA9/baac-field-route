@@ -13,6 +13,7 @@
  */
 
 // คอลัมน์ Customer Indicator (0-indexed) — อิง build_debt_data.py (ต้นฉบับถูกต้อง)
+const COL_BRANCH = 2;             // สาขา (รูปแบบ "854 - สาขาวังท่าช้าง") — sync ลง customers.branch
 const COL_CIF = 7;
 const COL_ZONE = 4;              // เขต (1-5/9807/76003/99999) — sync ลง customers.zone ทุกครั้งที่อัพหนี้
 const COL_GB = 117;              // โครงการนำร่อง: GOOD BANK / BAD BANK (ตัวจริงตามไฟล์ ห้ามเดาจากชั้นหนี้)
@@ -130,6 +131,7 @@ function parseCSV(text) {
     results.push({
       cif,
       name: cols[COL_NAME] || '',
+      branch: extractBaacCode(cols[COL_BRANCH]),
       zone: (cols[COL_ZONE] || '').trim(),
       b15: birth15(fileMY, cols[COL_15M_NOW] === 'Y', cols[COL_MONTHS_OVERDUE]),
       gb: gbFlag(cols[COL_GB]),
@@ -213,6 +215,7 @@ function groupByCIF(contracts) {
     summaries[cif] = {
       cif,
       name: items[0].name || '',
+      branch: items.reduce((z, c) => z || (c.branch || ''), ''),
       zone: items.reduce((z, c) => z || (c.zone || ''), ''),
       gb: items.reduce((z, c) => z || (c.gb || ''), ''),
       debtClass: maxTier ? String(maxTier) : '',
@@ -241,6 +244,7 @@ function groupByCIF(contracts) {
 }
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBaacCode } from '../_lib/branches.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -305,6 +309,7 @@ export async function onRequestPost(context) {
             `UPDATE customers SET
               debt_class = ?,
               zone = ?,
+              branch = ?,
               debt_balance = ?,
               reserve_pct = ?,
               recognition = ?,
@@ -318,6 +323,7 @@ export async function onRequestPost(context) {
           ).bind(
             s.debtClass,
             s.zone || '',
+            s.branch || '',
             s.debtBalance,
             s.reservePct,
             s.recognition,
@@ -336,14 +342,15 @@ export async function onRequestPost(context) {
         statements.push(
           env.BFR_DB.prepare(
             `INSERT INTO customers (
-              cif, name, zone, debt_class, debt_balance, reserve_pct,
+              cif, name, zone, branch, debt_class, debt_balance, reserve_pct,
               recognition, overdue_15m, next_due, subsidy, commitment_date,
               debt_updated_at, risk_level, deleted, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
           ).bind(
             cif,
             (s.name || '').trim(),
             (s.zone || '').trim(),
+            (s.branch || '').trim(),
             s.debtClass,
             s.debtBalance,
             s.reservePct,

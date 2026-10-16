@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>BAAC Field Route · วางแผนเส้นทางอัจฉริยะ</title>
+  <title>เส้นทางทองคำ - Golden Route · วางแผนเส้นทางอัจฉริยะ</title>
   <!-- Font: preconnect + non-blocking load (was @import in CSS = render-blocking) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261001b" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261001b" as="script">
+  <link rel="preload" href="css/app.css?v=20261004b" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261004a" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261001b">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261001b"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261004b">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261004b"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -168,7 +168,7 @@
         </div>
 
         <div class="lp-badge">ธ.ก.ส. สาขาวังท่าช้าง</div>
-        <h1 class="lp-title fade-up">BAAC<br><span class="lp-title-accent">Field Route</span></h1>
+        <h1 class="lp-title fade-up">เส้นทางทองคำ<br><span class="lp-title-accent">Golden Route</span></h1>
         <p class="lp-subtitle fade-up">วางแผนเส้นทางอัจฉริยะ<br>สำหรับพนักงานสินเชื่อ</p>
 
         <!-- Trust indicators -->
@@ -264,7 +264,7 @@
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
             </svg>
           </div>
-          <h1 style="font-size:22px;font-weight:700;color:#0a8f3c;margin:0 0 4px">BAAC Field Route</h1>
+          <h1 style="font-size:22px;font-weight:700;color:#0a8f3c;margin:0 0 4px">เส้นทางทองคำ - Golden Route</h1>
           <p style="font-size:14px;color:#666;margin:0">เข้าสู่ระบบ</p>
         </div>
 
@@ -314,7 +314,7 @@
     <header class="app-header app-header-overlay">
       <div class="app-logo">
         <span class="logo-icon"><i data-lucide="map-pin" class="icon"></i></span>
-        <span class="logo-text">BAAC Field Route</span>
+        <span class="logo-text">Golden Route</span>
       </div>
       <div class="app-header-center" id="header-status">
         <span id="route-progress"></span>
@@ -960,7 +960,7 @@
   <div class="modal hidden" id="help-modal">
     <div class="modal-card modal-card-wide">
       <div class="modal-header">
-        <h3>❓ วิธีใช้งาน BAAC Field Route</h3>
+        <h3>❓ วิธีใช้งาน เส้นทางทองคำ - Golden Route</h3>
         <button class="btn-close" id="close-help-modal">×</button>
       </div>
       <div class="modal-body help-content">
@@ -1354,8 +1354,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261001b"></script>
-  <script src="js/app.bundle.js?v=20261001b"></script>
+  <script src="js/vendor.js?v=20261004a"></script>
+  <script src="js/app.bundle.js?v=20261004a"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

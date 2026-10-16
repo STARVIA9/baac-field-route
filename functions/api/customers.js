@@ -13,6 +13,7 @@
 // All auth via Bearer token (same JWT as other endpoints).
 
 import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { toBaacCode } from '../_lib/branches.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -46,6 +47,7 @@ function rowToCustomer(r) {
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
     zone: r.zone || '',
+    branch: r.branch || '',
     customerClass: r.customer_class || '',
     potential: r.potential || '',
     photo: r.photo || '',
@@ -107,18 +109,47 @@ export async function onRequestGet(context) {
     const cif = decodeURIComponent(segs[2]);
     const rows = await q(env, 'SELECT * FROM customers WHERE cif=?1 LIMIT 1', cif);
     if (rows.length === 0) return json({ success: false, error: 'Customer not found' }, 404);
+    // Branch security check for non-admin
+    const isAdmin = auth.user.role === 'admin';
+    if (!isAdmin) {
+      const userBaacCode = toBaacCode(auth.user.branch);
+      if (userBaacCode && rows[0].branch && rows[0].branch !== userBaacCode) {
+        return json({ success: false, error: 'Customer not found' }, 404);
+      }
+    }
     return json({ success: true, customer: rowToCustomer(rows[0]) });
   }
 
   // List customers
   const includeDeleted = url.searchParams.get('deleted') === '1';
-  const where = includeDeleted ? '' : 'WHERE deleted=0';
+  let where = includeDeleted ? '' : 'WHERE deleted=0';
+  const params = [];
+  let paramIdx = 1;
+
+  // Branch filtering (non-admin ดูเฉพาะสาขาตัวเอง, admin ดูทั้งหมด)
+  const userBranch = auth.user.branch;     // รหัสภายใน (WTC/KPS...)
+  const userBaacCode = toBaacCode(userBranch);
+  const isAdmin = auth.user.role === 'admin';
+  if (!isAdmin && userBaacCode) {
+    where += (where ? ' AND ' : 'WHERE ') + `branch=?${paramIdx}`;
+    params.push(userBaacCode);
+    paramIdx++;
+  }
+
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '5000', 10) || 5000, 10000);
   const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
-  const rows = await q(env, `SELECT * FROM customers ${where} ORDER BY name ASC LIMIT ?1 OFFSET ?2`, limit, offset);
+  params.push(limit, offset);
+
+  const rows = await q(env,
+    `SELECT * FROM customers ${where} ORDER BY name ASC LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`,
+    ...params
+  );
   const customers = rows.map(rowToCustomer);
 
-  const countRes = await q(env, `SELECT COUNT(*) n FROM customers ${where ? 'WHERE deleted=0' : ''}`);
+  // Count with branch filter
+  const countWhere = includeDeleted ? '' : 'WHERE deleted=0' +
+    (!isAdmin && userBaacCode ? ` AND branch='${userBaacCode.replace(/'/g, "''")}'` : '');
+  const countRes = await q(env, `SELECT COUNT(*) n FROM customers ${countWhere}`);
   const total = countRes[0]?.n || 0;
 
   return json({

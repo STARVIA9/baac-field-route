@@ -8,6 +8,7 @@
 // DELETE ?action=purge: permanent delete after 30 days (admin only)
 
 import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { toBaacCode, baacCodeToName } from '../../_lib/branches.js';
 
 const RECYCLE_TTL_DAYS = 30;
 
@@ -48,6 +49,7 @@ function rowToCustomer(r) {
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
     zone: r.zone || '',
+    branch: r.branch || '',
     potential: r.potential || '',
     photo: r.photo || '',
     createdBy: r.created_by || '',
@@ -65,13 +67,18 @@ function rowToCustomer(r) {
   };
 }
 
-async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit = 5000, offset = 0, totalOverride = null } = {}) {
+async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, branch = '', limit = 5000, offset = 0, totalOverride = null } = {}) {
   if (!env.BFR_DB) return { customers: [], total: 0 };
   const conditions = [];
   const params = [];
   let paramIdx = 1;
 
   if (!includeDeleted) conditions.push('deleted=0');
+  if (branch) {
+    conditions.push(`branch=?${paramIdx}`);
+    params.push(branch);
+    paramIdx++;
+  }
   if (q) {
     conditions.push(`(LOWER(name) LIKE ?${paramIdx} OR LOWER(cif) LIKE ?${paramIdx} OR phone LIKE ?${paramIdx} OR LOWER(address) LIKE ?${paramIdx} OR LOWER(nickname) LIKE ?${paramIdx})`);
     params.push('%' + q.toLowerCase() + '%');
@@ -198,6 +205,7 @@ export async function onRequestGet(context) {
   const debt15m = url.searchParams.get('debt15m') || 'all';
   const hasDebt = url.searchParams.get('hasDebt') || 'all';
   const debtMonth = url.searchParams.get('debtMonth') || 'all';
+  const branchFilter = url.searchParams.get('branch') || '';
 
   const offset = (page - 1) * perPage;
 
@@ -253,7 +261,7 @@ export async function onRequestGet(context) {
   } catch (e) { console.warn('crud etag gate failed (fallback full query):', e.message); }
 
   const { customers, total } = await getAll(env, {
-    includeDeleted, q, hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, limit: perPage, offset,
+    includeDeleted, q, hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, branch: branchFilter, limit: perPage, offset,
     totalOverride: d1EtagHit ? totalOverride : null,
   });
 

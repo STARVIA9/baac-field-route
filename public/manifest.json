@@ -1,6 +1,6 @@
 {
-  "name": "BAAC Field Route",
-  "short_name": "BFR",
+  "name": "เส้นทางทองคำ - Golden Route",
+  "short_name": "Golden Route",
   "description": "วางแผนเส้นทางอัจฉริยะสำหรับพนักงานสินเชื่อ",
   "start_url": "/",
   "display": "standalone",
