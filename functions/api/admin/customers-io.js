@@ -62,6 +62,7 @@ async function getAll(env) {
     phone: r.phone || '', address: r.address || '',
     lat: r.lat != null ? Number(r.lat) : null, lng: r.lng != null ? Number(r.lng) : null,
     riskLevel: r.risk_level || 'unclassified', debtType: r.debt_type || null,
+    branch: r.branch || '',
     deleted: !!r.deleted, createdAt: r.created_at || '', updatedAt: r.updated_at || '',
     createdBy: r.created_by || '', tags: [],
   }));
