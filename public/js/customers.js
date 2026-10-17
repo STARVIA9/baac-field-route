@@ -348,27 +348,9 @@ const Customers = {
       });
     }
 
-    // Branch filter บนแผนที่: เติมตัวเลือกจากสาขาที่มีในข้อมูลจริง
-    const mapBranchSel = document.getElementById('map-branch-filter');
-    if (mapBranchSel && typeof CustomerDB !== 'undefined' && CustomerDB._loaded && mapBranchSel.options.length <= 1) {
-      const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
-      const seen = new Set();
-      CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
-      [...seen].sort().forEach(b => {
-        const o = document.createElement('option');
-        o.value = b;
-        o.textContent = names[b] || ('สาขา ' + b);
-        mapBranchSel.appendChild(o);
-      });
-    }
-    if (mapBranchSel && !mapBranchSel.dataset.bound) {
-      mapBranchSel.dataset.bound = '1';
-      mapBranchSel.addEventListener('change', () => {
-        this._branchFilter = mapBranchSel.value || '';
-        this._lastMarkerHash = null;            // force rebuild
-        this.renderAll();                       // renderMarkers + list
-      });
-    }
+    // Branch filter บนแผนที่: เติมทีหลังใน refreshBranchOptions() (ทุก renderAll)
+    // (เดิมเติมครั้งเดียวตอน init — ถ้า CustomerDB โหลดช้ากว่า DebtDB ตัวเลือกจะว่างตลอด)
+    this.refreshBranchOptions();
 
     const apply = () => {
       this.debtMonth = monthSel.value;
@@ -1169,9 +1151,56 @@ const Customers = {
     }
   },
 
+  // ===== ตัวเลือกสาขาตามข้อมูลจริง (17 ต.ค.69 — แก้บั๊กเลือกสาขาไม่ได้) =====
+  // เติมทุก renderAll (sig-guard กัน dropdown กระพริบ) — รวม 2 ถัง (CustomerDB + เครื่อง)
+  // ผูก change ครั้งเดียว (dataset.bound) กันยิงซ้ำ
+  _branchSig: '',
+  refreshBranchOptions() {
+    const sel = document.getElementById('map-branch-filter');
+    if (!sel) return;
+    if (!sel.dataset.bound) {
+      sel.dataset.bound = '1';
+      sel.addEventListener('change', () => {
+        this._branchFilter = sel.value || '';
+        this._lastMarkerHash = null;            // force rebuild
+        this.renderAll();                       // renderMarkers + list
+      });
+    }
+    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
+    const seen = new Set();
+    if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && CustomerDB._byCif) {
+      CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
+    }
+    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
+      try {
+        for (const c of Storage.getActiveCustomers()) {
+          const b = String(c.branch || '').trim();
+          if (b) seen.add(b);
+        }
+      } catch {}
+    }
+    const branches = [...seen].sort();
+    const sig = branches.join(',');
+    if (sig === this._branchSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM
+    this._branchSig = sig;
+    const cur = sel.value;
+    sel.textContent = '';
+    const all = document.createElement('option');
+    all.value = ''; all.textContent = 'ทุกสาขา';
+    sel.appendChild(all);
+    for (const b of branches) {
+      const o = document.createElement('option');
+      o.value = b; o.textContent = names[b] || ('สาขา ' + b);
+      sel.appendChild(o);
+    }
+    sel.value = branches.includes(cur) ? cur : '';
+    if (sel.value !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
+  },
+
   // Render everything
   renderAll(routeOrder, opts) {
     this.refreshZoneOptions();   // เขตตามสาขา (sig-guard: ข้อมูลไม่เปลี่ยนไม่แตะ DOM)
+    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง (เติมช้าแค่ไหนก็มา — ทุก renderAll)
     this.renderMarkers(routeOrder, opts);
     this.updateGpsGauge();
     const customersTab = document.getElementById('tab-customers');
