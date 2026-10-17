@@ -532,9 +532,14 @@ export async function onRequestPost(context) {
     const quotaAfter = await getWriteBudget(env);
 
     // เขียนคลังการ์ดหนี้ฉบับรวมลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด (ครบทุกสาขา)
-    let kvWritten = false;
+    // สำรองของเดิมก่อนทุกครั้ง (17 ต.ค.69 — ระบบกันหาย: อัพแล้วกู้คืนได้เสมอ)
+    let kvWritten = false, kvBackup = '';
     if (env.BFR_KV) {
       try {
+        if (kvPrev.length > 0) {
+          kvBackup = 'debt:data:backup:' + now.slice(0, 10);
+          await env.BFR_KV.put(kvBackup, JSON.stringify(kvPrev));
+        }
         await env.BFR_KV.put('debt:data', JSON.stringify(kvFinal));
         await env.BFR_KV.put('debt:updated', now);
         kvWritten = true;
@@ -551,7 +556,7 @@ export async function onRequestPost(context) {
       added,
       skipped_identical: skipped,
       cleared,
-      kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped,
+      kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped, kv_backup: kvBackup,
       field_diff: Object.fromEntries(Object.entries(fieldDiff).map(([f, n]) => [FIELD_TH[f] || f, n])),
       estimated_writes: estimatedWrites,
       quota: quotaAfter,

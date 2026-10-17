@@ -1924,6 +1924,8 @@ const App = {
 
     // โควต้าเขียนวันนี้ (แถบใต้ปุ่มอัพ)
     this.loadDebtQuota();
+    // สำรองคลังหนี้ + ปุ่มกู้คืน (ระบบกันหาย)
+    this.loadDebtRestore();
   },
 
   // ===== Debt Import: แถบโควต้าเขียนวันนี้ =====
@@ -1956,6 +1958,7 @@ const App = {
       + (data.will_add > 0 ? ` · 🆕 ใหม่: <strong>${data.will_add.toLocaleString()}</strong> ราย` : '')
       + (data.will_clear > 0 ? ` · 🧹 หมดหนี้: <strong>${data.will_clear.toLocaleString()}</strong> ราย` : '')
       + `<br>⏭️ เท่าเดิมข้าม: <strong>${data.will_skip_identical.toLocaleString()}</strong> ราย (ไม่เปลืองโควต้า)<br>`
+      + `🛡️ คลังการ์ดหนี้หลังอัพ: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย (คงเดิม ${(data.kv_kept || 0).toLocaleString()} · เอาออก ${(data.kv_dropped || 0).toLocaleString()})<br>`
       + `💾 รอบนี้จะเขียน ~<strong>${data.estimated_writes.toLocaleString()}</strong> แถว`;
     const fds = data.field_diff || {};
     const keys = Object.keys(fds);
@@ -2003,6 +2006,9 @@ const App = {
         + (data.added > 0 ? ` · 🆕 ใหม่: <strong>${data.added.toLocaleString()}</strong> ราย` : '')
         + (data.cleared > 0 ? ` · 🧹 หมดหนี้: <strong>${data.cleared.toLocaleString()}</strong> ราย` : '')
         + `<br>⏭️ ข้าม (เท่าเดิม): <strong>${(data.skipped_identical || 0).toLocaleString()}</strong> ราย<br>`
+        + `🛡️ คลังการ์ดหนี้: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย`
+        + (data.kv_backup ? ` (สำรองก่อนอัพไว้ที่ ${data.kv_backup})` : '')
+        + `<br>`
         + (data.quota ? `📝 โควต้าวันนี้เหลือ <strong>${data.quota.remaining.toLocaleString()}</strong> แถว` : '');
 
       resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
@@ -2052,6 +2058,33 @@ const App = {
       console.warn('Failed to load debt last update:', err);
       lastUpdate.textContent = '-';
     }
+  },
+
+  // ===== Debt KV: รายชื่อสำรอง + ปุ่มกู้คืน (ระบบกันหาย 17 ต.ค.69) =====
+  async loadDebtRestore() {
+    const el = document.getElementById('debt-restore');
+    if (!el) return;
+    try {
+      const token = Auth.getToken();
+      const res = await fetch('/api/admin/debt-restore', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (!data || !data.success) { el.innerHTML = ''; return; }
+      if (!data.backups.length) { el.innerHTML = `🛡️ ยังไม่มีสำรองคลังหนี้ (จะมีหลังอัพรอบถัดไป)`; return; }
+      const opts = data.backups.map(d => `<option value="${d}">${d}</option>`).join('');
+      el.innerHTML = `🛡️ สำรองคลังหนี้: <select id="debt-restore-date" class="sort-select">${opts}</select> `
+        + `<button type="button" class="btn2" id="debt-restore-btn" style="width:auto;padding:8px 14px;min-height:44px">♻️ กู้คืน</button>`
+        + ` <small class="text-muted">(คลังปัจจุบัน ${(data.current || 0).toLocaleString()} ราย)</small>`;
+      document.getElementById('debt-restore-btn').onclick = async () => {
+        const date = document.getElementById('debt-restore-date').value;
+        if (!confirm(`กู้คืนคลังหนี้จากสำรองวันที่ ${date}?\n(สภาพปัจจุบันจะถูกสำรองไว้อีกชั้นก่อนทับ)`)) return;
+        const r2 = await fetch('/api/admin/debt-restore', { method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date }) });
+        const d2 = await r2.json();
+        if (!r2.ok) throw new Error(d2.error || 'กู้คืนไม่สำเร็จ');
+        Utils.toast(`♻️ กู้คืนแล้ว ${d2.restored.toLocaleString()} ราย (จาก ${d2.from})`);
+      };
+    } catch (e) { el.innerHTML = ''; }
   },
 
   // ===== Export Customers as CSV =====
