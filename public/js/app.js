@@ -143,7 +143,7 @@ const App = {
     const stored = localStorage.getItem('app_version') || '0';
     const btn = document.getElementById('refresh-btn');
     const label = document.getElementById('version-label');
-    if (serverVer !== stored && this._knownVersion !== null) {
+    if (serverVer !== stored && !this._skipFirstNotify) {
       // New version detected (don't show on first load)
       if (btn) {
         btn.classList.add('has-update');
@@ -224,13 +224,18 @@ const App = {
   },
 
   startVersionWatcher() {
-    // Set known version on first load
+    // Set known version on first load (ครั้งแรกยังไม่แจ้ง — กันเตือนตอนเปิดใหม่)
+    // หมายเหตุ: ใช้ธง _skipFirstNotify แทนการเช็ค _knownVersion เพราะถ้า fetch
+    // รอบแรกพลาด (เน็ตกระตุกตอนเปิด) ธงเก่าจะล็อกเงียบตลอดไปจนกว่าจะ reload
+    this._skipFirstNotify = true;
+    setTimeout(() => { this._skipFirstNotify = false; }, 15000);
     this.fetchServerVersion().then(v => {
       if (v) {
         this._knownVersion = v;
         localStorage.setItem('app_version', v);
         this._renderVersionLabel(v);
       }
+      this._skipFirstNotify = false;
     });
     // Check every 60 seconds (เร็วขึ้นจาก 5 นาที)
     if (this._versionCheckTimer) clearInterval(this._versionCheckTimer);
