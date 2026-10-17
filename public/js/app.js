@@ -254,6 +254,27 @@ const App = {
 
   // After login — load data
   async afterLogin() {
+    // เปลี่ยนคนใช้เครื่องเดิม → ล้างข้อมูลคนเก่า โหลดของคนใหม่ (17 ต.ค.69)
+    // อาการ: เข้าด้วย kbb บนเครื่องที่เคยเข้า wtc → เห็นรายชื่อ wtc ไม่มี kbb เลย
+    // สาเหตุ: bfr_customers ใช้ร่วมกันทุก login + logout ไม่ล้าง + เข้าใหม่ไม่โหลดซ้ำถ้ามีของเก่า
+    try {
+      const me = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      const myId = me && (me.id || me.username);
+      let lastId = null;
+      try { lastId = localStorage.getItem('bfr_login_id'); } catch {}
+      if (myId && !lastId) {
+        try { localStorage.setItem('bfr_login_id', myId); } catch {}
+      } else if (myId && lastId && lastId !== myId) {
+        try { await Storage.push(); } catch {}   // ส่งงานค้างคนเก่าก่อน (ตอนสลับ user เน็ตใช้ได้เสมอเพราะ login ผ่านเน็ต)
+        try {
+          Storage.saveCustomers([]);             // ล้างรายชื่อคนเก่าทั้งหมด — เดี๋ยว import ของคนใหม่ต่อข้างล่าง
+          if (typeof CustomerDB !== 'undefined') CustomerDB._loaded = false;
+          if (typeof DebtDB !== 'undefined') DebtDB._loaded = false;
+        } catch {}
+        try { localStorage.setItem('bfr_login_id', myId); } catch {}
+        if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('🔄 เปลี่ยนผู้ใช้ — กำลังโหลดข้อมูลใหม่');
+      }
+    } catch {}
     // Phase 1: Migrate old customers to new schema (riskLevel + debtType)
     Storage.migrateCustomers();
 

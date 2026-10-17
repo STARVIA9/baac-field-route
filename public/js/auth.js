@@ -137,6 +137,8 @@ const Auth = {
     localStorage.removeItem(this.USER_KEY);
     localStorage.removeItem(this.TOKEN_REFRESH_KEY);
     localStorage.removeItem(this.SESSION_WARNING_KEY);
+    localStorage.removeItem('bfr_customers');   // 17 ต.ค.69: ออกจากระบบล้างรายชื่อด้วย — กันคนถัดไปเห็นข้อมูลคนเก่า
+    localStorage.removeItem('bfr_login_id');
     
     // Clear timers
     if (this._refreshTimer) {
