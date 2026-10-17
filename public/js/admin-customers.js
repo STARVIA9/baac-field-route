@@ -150,6 +150,7 @@ const Admin = {
       if (data.success) {
         this.customers = data.customers || [];
         this.total = data.total || 0;
+        this.gps = data.gps || null;
         this.page = data.page || 1;
         this.totalPages = data.totalPages || 1;
         this.allTags = data.allTags || [];
@@ -237,6 +238,7 @@ const Admin = {
     const totalPages = this.totalPages || 1;
 
     document.getElementById('count-display').textContent = `${total.toLocaleString()} คน`;
+    this.renderGpsGauge();
     document.getElementById('page-info').textContent = `หน้า ${this.page} / ${totalPages} (${total.toLocaleString()} คน)`;
     document.getElementById('prev-page').disabled = this.page <= 1;
     document.getElementById('next-page').disabled = this.page >= totalPages;
@@ -251,6 +253,19 @@ const Admin = {
     tbody.querySelectorAll('[data-action="edit"]').forEach(b => b.addEventListener('click', () => this.openEdit(b.dataset.id)));
     tbody.querySelectorAll('[data-action="delete"]').forEach(b => b.addEventListener('click', () => this.handleDelete(b.dataset.id)));
     tbody.querySelectorAll('[data-action="debt"]').forEach(b => b.addEventListener('click', () => this.openDebtCard(b.dataset.cif)));
+  },
+
+  // เกจพิกัดตามตัวกรองปัจจุบัน (17 ต.ค.69 — ตัวเลขนับจากเซิร์ฟเวอร์ชุดเดียวกับยอดรวม)
+  renderGpsGauge() {
+    const el = document.getElementById('gps-gauge');
+    if (!el) return;
+    const g = this.gps;
+    if (!g || g.total == null) { el.innerHTML = ''; return; }
+    const total = g.total || 0, withGps = g.with || 0;
+    const pct = total > 0 ? Math.round((withGps / total) * 100) : 0;
+    const color = pct >= 70 ? '#15803d' : (pct >= 30 ? '#f9a825' : '#dc2626');
+    el.innerHTML = `📍 พิกัด <strong>${withGps.toLocaleString()}/${total.toLocaleString()}</strong> (<strong>${pct}%</strong>)`
+      + `<div style="height:8px;background:#e5e7eb;border-radius:4px;margin-top:4px;max-width:420px"><div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div></div>`;
   },
 
   renderRow(c) {

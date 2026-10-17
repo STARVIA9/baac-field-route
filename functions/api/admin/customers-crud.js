@@ -71,7 +71,7 @@ function rowToCustomer(r) {
 }
 
 async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, branch = '', limit = 5000, offset = 0, totalOverride = null } = {}) {
-  if (!env.BFR_DB) return { customers: [], total: 0 };
+  if (!env.BFR_DB) return { customers: [], total: 0, gpsWith: 0 };
   const conditions = [];
   const params = [];
   let paramIdx = 1;
@@ -131,13 +131,17 @@ async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter,
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-  // Count total — ข้ามได้ถ้า etag gate ให้ cached total (ไม่มี filter = total คงที่)
-  let total;
+  // Count total + นับพิกัด — พับรวมใน query เดียว ไม่เปลืองโควต้าเพิ่ม (17 ต.ค.69 เกจพิกัด)
+  // ข้ามได้ถ้า etag gate ให้ cached total (ไม่มี filter = total คงที่)
+  let total, gpsWith = null;
   if (totalOverride != null && !includeDeleted && !q && !hasGps && !riskFilter && (!debtClass || debtClass === 'all') && (!debt15m || debt15m === 'all') && (!hasDebt || hasDebt === 'all') && (!debtMonth || debtMonth === 'all')) {
     total = totalOverride;
   } else {
-    const countRes = await env.BFR_DB.prepare(`SELECT COUNT(*) n FROM customers ${where}`).bind(...params).first();
+    const countRes = await env.BFR_DB.prepare(
+      `SELECT COUNT(*) n, SUM(CASE WHEN lat IS NOT NULL AND lng IS NOT NULL AND lat != '' AND lng != '' THEN 1 ELSE 0 END) g FROM customers ${where}`
+    ).bind(...params).first();
     total = countRes?.n || 0;
+    gpsWith = countRes?.g || 0;
   }
 
   // Fetch page
@@ -146,7 +150,7 @@ async function getAll(env, { includeDeleted = false, q = '', hasGps, riskFilter,
     `SELECT * FROM customers ${where} ORDER BY name ASC LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`
   ).bind(...params).all();
 
-  return { customers: (results || []).map(rowToCustomer), total };
+  return { customers: (results || []).map(rowToCustomer), total, gpsWith };
 }
 
 async function getRecycle(env) {
@@ -220,6 +224,7 @@ export async function onRequestGet(context) {
     (!debtClass || debtClass === 'all') && (!debt15m || debt15m === 'all') &&
     (!hasDebt || hasDebt === 'all') && (!debtMonth || debtMonth === 'all');
   let totalOverride = null;
+  let cachedGps = null; // เกจพิกัดตอน etag-hit (ไม่มี filter) — อ่านจาก cache เดียวกับ total
   let debtMonths = [];
   let d1EtagHit = false;
 
@@ -246,6 +251,7 @@ export async function onRequestGet(context) {
       // ✅ ETAG HIT — total + debtMonths จาก cache, query แค่ page (50 rows)
       const counts = JSON.parse(cachedCounts);
       totalOverride = counts.customers || 0;
+      cachedGps = counts.gps || 0;
       debtMonths = JSON.parse(cachedDebtMonths);
       d1EtagHit = true;
     } else {
@@ -263,7 +269,7 @@ export async function onRequestGet(context) {
     }
   } catch (e) { console.warn('crud etag gate failed (fallback full query):', e.message); }
 
-  const { customers, total } = await getAll(env, {
+  const { customers, total, gpsWith } = await getAll(env, {
     includeDeleted, q, hasGps, riskFilter, debtClass, debt15m, hasDebt, debtMonth, branch: branchFilter, limit: perPage, offset,
     totalOverride: d1EtagHit ? totalOverride : null,
   });
@@ -277,6 +283,7 @@ export async function onRequestGet(context) {
   return json({
     success: true,
     total,
+    gps: gpsWith != null ? { with: gpsWith, total } : (cachedGps != null ? { with: cachedGps, total } : null),
     page: safePage,
     perPage,
     totalPages,
