@@ -5,7 +5,7 @@
  * - อัปเดตทุก CIF ที่มีข้อมูลหนี้ (ไม่จำกัดแค่ 980 รายของ import เก่า)
  * - Batch 100 statements/round-trip (D1 limit)
  */
-import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
 import { trackWrites, getWriteBudget } from '../_lib/shared.js';
 
 function json(data, status = 200) {
@@ -18,7 +18,9 @@ function json(data, status = 200) {
 async function authCheck(request, env) {
   const token = extractBearerToken(request);
   if (!token) return { error: 'No token' };
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const secret = jwtSecret(env, request);
+  if (!secret) return { error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' };
+  const payload = await verifyHS256(token, secret);
   if (!payload) return { error: 'Invalid token' };
   return { user: payload };
 }
@@ -40,11 +42,35 @@ export async function onRequestPost(context) {
     const now = new Date().toISOString();
     const statements = [];
     let updated = 0;
+    let added = 0;
+    let skipped = 0;
     let noCif = 0;
+
+    // ดึงค่าปัจจุบันรอบเดียว (batch 90 — D1 รับ bind ได้สูงสุด 100 ตัว/คำสั่ง)
+    // ต้องรวมแถวในถังขยะ (deleted=1) ด้วย — ไม่งั้น INSERT จะชน PK กับ CIF ในถังขยะ
+    const cifs = [];
+    for (const r of data) {
+      const cif = String(r.cif || '').trim();
+      if (cif) cifs.push(cif); else noCif++;
+    }
+    const current = new Map();
+    for (let i = 0; i < cifs.length; i += 90) {
+      const batch = cifs.slice(i, i + 90);
+      const ph = batch.map(() => '?').join(',');
+      const rows = await env.BFR_DB.prepare(
+        `SELECT cif, deleted, zone, branch, debt_class, debt_balance, reserve_pct,
+                recognition, overdue_15m, next_due, subsidy, commitment_date
+         FROM customers WHERE cif IN (${ph})`
+      ).bind(...batch).all();
+      (rows.results || []).forEach(x => current.set(String(x.cif), x));
+    }
+
+    const num = (v) => Number(String(v ?? '').replace(/,/g, '')) || 0;
+    const str = (v) => String(v ?? '').trim();
 
     for (const r of data) {
       const cif = String(r.cif || '').trim();
-      if (!cif) { noCif++; continue; }
+      if (!cif) continue; // นับ noCif แล้วรอบบน
 
       // ===== เกณฑ์ 15 เดือน: มีสัญญาใดเป็น Y = "มี" (เหมือนหน้าแผนที่) =====
       let m15Val = '';
@@ -74,33 +100,90 @@ export async function onRequestPost(context) {
         recognition = r.contracts.map(c => String(c.rec ?? '')).find(v => v !== '') || '';
       }
 
-      statements.push(
-        env.BFR_DB.prepare(
-          `UPDATE customers SET
-            debt_class = ?,
-            debt_balance = ?,
-            reserve_pct = ?,
-            recognition = ?,
-            overdue_15m = ?,
-            next_due = ?,
-            subsidy = ?,
-            debt_updated_at = ?,
-            updated_at = ?
-          WHERE cif = ? AND deleted = 0`
-        ).bind(
-          String(r.max_tier ?? ''),
-          parseFloat(r.total_debt) || 0,
-          reserve,
-          recognition,
-          m15Val,
-          r.earliest_due || '',
-          subsidy,
-          now,
-          now,
-          cif
-        )
-      );
-      updated++;
+      // zone/branch/commitment จากคลัง KV (แถวเก่าไม่มี = ไม่แตะของเดิมใน D1 กันเขียนทับด้วยค่าว่าง)
+      const rowZone = str(r.zone);
+      const rowBranch = str(r.branch);
+      const rowCommit = str(r.commitment_date);
+
+      const cur = current.get(cif);
+      if (cur && !cur.deleted) {
+        // เทียบก่อนเขียน — เท่าเดิมข้าม (ประหยัดโควต้า D1 แบบเดียวกับ debt-import)
+        const same =
+          str(cur.debt_class) === String(r.max_tier ?? '') &&
+          num(cur.debt_balance) === (parseFloat(r.total_debt) || 0) &&
+          str(cur.reserve_pct) === reserve &&
+          str(cur.recognition) === recognition &&
+          str(cur.overdue_15m) === m15Val &&
+          str(cur.next_due) === str(r.earliest_due) &&
+          str(cur.subsidy) === subsidy &&
+          str(cur.commitment_date) === rowCommit &&
+          (!rowZone || str(cur.zone) === rowZone) &&
+          (!rowBranch || str(cur.branch) === rowBranch);
+        if (same) { skipped++; continue; }
+        statements.push(
+          env.BFR_DB.prepare(
+            `UPDATE customers SET
+              debt_class = ?,
+              debt_balance = ?,
+              reserve_pct = ?,
+              recognition = ?,
+              overdue_15m = ?,
+              next_due = ?,
+              subsidy = ?,
+              commitment_date = ?,
+              zone = ?,
+              branch = ?,
+              debt_updated_at = ?,
+              updated_at = ?
+            WHERE cif = ?`
+          ).bind(
+            String(r.max_tier ?? ''),
+            parseFloat(r.total_debt) || 0,
+            reserve,
+            recognition,
+            m15Val,
+            r.earliest_due || '',
+            subsidy,
+            rowCommit || str(cur.commitment_date),
+            rowZone || str(cur.zone),
+            rowBranch || str(cur.branch),
+            now,
+            now,
+            cif
+          )
+        );
+        updated++;
+      } else if (!cur) {
+        // CIF ใหม่ (ยังไม่มีใน D1) — เพิ่มแถว กันข้อมูลในคลังลอยโดยไม่มีตัวตนในถังหลัก
+        statements.push(
+          env.BFR_DB.prepare(
+            `INSERT INTO customers (
+              cif, name, zone, branch, debt_class, debt_balance, reserve_pct,
+              recognition, overdue_15m, next_due, subsidy, commitment_date,
+              debt_updated_at, risk_level, deleted, created_by, created_at, updated_at
+            ) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
+          ).bind(
+            cif,
+            rowZone,
+            rowBranch,
+            String(r.max_tier ?? ''),
+            parseFloat(r.total_debt) || 0,
+            reserve,
+            recognition,
+            m15Val,
+            r.earliest_due || '',
+            subsidy,
+            rowCommit,
+            now,
+            now,
+            now
+          )
+        );
+        added++;
+      } else {
+        // CIF อยู่ในถังขยะ (deleted=1) — ข้าม กันชน PK (อยากได้คืนให้กู้จากถังขยะก่อน)
+        skipped++;
+      }
     }
 
     // โควต้า D1 รายวัน: เช็คก่อนเขียนทั้งก้อน (กันล็อก 100k/วัน) (16 ต.ค.69)
@@ -124,6 +207,8 @@ export async function onRequestPost(context) {
       success: true,
       total_cifs: data.length,
       updated,
+      added,
+      skipped_identical: skipped,
       no_cif: noCif,
       debt_updated_at: now,
     });

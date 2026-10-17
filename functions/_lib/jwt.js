@@ -69,3 +69,19 @@ export function extractBearerToken(request) {
   if (auth && auth.startsWith('Bearer ')) return auth.slice(7);
   return null;
 }
+
+// ===== JWT secret — fail-closed บนเว็บจริง (17 ต.ค.69) =====
+// เดิมทุก endpoint ใช้ `env.BFR_JWT_SECRET || 'dev-secret-...'` — ถ้าลืมตั้ง env
+// บน production ทุก token จะเซ็นด้วยรหัส default ที่อ่านได้จาก git = ปลอม token admin ได้
+// Helper นี้: local (127.0.0.1/localhost) ใช้ dev-secret ได้เหมือนเดิม;
+// แต่ host จริง (baacroute.shop/pages.dev) ถ้าไม่มี secret = คืน null → caller ตอบ 500
+// แทนที่จะเซ็น/ตรวจด้วยรหัสสาธารณะ
+export function jwtSecret(env, request) {
+  const s = env && env.BFR_JWT_SECRET;
+  if (typeof s === 'string' && s.length >= 32) return s;
+  let host = '';
+  try { host = new URL(request && request.url ? request.url : '').hostname; } catch { host = ''; }
+  const isProd = /(^|\.)baacroute\.shop$|\.pages\.dev$/.test(host);
+  if (isProd) return null;
+  return 'dev-secret-change-me-32-chars-min';
+}

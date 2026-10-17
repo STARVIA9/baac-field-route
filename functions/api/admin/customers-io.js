@@ -6,7 +6,7 @@
 //   ?hasGps=true|false (filter)
 //   ?q=text (search)
 
-import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 
 const KV_CUSTOMERS = 'customers:all';
 const KV_RECYCLE = 'customers:recycle';
@@ -26,7 +26,9 @@ function json(data, status = 200) {
 async function authCheck(request, env) {
   const token = extractBearerToken(request);
   if (!token) return { error: 'No token' };
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return { error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' };
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return { error: 'Invalid token' };
   return { user: payload };
 }

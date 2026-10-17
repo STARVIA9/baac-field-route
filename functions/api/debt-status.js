@@ -21,14 +21,24 @@ export async function onRequestPost({ request, env }) {
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
   const inc = body.data || {};
+  const keys = Object.keys(inc);
+  // กันยิงก้อนยักษ์ทับคลัง (KV write 1 ครั้ง/POST — ก้อนใหญ่ = กระตุกทั้งทีม)
+  if (keys.length > 500) return json({ error: 'ส่งได้ครั้งละไม่เกิน 500 รายการ' }, 400);
   let cur = {};
   try {
     cur = JSON.parse((await env.BFR_KV.get(KEY)) || '{}');
   } catch (e) { cur = {}; }
   const who = a.user?.username || a.user?.sub || 'team';
   const now = new Date().toISOString();
-  for (const k of Object.keys(inc)) {
-    cur[k] = { ...inc[k], by: inc[k].by || who, at: now };
+  for (const k of keys) {
+    if (k.length > 64) continue;
+    const v = inc[k] || {};
+    cur[k] = {
+      st: String(v.st || '').slice(0, 20),
+      note: String(v.note || '').slice(0, 500),
+      by: String(v.by || who).slice(0, 60),
+      at: now,
+    };
   }
   await env.BFR_KV.put(KEY, JSON.stringify(cur));
   return json({ ok: true, n: Object.keys(cur).length });

@@ -2,7 +2,7 @@
 // Rate-limited: max 10 attempts per IP per 15 minutes (KV-based)
 // ⚠️ PIN ทีมถูกลบแล้ว — ใช้เฉพาะ username/password ที่สร้างจาก /api/admin/users
 
-import { signHS256 } from '../../_lib/jwt.js';
+import { signHS256, jwtSecret } from '../../_lib/jwt.js';
 
 const MAX_ATTEMPTS = 10;
 const WINDOW_SEC = 15 * 60;
@@ -52,7 +52,8 @@ export async function onRequestPost(context) {
     }
     if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
 
-    const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+    const secret = jwtSecret(env, request);
+    if (!secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
     const branchName = user.branch || '';
     const token = await signHS256({
       sub: user.id, username: user.username, name: user.displayName,

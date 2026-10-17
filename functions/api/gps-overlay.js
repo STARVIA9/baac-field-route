@@ -4,7 +4,7 @@
 // Kept for backward-compat with the app's applyGpsOverlay() merge (which is now
 // a no-op merge since D1 already has the coords — but the endpoint stays valid).
 
-import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -18,7 +18,9 @@ export async function onRequestGet(context) {
 
   const token = extractBearerToken(request);
   if (!token) return json({ success: false, error: 'No token' }, 401);
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
 
   if (env.BFR_DB) {

@@ -6,7 +6,7 @@
 //
 // รับกุญแจเดิม (ที่ยังไม่หมดอายุ) แล้วออกกุญแจใหม่ให้อีก 7 วัน
 
-import { extractBearerToken, verifyHS256, signHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, signHS256, jwtSecret } from '../_lib/jwt.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -19,7 +19,8 @@ export async function onRequestPost({ request, env }) {
   const token = extractBearerToken(request);
   if (!token) return json({ success: false, error: 'ไม่พบกุญแจเข้าใช้งาน' }, 401);
 
-  const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+  const secret = jwtSecret(env, request);
+  if (!secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
   const payload = await verifyHS256(token, secret);
   if (!payload) return json({ success: false, error: 'กุญแจหมดอายุ กรุณาเข้าสู่ระบบใหม่' }, 401);
 

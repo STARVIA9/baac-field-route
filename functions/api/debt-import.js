@@ -61,10 +61,10 @@ function tierNum(cls) {
   return m ? parseInt(m[0], 10) : 0;
 }
 
-// วัน DD/MM/YYYY → timestamp สำหรับ compare (ช้ากว่า = ค่าเล็กกว่า... กลับด้าน)
+// วัน DD/MM/YYYY → timestamp สำหรับ compare (ว่าง/ผิดรูป = Infinity → ไม่มีวันชนะวันที่จริง)
 function dueKey(d) {
   const m = String(d || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  return m ? (+m[3]) * 10000 + (+m[2]) * 100 + (+m[1]) : 0;
+  return m ? (+m[3]) * 10000 + (+m[2]) * 100 + (+m[1]) : Infinity;
 }
 
 /**
@@ -231,6 +231,9 @@ function groupByCIF(contracts) {
     debtRows.push({
       cif,
       total_debt: totalDebt,
+      branch: (summaries[cif] && summaries[cif].branch) || '',
+      zone: (summaries[cif] && summaries[cif].zone) || '',
+      commitment_date: (summaries[cif] && summaries[cif].commitmentDate) || '',
       gb: (summaries[cif] && summaries[cif].gb) || '',
       num_contracts: items.length,
       max_tier: maxTier,
@@ -243,7 +246,7 @@ function groupByCIF(contracts) {
   return { summaries, debtRows };
 }
 
-import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
 import { extractBaacCode } from '../_lib/branches.js';
 import { trackWrites, getWriteBudget } from '../_lib/shared.js';
 
@@ -290,7 +293,9 @@ export async function onRequestPost(context) {
   // ตรวจสอบ auth จริง — verify JWT signature + ต้องเป็น admin
   const token = extractBearerToken(request);
   if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return new Response(JSON.stringify({ error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }), { status: 500 });
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
   if (payload.role !== 'admin') return new Response(JSON.stringify({ error: 'ต้องเป็น Admin เท่านั้น' }), { status: 403 });
 

@@ -2,7 +2,7 @@
 // Authenticated users can change their own password
 // Requires: { currentPassword, newPassword }
 
-import { extractBearerToken, verifyHS256 } from '../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
 import { hashPassword, verifyPassword } from '../_lib/crypto.js';
 
 const USERS_KV_KEY = 'users:all';
@@ -20,7 +20,9 @@ export async function onRequestPost(context) {
   // Auth check
   const token = extractBearerToken(request);
   if (!token) return json({ success: false, error: 'No token' }, 401);
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return json({ success: false, error: 'Session หมดอายุ กรุณา login ใหม่' }, 401);
 
   // PIN-login users cannot change password (no password stored)

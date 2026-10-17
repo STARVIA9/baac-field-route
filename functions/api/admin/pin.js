@@ -1,7 +1,7 @@
 // Admin PIN management — /api/admin/pin
 // POST: change admin PIN (requires current PIN + new PIN)
 
-import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
 
 const KV_KEY = 'admin:pin';
@@ -22,7 +22,9 @@ function json(data, status = 200) {
 async function authCheck(request, env) {
   const token = extractBearerToken(request);
   if (!token) return { error: 'No token' };
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const secret = jwtSecret(env, request);
+  if (!secret) return { error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' };
+  const payload = await verifyHS256(token, secret);
   if (!payload) return { error: 'Invalid token' };
   return { user: payload };
 }
@@ -35,6 +37,9 @@ async function getAdminPinHash(kv) {
   const raw = await kv.get(KV_KEY);
   if (raw) return raw;
   // Seed default PIN using pre-computed hash — no PBKDF2 at runtime
+  // ⚠️ ทางนี้ทำงานเฉพาะตอน KV ว่างเปล่า (ถูกล้าง) — หลัง seed ให้รีบเปลี่ยน PIN
+  // ทันที (GET /api/admin/pin บอก isDefault) เพราะรหัส default อ่านได้จาก git
+  console.warn('[admin-pin] KV empty — seeded DEFAULT PIN, change it immediately');
   await kv.put(KV_KEY, DEFAULT_PIN_HASH);
   return DEFAULT_PIN_HASH;
 }

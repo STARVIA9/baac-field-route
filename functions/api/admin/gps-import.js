@@ -3,7 +3,7 @@
 // Updates lat/lng in D1 (single source of truth) + mirrors to KV gps:overlay
 // for the live marker-refresh trigger. D1 is authoritative.
 
-import { extractBearerToken, verifyHS256 } from '../../_lib/jwt.js';
+import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { logGpsHistory, trackWrites, getWriteBudget } from '../../_lib/shared.js';
 
 const KV_OVERLAY = 'gps:overlay';
@@ -20,7 +20,9 @@ export async function onRequestPost(context) {
 
   const token = extractBearerToken(request);
   if (!token) return json({ success: false, error: 'No token' }, 401);
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
   if (payload.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
   if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
@@ -151,7 +153,9 @@ export async function onRequestDelete(context) {
 
   const token = extractBearerToken(request);
   if (!token) return json({ success: false, error: 'No token' }, 401);
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
+  const payload = await verifyHS256(token, __secret);
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
   if (payload.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);

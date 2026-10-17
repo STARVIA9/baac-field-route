@@ -14,10 +14,12 @@ export function json(data, status = 200) {
 
 // Auth check — extract + verify JWT
 export async function authCheck(request, env) {
-  const { extractBearerToken, verifyHS256 } = await import('./jwt.js');
+  const { extractBearerToken, verifyHS256, jwtSecret } = await import('./jwt.js');
   const token = extractBearerToken(request);
   if (!token) return { error: 'No token' };
-  const payload = await verifyHS256(token, env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min');
+  const secret = jwtSecret(env, request);
+  if (!secret) return { error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' };
+  const payload = await verifyHS256(token, secret);
   if (!payload) return { error: 'Invalid token' };
   return { user: payload };
 }

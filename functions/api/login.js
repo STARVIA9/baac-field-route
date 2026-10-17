@@ -1,7 +1,7 @@
 // Auth handler — POST /api/login
 // Supports: username/password (KV users) + admin PIN (KV) + legacy team PINs
 
-import { signHS256 } from '../_lib/jwt.js';
+import { signHS256, jwtSecret } from '../_lib/jwt.js';
 import { verifyPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin, getPinVersion } from './admin/pin.js';
@@ -94,6 +94,10 @@ export async function onRequestPost(context) {
 
   const { username, password, pin } = body;
 
+  // Fail-closed ถ้าเว็บจริงไม่มี BFR_JWT_SECRET (กันเซ็น/ตรวจ token ด้วยรหัส default ใน git)
+  const __secret = jwtSecret(env, request);
+  if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
+
   // Rate limiting via KV (per IP) — same as legacy /api/auth/login
   // ponytail/security (16 ต.ค.69): เชื่อ cf-connecting-ip อย่างเดียว — x-forwarded-for
   // ปลอมได้จาก client หมุน header หนีลิมิต 10 ครั้ง/15 นาทีได้
@@ -139,7 +143,7 @@ export async function onRequestPost(context) {
     }
     if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
 
-    const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+    const secret = __secret;
     const branchName = await getBranchName(user.branch, env.BFR_KV);
     const tokenPayload = {
       sub: user.id,
@@ -171,7 +175,7 @@ export async function onRequestPost(context) {
     if (env.BFR_KV) {
       const adminValid = await verifyAdminPin(pin, env.BFR_KV);
       if (adminValid) {
-        const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+        const secret = __secret;
         const branchName = await getBranchName('WTC', env.BFR_KV);
         const tokenPayload = {
           sub: 'admin-pin',
@@ -185,6 +189,7 @@ export async function onRequestPost(context) {
           exp: Math.floor(Date.now() / 1000) + 86400 * 7,
         };
         const token = await signHS256(tokenPayload, secret);
+        if (env.BFR_KV) { try { await env.BFR_KV.delete(rateKey); } catch {} }
         return json({ success: true, token, user: { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC', branchName, loginMethod: 'pin', hasPassword: false } });
       }
     }
@@ -199,7 +204,7 @@ export async function onRequestPost(context) {
         let ok = false;
         try { ok = await verifyPassword(pin, staff.pinHash); } catch { ok = false; }
         if (ok) {
-          const secret = env.BFR_JWT_SECRET || 'dev-secret-change-me-32-chars-min';
+          const secret = __secret;
           const branchName = await getBranchName(staff.branch, env.BFR_KV);
           const tokenPayload = {
             sub: staff.id,
