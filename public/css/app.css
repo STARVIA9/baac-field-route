@@ -1226,6 +1226,15 @@ body {
   border-color: #c9a227;
   animation: btnPulse 2s ease-in-out infinite;
 }
+/* ป้ายเวอร์ชันในเมนู (พื้นสว่าง) — ตัวหนังสือเข้มอ่านชัด */
+.more-menu-info .version-label {
+  color: #1f2937;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.more-menu-info .version-label.has-update {
+  color: #fff;
+}
 
 /* Refresh button animations */
 .btn-icon.spinning {
@@ -3603,7 +3612,7 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   .app-logo {
     gap: 0;
   }
-  /* เลขเวอร์ชันบนมือถือ: ย่อสั้นไม่เกะกะ (ยังแตะได้เพื่ออัปเดต) */
+  /* เลขเวอร์ชันบนมือถือ: ย่อสั้นไม่เกะกะ (โชว์อย่างเดียว) */
   .version-label {
     font-size: 8px;
     padding: 2px 4px;

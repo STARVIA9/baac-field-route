@@ -5123,66 +5123,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ===== Refresh button binding — รีเฟรชจอล้วน (งานข้อมูลเป็นของปุ่ม ⬇️) =====
-  const btn = document.getElementById('refresh-btn');
-  if (btn) {
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      btn.classList.add('spinning');
-      try {
-        if (btn.classList.contains('has-update')) {
-          // มีเวอร์ชันใหม่จาก watcher → อัปเดตทันที (ล้าง SW/cache + reload)
-          App.applyUpdate();
-          return;
-        }
-        // รีเฟรชจอทันที ไม่ sync ก่อนแล้ว (เดิมรอ sync นานจนเหมือนปุ่มเสีย)
-        // ข้อมูลในเครื่องไม่หาย — อยู่ใน localStorage เดิม เดี๋ยว poll ส่งเอง
-        App.hardRefresh();
-      } finally {
-        btn.classList.remove('spinning');
-      }
-    });
-    // Long-press (or hold 1s) = full hard refresh
-    let longPressTimer;
-    btn.addEventListener('pointerdown', () => {
-      longPressTimer = setTimeout(() => {
-        App.hardRefresh();
-      }, 1200);
-    });
-    btn.addEventListener('pointerup', () => clearTimeout(longPressTimer));
-    btn.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
-  }
-
-  // ===== Update DB button — reload customer data from static DB =====
-  const updateBtn = document.getElementById('update-db-btn');
-  if (updateBtn) {
-    updateBtn.addEventListener('click', async () => {
-      updateBtn.classList.add('spinning');
-      updateBtn.disabled = true;
-      if (typeof Utils !== 'undefined') Utils.toast('⏳ กำลังอัพข้อมูล... (ลูกค้า+พิกัด+หนี้)');
-      try {
-        if (typeof Storage === 'undefined' || !Storage.reloadStaticDB) {
-          throw new Error('ฟังก์ชันอัพเดทยังไม่พร้อม');
-        }
-        const result = await Storage.reloadStaticDB();
-        if (typeof Utils !== 'undefined') {
-          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย` + (result.backfilled > 0 ? ` · เติมของเก่า ${result.backfilled} ราย` : ''));
-        }
-        // Re-render everything
-        if (typeof Customers !== 'undefined') Customers.renderAll();
-        if (typeof Visit !== 'undefined') Visit.render();
-        if (typeof App !== 'undefined') App.updateRouteUI();
-      } catch (err) {
-        if (typeof Utils !== 'undefined') {
-          Utils.toast(`❌ อัพเดทล้มเหลว: ${err.message}`, 'error');
-        }
-        console.error('[UpdateDB]', err);
-      } finally {
-        updateBtn.classList.remove('spinning');
-        updateBtn.disabled = false;
-      }
-    });
-  }
+  // (ปุ่มรีเฟรช/อัพเดทในเมนูถูกถอดออก 17 ต.ค.69 — ใช้ auto-update + F5 แทน)
+  // (ฟังก์ชัน reloadStaticDB/hardRefresh ยังอยู่ให้ flow อื่นเรียกถ้าต้องการ)
 
   // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
   document.addEventListener('keydown', (e) => {
@@ -5208,7 +5150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                          errStr.includes('Cancelled') ||
                          errStr.includes('AbortError');
         if (!warnOnly) {
-          Utils.toast('⚠️ เกิดข้อผิดพลาดเล็กน้อย — กด 🔄 เพื่อรีเฟรชถ้าใช้งานไม่ได้', 'error');
+          Utils.toast('⚠️ เกิดข้อผิดพลาดเล็กน้อย — ปิดแล้วเปิดเว็บใหม่ถ้าใช้งานไม่ได้', 'error');
         }
       }
     } catch (_) {}
@@ -5226,7 +5168,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof Utils !== 'undefined' && Utils.toast) {
         const errStr = String(e.reason?.message || e.reason || '');
         if (!errStr.includes('AbortError') && !errStr.includes('Cancelled')) {
-          Utils.toast('⚠️ เกิดข้อผิดพลาด — ถ้าใช้ไม่ได้ลองกด 🔄 รีเฟรช', 'error');
+          Utils.toast('⚠️ เกิดข้อผิดพลาด — ถ้าใช้ไม่ได้ลองปิดแล้วเปิดเว็บใหม่', 'error');
         }
       }
     } catch (_) {}
