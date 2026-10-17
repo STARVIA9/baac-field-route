@@ -261,11 +261,18 @@ const App = {
 
     // Initialize header components (avatar, more menu, sync badge)
     this._initHeader();
+    this.applyFieldBig();   // B (17 ต.ค.69): ติดโหมดตัวใหญ่ที่จำไว้ (ถ้าเคยเปิด)
 
     Customers.initMap();
     // Initial load: NO fitBounds — เปิดมาเห็นจังหวัดปราจีนบุรี zoom 12 ตาม default
     // (fitBounds ดัน view ไปยึด marker GPS ทั้งหมด ทำให้ไม่เห็นภาพรวมจังหวัด)
     Customers.renderAll();
+    // A1 (17 ต.ค.69): บังคับเปิดที่สำนักงานซูม 13 ทุกครั้งหลัง login
+    // (เจอจริงบนเว็บ: เปิดมา center 7.11,50.98 zoom 4 กลางทะเล ทั้งที่ initMap ตั้ง office ไว้)
+    try {
+      const _office = window.OFFICE_LOCATION || { lat: 13.7760801, lng: 101.8907475 };
+      if (Customers.map) Customers.map.setView([_office.lat, _office.lng], 13);
+    } catch {}
     Visit.render();
     Route.attachEvents();
     this.updateRouteUI();
@@ -385,7 +392,7 @@ const App = {
         <button data-mode="summary" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#fff8ec;font-size:18px;cursor:pointer;">📊 ดูสรุป</button>
         <button data-close="1" style="display:block;width:100%;margin:8px 0 0;padding:12px;min-height:50px;border-radius:12px;border:1px solid #ccc;background:#fff;font-size:16px;color:#555;cursor:pointer;">ไว้ทีหลัง ✕</button>
         <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:14px;color:#666;cursor:pointer;min-height:44px;">
-          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก
+          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก (เรียกกลับ: ⋯ → 🏠 เริ่มตรงนี้)
         </label>
       </div>`;
     const close = (mode) => {
@@ -406,6 +413,19 @@ const App = {
     overlay.querySelector('button[data-close]')?.addEventListener('click', () => close(null));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
+  },
+
+  // ===== B (17 ต.ค.69): โหมดตัวใหญ่สำหรับหน้างาน — สลับ class ที่ body + จำค่าในเครื่อง =====
+  isFieldBig() { try { return localStorage.getItem('bfr_field_big') === '1'; } catch { return false; } },
+  applyFieldBig() {
+    const on = this.isFieldBig();
+    try { document.body.classList.toggle('field-big', on); } catch {}
+    const s = document.getElementById('field-big-state');
+    if (s) s.textContent = on ? 'เปิด' : 'ปิด';
+  },
+  toggleFieldBig() {
+    try { localStorage.setItem('bfr_field_big', this.isFieldBig() ? '0' : '1'); } catch {}
+    this.applyFieldBig();
   },
 
   // Listen for sync events to update UI badge
@@ -543,6 +563,9 @@ const App = {
 
     // 🏠 เปิดป๊อบอัพ "วันนี้ทำอะไร" อีกครั้ง (จากเมนู ⋮ — กันคนติ๊ก "จำไว้" แล้วหลง)
     on('start-mode-btn', 'click', () => this.showStartModePopup(true));
+
+    // B (17 ต.ค.69): สวิตช์โหมดตัวใหญ่ (จำค่าในเครื่อง เปิดแล้วติดทุกครั้งที่เข้า)
+    on('field-big-btn', 'click', () => this.toggleFieldBig());
 
     // Admin buttons
     on('admin-users-btn', 'click', () => this.openAdminUsers());
@@ -2784,6 +2807,7 @@ const MapSearch = {
   _onInput() {
     const q = this._input.value.trim();
     this._clearBtn.classList.toggle('hidden', !q);
+    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
 
     if (!q || q.length < 1) { this._hideResults(); return; }
 
@@ -2870,6 +2894,7 @@ const MapSearch = {
   _clear() {
     if (this._input) this._input.value = '';
     if (this._clearBtn) this._clearBtn.classList.add('hidden');
+    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
     this._hideResults();
   },
 

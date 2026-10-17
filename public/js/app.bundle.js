@@ -221,42 +221,7 @@ const Customers = {
 
     customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
-      // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
-      if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode) {
-        const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
-        if (this.debtMonth) {
-          // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
-          const due = debt ? DebtDB.dueMonthKey(debt.earliest_due) : '';
-          if (due !== this.debtMonth) return;
-        }
-        if (this.debtTier) {
-          const maxTier = debt ? (parseInt(debt.max_tier) || 0) : 0;
-          if (maxTier !== parseInt(this.debtTier)) return;
-        }
-        if (this.omsomMode) {
-          const isOmsom = debt ? debt.is_omsom : false;
-          if (this.omsomMode === 'exclude' && isOmsom) return;
-          if (this.omsomMode === 'only' && !isOmsom) return;
-        }
-        if (this.m15Mode) {
-          const has15 = debt && debt.contracts && debt.contracts.some(c=>c.m15==='Y' || (c.m15_amt||0)>0);
-          if (this.m15Mode === 'Y' && !has15) return;
-          if (this.m15Mode === 'none' && has15) return;
-        }
-      }
-
-      // Zone filter (T3): ซ่อน marker นอกเขตที่เลือก
-      if (this._zoneFilter) {
-        const dbz = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
-        if (!dbz || String(dbz.zone) !== String(this._zoneFilter)) return;
-      }
-
-      // Branch filter: ซ่อน marker นอกสาขาที่เลือก (admin เห็นรวมหลายสาขา)
-      if (this._branchFilter) {
-        const dbb = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
-        const cb = dbb ? String(dbb.branch || '') : String(c.branch || '');
-        if (cb !== String(this._branchFilter)) return;
-      }
+      if (!this._passesMapFilters(c)) return;
 
       const visited = !!visits[c.id];
       const riskClass = c.riskLevel || 'unclassified';
@@ -325,7 +290,10 @@ const Customers = {
     // Fit bounds only when caller explicitly requests it (e.g. initial load).
     // Only GPS customers have coords — skip null coords to avoid LatLng(null).
     if (opts.fitBounds && customers.length > 0) {
-      const gps = customers.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      // A1 (17 ต.ค.69): ตัดพิกัดนอกไทยทิ้งก่อน fit — กันแผนที่ลอยไปกลางทะเล
+      // (เจอจริงบนเว็บ: เปิดมา center 7.11,50.98 zoom 4 ทั้งที่ init ตั้งสำนักงานไว้)
+      const gps = customers.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng)
+        && c.lat >= 5 && c.lat <= 21 && c.lng >= 97 && c.lng <= 106);
       if (gps.length > 0) {
         const bounds = L.latLngBounds(gps.map(c => [c.lat, c.lng]));
         this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
@@ -427,6 +395,86 @@ const Customers = {
       this._lastMarkerHash = null;
       this.renderAll();
     });
+  },
+
+  // ===== ตัวกรองแผนที่ (ใช้ร่วมกันทั้งหมุด + เกจพิกัด) =====
+  // คืน true = ลูกค้าผ่านตัวกรองปัจจุบัน (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
+  _passesMapFilters(c, query) {
+    // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
+    if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode) {
+      const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
+      if (this.debtMonth) {
+        // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
+        const due = debt ? DebtDB.dueMonthKey(debt.earliest_due) : '';
+        if (due !== this.debtMonth) return false;
+      }
+      if (this.debtTier) {
+        const maxTier = debt ? (parseInt(debt.max_tier) || 0) : 0;
+        if (maxTier !== parseInt(this.debtTier)) return false;
+      }
+      if (this.omsomMode) {
+        const isOmsom = debt ? debt.is_omsom : false;
+        if (this.omsomMode === 'exclude' && isOmsom) return false;
+        if (this.omsomMode === 'only' && !isOmsom) return false;
+      }
+      if (this.m15Mode) {
+        const has15 = debt && debt.contracts && debt.contracts.some(x=>x.m15==='Y' || (x.m15_amt||0)>0);
+        if (this.m15Mode === 'Y' && !has15) return false;
+        if (this.m15Mode === 'none' && has15) return false;
+      }
+    }
+
+    // Zone filter (T3): ซ่อน marker นอกเขตที่เลือก
+    if (this._zoneFilter) {
+      const dbz = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      if (!dbz || String(dbz.zone) !== String(this._zoneFilter)) return false;
+    }
+
+    // Branch filter: ซ่อน marker นอกสาขาที่เลือก (admin เห็นรวมหลายสาขา)
+    if (this._branchFilter) {
+      const dbb = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      const cb = dbb ? String(dbb.branch || '') : String(c.branch || '');
+      if (cb !== String(this._branchFilter)) return false;
+    }
+
+    // คำค้นในช่องค้นหาแผนที่ (ชื่อ/ชื่อเล่น/CIF/เบอร์)
+    const q = (query !== undefined ? query : (document.getElementById('map-search')?.value || '')).trim().toLowerCase();
+    if (q) {
+      const name = (c.name || '').toLowerCase();
+      const nick = (c.nickname || '').toLowerCase();
+      const cif = String(c.cif || '');
+      const phone = String(c.phone || '');
+      if (!(name.includes(q) || nick.includes(q) || cif.includes(q) || phone.includes(q))) return false;
+    }
+    return true;
+  },
+
+  // นับ {total, withGps} ตามตัวกรองปัจจุบัน (รวมรายที่ไม่มีพิกัดด้วย)
+  getFilterStats(query) {
+    if (typeof Storage === 'undefined' || !Storage.getActiveCustomers) return { total: 0, withGps: 0 };
+    let total = 0, withGps = 0;
+    for (const c of Storage.getActiveCustomers()) {
+      if (!this._passesMapFilters(c, query)) continue;
+      total++;
+      if (Number.isFinite(c.lat) && Number.isFinite(c.lng)) withGps++;
+    }
+    return { total, withGps };
+  },
+
+  // อัพเดทเกจพิกัดใต้ช่องค้นหา
+  updateGpsGauge() {
+    const text = document.getElementById('mdf-gps-text');
+    const fill = document.getElementById('mdf-gps-fill');
+    if (!text || !fill) return;
+    const { total, withGps } = this.getFilterStats();
+    if (!total) {
+      text.textContent = '📍 ไม่มีข้อมูลตามตัวกรอง';
+      fill.style.width = '0%';
+      return;
+    }
+    const pct = Math.round(withGps / total * 100);
+    text.textContent = `📍 ${withGps.toLocaleString('th-TH')}/${total.toLocaleString('th-TH')} มีพิกัด (${pct}%)`;
+    fill.style.width = pct + '%';
   },
 
   // Popup HTML
@@ -1081,9 +1129,51 @@ const Customers = {
     });
   },
 
+  // ===== ตัวกรองเขตตามสาขา (17 ต.ค.69 — พ่อสั่ง: แต่ละสาขาเขตไม่เหมือนกัน) =====
+  // เติม option เขตจากข้อมูลจริงที่เห็น (ตามสาขา) แทน hardcode 1-5
+  // non-admin เห็นสาขาเดียวอยู่แล้ว (server กรองมา) → ได้เขตสาขาตัวเองอัตโนมัติ
+  // admin ตาม dropdown สาขา (ว่าง = รวมทุกสาขา)
+  _zoneSig: '',
+  refreshZoneOptions() {
+    const tabSel = document.getElementById('customer-zone');
+    const mapSel = document.getElementById('map-zone-filter');
+    if (!tabSel && !mapSel) return;
+    const branchVal = document.getElementById('map-branch-filter')?.value || '';
+    let recs = [];
+    // รวม 2 ถัง (กันถังใดถังหนึ่งว่าง — เช่น กลางยังโหลดไม่เสร็จแต่เครื่องมีข้อมูลแล้ว)
+    if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && Array.isArray(CustomerDB._data)) {
+      recs = recs.concat(CustomerDB._data);
+    }
+    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
+      try { recs = recs.concat(Storage.getActiveCustomers()); } catch {}
+    }
+    if (branchVal) recs = recs.filter(r => String(r.branch || '').trim() === String(branchVal));
+    const zones = [...new Set(recs.map(r => String(r.zone ?? '').trim()).filter(z => z !== ''))];
+    zones.sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+    const sig = branchVal + '|' + zones.join(',');
+    if (sig === this._zoneSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM (กัน dropdown กระพริบ)
+    this._zoneSig = sig;
+    for (const sel of [tabSel, mapSel]) {
+      if (!sel) continue;
+      const cur = sel.value;
+      sel.textContent = '';
+      const all = document.createElement('option');
+      all.value = ''; all.textContent = 'ทุกเขต';
+      sel.appendChild(all);
+      for (const z of zones) {
+        const o = document.createElement('option');
+        o.value = z; o.textContent = 'เขต ' + z;
+        sel.appendChild(o);
+      }
+      sel.value = zones.includes(cur) ? cur : '';   // ค่าเดิมยังอยู่คงไว้ หายไป reset เป็นทุกเขต
+    }
+  },
+
   // Render everything
   renderAll(routeOrder, opts) {
+    this.refreshZoneOptions();   // เขตตามสาขา (sig-guard: ข้อมูลไม่เปลี่ยนไม่แตะ DOM)
     this.renderMarkers(routeOrder, opts);
+    this.updateGpsGauge();
     const customersTab = document.getElementById('tab-customers');
     if (customersTab && customersTab.classList.contains('active')) {
       this.renderList();
@@ -2773,11 +2863,18 @@ const App = {
 
     // Initialize header components (avatar, more menu, sync badge)
     this._initHeader();
+    this.applyFieldBig();   // B (17 ต.ค.69): ติดโหมดตัวใหญ่ที่จำไว้ (ถ้าเคยเปิด)
 
     Customers.initMap();
     // Initial load: NO fitBounds — เปิดมาเห็นจังหวัดปราจีนบุรี zoom 12 ตาม default
     // (fitBounds ดัน view ไปยึด marker GPS ทั้งหมด ทำให้ไม่เห็นภาพรวมจังหวัด)
     Customers.renderAll();
+    // A1 (17 ต.ค.69): บังคับเปิดที่สำนักงานซูม 13 ทุกครั้งหลัง login
+    // (เจอจริงบนเว็บ: เปิดมา center 7.11,50.98 zoom 4 กลางทะเล ทั้งที่ initMap ตั้ง office ไว้)
+    try {
+      const _office = window.OFFICE_LOCATION || { lat: 13.7760801, lng: 101.8907475 };
+      if (Customers.map) Customers.map.setView([_office.lat, _office.lng], 13);
+    } catch {}
     Visit.render();
     Route.attachEvents();
     this.updateRouteUI();
@@ -2897,7 +2994,7 @@ const App = {
         <button data-mode="summary" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#fff8ec;font-size:18px;cursor:pointer;">📊 ดูสรุป</button>
         <button data-close="1" style="display:block;width:100%;margin:8px 0 0;padding:12px;min-height:50px;border-radius:12px;border:1px solid #ccc;background:#fff;font-size:16px;color:#555;cursor:pointer;">ไว้ทีหลัง ✕</button>
         <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:14px;color:#666;cursor:pointer;min-height:44px;">
-          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก
+          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก (เรียกกลับ: ⋯ → 🏠 เริ่มตรงนี้)
         </label>
       </div>`;
     const close = (mode) => {
@@ -2918,6 +3015,19 @@ const App = {
     overlay.querySelector('button[data-close]')?.addEventListener('click', () => close(null));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
+  },
+
+  // ===== B (17 ต.ค.69): โหมดตัวใหญ่สำหรับหน้างาน — สลับ class ที่ body + จำค่าในเครื่อง =====
+  isFieldBig() { try { return localStorage.getItem('bfr_field_big') === '1'; } catch { return false; } },
+  applyFieldBig() {
+    const on = this.isFieldBig();
+    try { document.body.classList.toggle('field-big', on); } catch {}
+    const s = document.getElementById('field-big-state');
+    if (s) s.textContent = on ? 'เปิด' : 'ปิด';
+  },
+  toggleFieldBig() {
+    try { localStorage.setItem('bfr_field_big', this.isFieldBig() ? '0' : '1'); } catch {}
+    this.applyFieldBig();
   },
 
   // Listen for sync events to update UI badge
@@ -3055,6 +3165,9 @@ const App = {
 
     // 🏠 เปิดป๊อบอัพ "วันนี้ทำอะไร" อีกครั้ง (จากเมนู ⋮ — กันคนติ๊ก "จำไว้" แล้วหลง)
     on('start-mode-btn', 'click', () => this.showStartModePopup(true));
+
+    // B (17 ต.ค.69): สวิตช์โหมดตัวใหญ่ (จำค่าในเครื่อง เปิดแล้วติดทุกครั้งที่เข้า)
+    on('field-big-btn', 'click', () => this.toggleFieldBig());
 
     // Admin buttons
     on('admin-users-btn', 'click', () => this.openAdminUsers());
@@ -5296,6 +5409,7 @@ const MapSearch = {
   _onInput() {
     const q = this._input.value.trim();
     this._clearBtn.classList.toggle('hidden', !q);
+    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
 
     if (!q || q.length < 1) { this._hideResults(); return; }
 
@@ -5382,6 +5496,7 @@ const MapSearch = {
   _clear() {
     if (this._input) this._input.value = '';
     if (this._clearBtn) this._clearBtn.classList.add('hidden');
+    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
     this._hideResults();
   },
 

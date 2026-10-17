@@ -1827,7 +1827,7 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 
 .customer-name {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text);
   margin-bottom: 2px;
   white-space: nowrap;
@@ -1836,7 +1836,7 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 }
 
 .customer-address {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1844,7 +1844,7 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 }
 
 .customer-cif {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--baac-green);
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-weight: 600;
@@ -1860,11 +1860,11 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 .btn-small {
   background: var(--bg);
   border: 1px solid var(--border);
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4053,6 +4053,32 @@ body.debt-zoom .popup-actions button { font-size: 15px; padding: 8px 10px; }
 }
 .mdf-reset:hover { background: #fdecea; }
 
+/* ===== GPS gauge ใต้ช่องค้นหา (โชว์ตลอดแม้ตอนพับ) ===== */
+.mdf-gps-gauge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 0;
+  font-size: 12px;
+  color: #3c463c;
+}
+.mdf-gps-text { white-space: nowrap; font-weight: 600; }
+.mdf-gps-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 4px;
+  background: #e5e9e5;
+  overflow: hidden;
+  min-width: 40px;
+}
+.mdf-gps-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: #0a8f3c;
+  transition: width 0.25s ease;
+}
+
 /* ===== Debt Summary tab (สรุปภาพรวมหนี้) ===== */
 .debt-summary-header {
   padding: 4px 0 10px;
@@ -5049,6 +5075,8 @@ html.keyboard-open .confirm-card {
   .msb-result-name { color: #f1f1e9; }
   .msb-result-meta { color: #aab2aa; }
   .msb-no-results { color: #aab2aa; }
+  .mdf-gps-gauge { color: #c9d2c9; }
+  .mdf-gps-bar { background: rgba(255,255,255,0.12); }
 }
 
 /* ===== Staff grid: แตะชื่อ + PIN (แผน B วังท่าช้าง) ===== */
@@ -5087,3 +5115,15 @@ html.keyboard-open .confirm-card {
   margin-left: 4px;
 }
 .btn-danger-sm { border-color: #fecaca; }
+
+/* ===== B (17 ต.ค.69): โหมดตัวใหญ่สำหรับหน้างาน — เปิดจาก ⋯ → 🔍 ตัวใหญ่ (จำค่าในเครื่อง) ===== */
+body.field-big .customer-name { font-size: 19px; }
+body.field-big .customer-address { font-size: 16px; }
+body.field-big .customer-cif { font-size: 15px; }
+body.field-big .btn-small { width: 48px; height: 48px; font-size: 18px; }
+body.field-big .sheet-tab { font-size: 17px; min-height: 52px; }
+body.field-big .mdf-select { font-size: 16px; min-height: 48px; }
+body.field-big #customer-search, body.field-big #map-search, body.field-big #route-search { font-size: 17px; min-height: 48px; }
+body.field-big .fab { width: 56px; height: 56px; }
+body.field-big .route-action-card { font-size: 17px; }
+body.field-big .visit-guide-step { font-size: 14px; }

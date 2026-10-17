@@ -17,8 +17,8 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261017i" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261017i" as="script">
+  <link rel="preload" href="css/app.css?v=20261017j" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261017j" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +145,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261017i">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261017i"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261017j">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261017j"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -357,6 +357,10 @@
               <span>🏠</span>
               <span>เริ่มตรงนี้ (เลือกงาน)</span>
             </button>
+            <button class="more-menu-item" id="field-big-btn">
+              <span>🔍</span>
+              <span>ตัวใหญ่: <b id="field-big-state">ปิด</b></span>
+            </button>
             <div class="more-menu-divider"></div>
             <div class="more-menu-info">
               <span class="version-label" id="version-label">…</span>
@@ -383,6 +387,11 @@
         <button class="mdf-toggle" id="mdf-toggle" title="แสดง/ซ่อนตัวกรอง" aria-label="แสดง/ซ่อนตัวกรอง" aria-expanded="false">▼</button>
       </div>
       <div class="msb-results hidden" id="msb-results"></div>
+      <!-- GPS gauge: มีพิกัดแล้วกี่รายจากทั้งหมดตามตัวกรองปัจจุบัน -->
+      <div class="mdf-gps-gauge" id="mdf-gps-gauge" title="จำนวนลูกค้าที่มีพิกัด เทียบกับทั้งหมดตามตัวกรองปัจจุบัน">
+        <span class="mdf-gps-text" id="mdf-gps-text">📍 …</span>
+        <div class="mdf-gps-bar"><div class="mdf-gps-fill" id="mdf-gps-fill" style="width:0%"></div></div>
+      </div>
       <!-- Row 1: Filter dropdowns -->
       <div class="mdf-row">
         <select id="debt-month-filter" class="mdf-select"><option value="">🗓️ ทุกเดือน</option></select>
@@ -427,7 +436,7 @@
 
     <!-- Floating action buttons over map -->
     <div class="map-fab">
-      <button class="fab fab-main" id="fab-add-customer" title="เพิ่มลูกค้าใหม่"><i data-lucide="plus" class="icon"></i></button>
+      <button class="fab fab-main" id="fab-add-customer" title="เพิ่มลูกค้าใหม่"><i data-lucide="user-plus" class="icon"></i></button>
       <button class="fab fab-secondary" id="fab-my-location" title="ตำแหน่งปัจจุบัน"><i data-lucide="locate" class="icon"></i></button>
       <div class="zoom-stack">
         <button class="fab fab-zoom" id="fab-zoom-in" title="ซูมเข้า" aria-label="ซูมเข้า">＋</button>
@@ -1366,8 +1375,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261017i"></script>
-  <script src="js/app.bundle.js?v=20261017i"></script>
+  <script src="js/vendor.js?v=20261017j"></script>
+  <script src="js/app.bundle.js?v=20261017j"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
