@@ -834,8 +834,15 @@ const Storage = {
     const result = await this.importFromStaticDB();
     // 4) Re-apply server GPS overlay on top of the fresh D1 data
     await this.applyGpsOverlay();
+    // 5) Refresh คลังหนี้ด้วย — ไม่งั้นการ์ดหนี้/สรุปยังใช้ของเก่าค้างเครื่อง
+    let debtTotal = 0;
+    if (typeof DebtDB !== 'undefined' && DebtDB.load) {
+      DebtDB._loaded = false;
+      await DebtDB.load();
+      debtTotal = DebtDB._byCif ? DebtDB._byCif.size : 0;
+    }
 
-    return { removed, imported: result?.imported || 0, total: result?.total || 0 };
+    return { removed, imported: result?.imported || 0, total: result?.total || 0, debt: debtTotal };
   },
 };
 

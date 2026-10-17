@@ -5174,13 +5174,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBtn.addEventListener('click', async () => {
       updateBtn.classList.add('spinning');
       updateBtn.disabled = true;
+      if (typeof Utils !== 'undefined') Utils.toast('⏳ กำลังอัพข้อมูล... (ลูกค้า+พิกัด+หนี้)');
       try {
         if (typeof Storage === 'undefined' || !Storage.reloadStaticDB) {
           throw new Error('ฟังก์ชันอัพเดทยังไม่พร้อม');
         }
         const result = await Storage.reloadStaticDB();
         if (typeof Utils !== 'undefined') {
-          Utils.toast(`✅ อัพเดทแล้ว: ลบ ${result.removed} รายการเก่า, นำเข้า ${result.imported} รายการใหม่ (${result.total} ในระบบ)`);
+          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย`);
         }
         // Re-render everything
         if (typeof Customers !== 'undefined') Customers.renderAll();
