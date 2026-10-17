@@ -5082,12 +5082,14 @@ html.keyboard-open .confirm-card {
 /* ===== Staff grid: แตะชื่อ + PIN (แผน B วังท่าช้าง) ===== */
 .staff-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, 1fr);   /* 2 คอลัมน์เท่ากัน — ปุ่มสาขา/ชื่อเรียงตรงกัน (17 ต.ค.69) */
   gap: 8px;
   margin: 8px 0 12px;
   max-height: 180px;
   overflow-y: auto;
 }
+.staff-grid > p { grid-column: 1 / -1; margin: 0 0 4px; }   /* ข้อความ "เลือกสาขาก่อน" เต็มแถว ไม่แย่งช่องปุ่ม */
+.staff-grid .staff-back { grid-column: 1 / -1; }            /* ปุ่มเปลี่ยนสาขาเต็มแถว */
 .staff-btn {
   padding: 12px 8px;
   font-size: 15px;
@@ -5096,6 +5098,8 @@ html.keyboard-open .confirm-card {
   background: #f0f9f4;
   color: #0a5c28;
   cursor: pointer;
+  text-align: center;
+  min-height: 52px;
 }
 .staff-btn:active { transform: scale(0.97); }
 .staff-btn.staff-selected {
