@@ -1120,7 +1120,10 @@ const Customers = {
     const tabSel = document.getElementById('customer-zone');
     const mapSel = document.getElementById('map-zone-filter');
     if (!tabSel && !mapSel) return;
-    const branchVal = document.getElementById('map-branch-filter')?.value || '';
+    // สาขาที่ใช้กรองเขต: แท็บลูกค้า/แผนที่ sync กัน + non-admin ล็อกสาขาตัวเอง
+    let branchVal = document.getElementById('map-branch-filter')?.value || '';
+    const tabBranch = document.getElementById('customer-branch')?.value || '';
+    if (tabBranch) branchVal = tabBranch;
     let recs = [];
     // รวม 2 ถัง (กันถังใดถังหนึ่งว่าง — เช่น กลางยังโหลดไม่เสร็จแต่เครื่องมีข้อมูลแล้ว)
     if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && Array.isArray(CustomerDB._data)) {
@@ -1129,6 +1132,8 @@ const Customers = {
     if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
       try { recs = recs.concat(Storage.getActiveCustomers()); } catch {}
     }
+    const lock = this._userBranch();
+    if (lock && recs.some(r => String(r.branch || '').trim() === lock)) branchVal = lock;
     if (branchVal) recs = recs.filter(r => String(r.branch || '').trim() === String(branchVal));
     const zones = [...new Set(recs.map(r => String(r.zone ?? '').trim()).filter(z => z !== ''))];
     zones.sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
@@ -1154,17 +1159,37 @@ const Customers = {
   // ===== ตัวเลือกสาขาตามข้อมูลจริง (17 ต.ค.69 — แก้บั๊กเลือกสาขาไม่ได้) =====
   // เติมทุก renderAll (sig-guard กัน dropdown กระพริบ) — รวม 2 ถัง (CustomerDB + เครื่อง)
   // ผูก change ครั้งเดียว (dataset.bound) กันยิงซ้ำ
+  // + ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
   _branchSig: '',
+  _userBranch() {
+    // คืนรหัสสาขาของคนใช้ (non-admin) — รหัสเดียวกับข้อมูลลูกค้า (เช่น '854')
+    // admin → null (ไม่ล็อก เห็นทุกสาขา)
+    try {
+      if (typeof Auth !== 'undefined' && Auth.isAdmin && Auth.isAdmin()) return null;
+      const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      const b = String((u && u.branch) || '').trim();
+      return b || null;
+    } catch { return null; }
+  },
   refreshBranchOptions() {
     const sel = document.getElementById('map-branch-filter');
-    if (!sel) return;
-    if (!sel.dataset.bound) {
-      sel.dataset.bound = '1';
-      sel.addEventListener('change', () => {
-        this._branchFilter = sel.value || '';
-        this._lastMarkerHash = null;            // force rebuild
-        this.renderAll();                       // renderMarkers + list
-      });
+    const tabSel = document.getElementById('customer-branch');
+    if (!sel && !tabSel) return;
+    // change สองฝั่ง sync กัน (เลือกฝั่งไหน อีกฝั่งตาม — อ่านจากตัวที่ถูกกด ไม่ใช่ || เพราะ '' คือค่าตั้งใจ)
+    const onChange = (e) => {
+      const src = (e && e.target) || null;
+      const v = src ? src.value : ((sel && sel.value) || (tabSel && tabSel.value) || '');
+      if (sel) sel.value = v;
+      if (tabSel) tabSel.value = v;
+      this._branchFilter = v || '';
+      this._lastMarkerHash = null;            // force rebuild
+      this.renderAll();                       // renderMarkers + list
+    };
+    for (const s of [sel, tabSel]) {
+      if (s && !s.dataset.bound) {
+        s.dataset.bound = '1';
+        s.addEventListener('change', onChange);
+      }
     }
     const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
     const seen = new Set();
@@ -1180,27 +1205,48 @@ const Customers = {
       } catch {}
     }
     const branches = [...seen].sort();
-    const sig = branches.join(',');
+    const lock = this._userBranch();
+    const locked = !!(lock && seen.has(lock));   // ล็อกเฉพาะเมื่อสาขาตัวเองมีข้อมูลจริง (กันซ่อนหมด)
+    const sig = locked ? ('lock:' + lock) : branches.join(',');
     if (sig === this._branchSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM
     this._branchSig = sig;
-    const cur = sel.value;
-    sel.textContent = '';
-    const all = document.createElement('option');
-    all.value = ''; all.textContent = 'ทุกสาขา';
-    sel.appendChild(all);
-    for (const b of branches) {
-      const o = document.createElement('option');
-      o.value = b; o.textContent = names[b] || ('สาขา ' + b);
-      sel.appendChild(o);
+    if (locked) {
+      // ไม่ใช่แอดมิน: ล็อกสาขาตัวเอง + ซ่อน dropdown (เห็นแค่ข้อมูลสาขาตัวเองทุกจุด)
+      for (const s of [sel, tabSel]) {
+        if (!s) continue;
+        s.textContent = '';
+        const o = document.createElement('option');
+        o.value = lock; o.textContent = names[lock] || ('สาขา ' + lock);
+        s.appendChild(o);
+        s.value = lock;
+        s.style.display = 'none';
+      }
+      this._branchFilter = lock;
+      return;
     }
-    sel.value = branches.includes(cur) ? cur : '';
-    if (sel.value !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
+    // admin: โชว์ + เติมทุกสาขา
+    const cur = sel ? sel.value : (tabSel ? tabSel.value : '');
+    for (const s of [sel, tabSel]) {
+      if (!s) continue;
+      s.style.display = '';
+      s.textContent = '';
+      const all = document.createElement('option');
+      all.value = ''; all.textContent = 'ทุกสาขา';
+      s.appendChild(all);
+      for (const b of branches) {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = names[b] || ('สาขา ' + b);
+        s.appendChild(o);
+      }
+      s.value = branches.includes(cur) ? cur : '';
+    }
+    if (((sel && sel.value) || '') !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
   },
 
   // Render everything
   renderAll(routeOrder, opts) {
+    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง + ล็อกตามสิทธิ์ (ต้องก่อนเขต)
     this.refreshZoneOptions();   // เขตตามสาขา (sig-guard: ข้อมูลไม่เปลี่ยนไม่แตะ DOM)
-    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง (เติมช้าแค่ไหนก็มา — ทุก renderAll)
     this.renderMarkers(routeOrder, opts);
     this.updateGpsGauge();
     const customersTab = document.getElementById('tab-customers');
@@ -2994,6 +3040,7 @@ const App = {
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
     this.showStartModePopup();
+    this.initPwaInstall();   // ชวนติดตั้งลงหน้าจอ (PWA — 17 ต.ค.69 พ่อสั่ง)
 
     // Deep link: เปิด baacroute.shop/#debtsummary → ข้ามไปแท็บสรุปหนี้ทันทีหลัง login
     try {
@@ -3057,6 +3104,76 @@ const App = {
   toggleFieldBig() {
     try { localStorage.setItem('bfr_field_big', this.isFieldBig() ? '0' : '1'); } catch {}
     this.applyFieldBig();
+  },
+
+  // ===== ติดตั้งลงหน้าจอ PWA (17 ต.ค.69 — พ่อสั่ง: เปิดเว็บแล้วชวนลงหน้าจอ) =====
+  _pwaEvent: null,
+  initPwaInstall() {
+    if (this._pwaSnoozed()) return;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      try { e.preventDefault(); } catch {}
+      this._pwaEvent = e;
+      this.showPwaBanner(false);
+    });
+    window.addEventListener('appinstalled', () => this._pwaHide(true));
+    // iOS ไม่มี event นี้ — เปิดด้วย Safari แล้วยังไม่ติดตั้ง → โชว์วิธีทำมือ
+    try {
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+      const standalone = (navigator.standalone === true)
+        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (ios && !standalone) this.showPwaBanner(true);
+    } catch {}
+  },
+  _pwaSnoozed() {
+    try { return Date.now() < (+localStorage.getItem('bfr_pwa_snooze') || 0); }
+    catch { return false; }
+  },
+  _pwaSnooze(days) {
+    try { localStorage.setItem('bfr_pwa_snooze', String(Date.now() + days * 864e5)); } catch {}
+  },
+  showPwaBanner(isIOS) {
+    if (document.getElementById('pwa-install-banner')) return;
+    if (this._pwaSnoozed()) return;
+    const bar = document.createElement('div');
+    bar.id = 'pwa-install-banner';
+    bar.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;max-width:420px;margin:0 auto;background:#fff;border:2px solid #0a8f3c;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:9000;padding:14px 14px 12px;';
+    const howto = isIOS
+      ? 'แตะปุ่ม <b>แชร์</b> ของ Safari แล้วเลือก <b>เพิ่มไปที่หน้าจอโฮม</b>'
+      : 'กดปุ่มด้านล่างครั้งเดียว เปิดครั้งหน้าแตะไอคอนได้เลย ไม่ต้องพิมพ์เว็บ';
+    bar.innerHTML =
+      '<div style="display:flex;gap:10px;align-items:center;">' +
+      '<div style="font-size:28px;">📌</div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:700;">ติดตั้งแอปลงหน้าจอ</div>' +
+      '<div style="font-size:13px;color:#444;">' + howto + '</div></div>' +
+      '<button id="pwa-banner-close" style="min-width:44px;min-height:44px;border:none;background:none;font-size:20px;cursor:pointer;" aria-label="ปิด">✕</button></div>' +
+      (isIOS
+        ? '<button id="pwa-banner-ok" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">เข้าใจแล้ว</button>'
+        : '<button id="pwa-banner-install" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">📌 ติดตั้งเลย</button>');
+    document.body.appendChild(bar);
+    const close = (days) => { this._pwaSnooze(days); bar.remove(); };
+    const c = document.getElementById('pwa-banner-close');
+    if (c) c.addEventListener('click', () => close(7));
+    const ok = document.getElementById('pwa-banner-ok');
+    if (ok) ok.addEventListener('click', () => close(7));
+    const go = document.getElementById('pwa-banner-install');
+    if (go) go.addEventListener('click', async () => {
+      try {
+        if (this._pwaEvent && this._pwaEvent.prompt) {
+          await this._pwaEvent.prompt();
+          const ch = this._pwaEvent.userChoice ? await this._pwaEvent.userChoice : null;
+          this._pwaEvent = null;
+          close(ch && ch.outcome === 'accepted' ? 30 : 7);
+          return;
+        }
+      } catch {}
+      close(7);
+    });
+  },
+  _pwaHide(forever) {
+    const bar = document.getElementById('pwa-install-banner');
+    if (bar) bar.remove();
+    this._pwaEvent = null;
+    this._pwaSnooze(forever ? 30 : 7);
   },
 
   // Listen for sync events to update UI badge
@@ -4305,6 +4422,14 @@ const App = {
     const dataBtn = document.getElementById('admin-data-btn');
     if (userBtn) userBtn.style.display = isAdmin ? '' : 'none';
     if (dataBtn) dataBtn.style.display = isAdmin ? '' : 'none';
+    // ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
+    // ซ่อน dropdown สาขาทันทีตั้งแต่เปิด (ค่าถูกล็อกใน refreshBranchOptions อีกชั้น)
+    if (!isAdmin) {
+      for (const id of ['map-branch-filter', 'customer-branch']) {
+        const s = document.getElementById(id);
+        if (s) s.style.display = 'none';
+      }
+    }
   },
 
   // ===== Admin: Open management modal =====

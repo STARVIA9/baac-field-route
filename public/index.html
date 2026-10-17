@@ -15,10 +15,11 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"></noscript>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261017k" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261017k" as="script">
+  <link rel="preload" href="css/app.css?v=20261017l" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261017l" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -145,8 +146,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261017k">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261017k"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261017l">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261017l"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -487,6 +488,9 @@
                 <option value="3">เขต 3</option>
                 <option value="4">เขต 4</option>
                 <option value="5">เขต 5</option>
+              </select>
+              <select id="customer-branch" class="sort-select" title="กรองตามสาขา">
+                <option value="">ทุกสาขา</option>
               </select>
               <select id="customer-sort" class="sort-select">
                 <option value="name">เรียงตามชื่อ</option>
@@ -1375,8 +1379,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261017k"></script>
-  <script src="js/app.bundle.js?v=20261017k"></script>
+  <script src="js/vendor.js?v=20261017l"></script>
+  <script src="js/app.bundle.js?v=20261017l"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

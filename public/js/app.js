@@ -363,6 +363,7 @@ const App = {
 
     // ป๊อบอัพถามก่อนว่า "วันนี้ทำอะไร" (จำไว้ไม่ถามอีกได้)
     this.showStartModePopup();
+    this.initPwaInstall();   // ชวนติดตั้งลงหน้าจอ (PWA — 17 ต.ค.69 พ่อสั่ง)
 
     // Deep link: เปิด baacroute.shop/#debtsummary → ข้ามไปแท็บสรุปหนี้ทันทีหลัง login
     try {
@@ -426,6 +427,76 @@ const App = {
   toggleFieldBig() {
     try { localStorage.setItem('bfr_field_big', this.isFieldBig() ? '0' : '1'); } catch {}
     this.applyFieldBig();
+  },
+
+  // ===== ติดตั้งลงหน้าจอ PWA (17 ต.ค.69 — พ่อสั่ง: เปิดเว็บแล้วชวนลงหน้าจอ) =====
+  _pwaEvent: null,
+  initPwaInstall() {
+    if (this._pwaSnoozed()) return;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      try { e.preventDefault(); } catch {}
+      this._pwaEvent = e;
+      this.showPwaBanner(false);
+    });
+    window.addEventListener('appinstalled', () => this._pwaHide(true));
+    // iOS ไม่มี event นี้ — เปิดด้วย Safari แล้วยังไม่ติดตั้ง → โชว์วิธีทำมือ
+    try {
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+      const standalone = (navigator.standalone === true)
+        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (ios && !standalone) this.showPwaBanner(true);
+    } catch {}
+  },
+  _pwaSnoozed() {
+    try { return Date.now() < (+localStorage.getItem('bfr_pwa_snooze') || 0); }
+    catch { return false; }
+  },
+  _pwaSnooze(days) {
+    try { localStorage.setItem('bfr_pwa_snooze', String(Date.now() + days * 864e5)); } catch {}
+  },
+  showPwaBanner(isIOS) {
+    if (document.getElementById('pwa-install-banner')) return;
+    if (this._pwaSnoozed()) return;
+    const bar = document.createElement('div');
+    bar.id = 'pwa-install-banner';
+    bar.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;max-width:420px;margin:0 auto;background:#fff;border:2px solid #0a8f3c;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:9000;padding:14px 14px 12px;';
+    const howto = isIOS
+      ? 'แตะปุ่ม <b>แชร์</b> ของ Safari แล้วเลือก <b>เพิ่มไปที่หน้าจอโฮม</b>'
+      : 'กดปุ่มด้านล่างครั้งเดียว เปิดครั้งหน้าแตะไอคอนได้เลย ไม่ต้องพิมพ์เว็บ';
+    bar.innerHTML =
+      '<div style="display:flex;gap:10px;align-items:center;">' +
+      '<div style="font-size:28px;">📌</div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:700;">ติดตั้งแอปลงหน้าจอ</div>' +
+      '<div style="font-size:13px;color:#444;">' + howto + '</div></div>' +
+      '<button id="pwa-banner-close" style="min-width:44px;min-height:44px;border:none;background:none;font-size:20px;cursor:pointer;" aria-label="ปิด">✕</button></div>' +
+      (isIOS
+        ? '<button id="pwa-banner-ok" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">เข้าใจแล้ว</button>'
+        : '<button id="pwa-banner-install" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">📌 ติดตั้งเลย</button>');
+    document.body.appendChild(bar);
+    const close = (days) => { this._pwaSnooze(days); bar.remove(); };
+    const c = document.getElementById('pwa-banner-close');
+    if (c) c.addEventListener('click', () => close(7));
+    const ok = document.getElementById('pwa-banner-ok');
+    if (ok) ok.addEventListener('click', () => close(7));
+    const go = document.getElementById('pwa-banner-install');
+    if (go) go.addEventListener('click', async () => {
+      try {
+        if (this._pwaEvent && this._pwaEvent.prompt) {
+          await this._pwaEvent.prompt();
+          const ch = this._pwaEvent.userChoice ? await this._pwaEvent.userChoice : null;
+          this._pwaEvent = null;
+          close(ch && ch.outcome === 'accepted' ? 30 : 7);
+          return;
+        }
+      } catch {}
+      close(7);
+    });
+  },
+  _pwaHide(forever) {
+    const bar = document.getElementById('pwa-install-banner');
+    if (bar) bar.remove();
+    this._pwaEvent = null;
+    this._pwaSnooze(forever ? 30 : 7);
   },
 
   // Listen for sync events to update UI badge
@@ -1674,6 +1745,14 @@ const App = {
     const dataBtn = document.getElementById('admin-data-btn');
     if (userBtn) userBtn.style.display = isAdmin ? '' : 'none';
     if (dataBtn) dataBtn.style.display = isAdmin ? '' : 'none';
+    // ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
+    // ซ่อน dropdown สาขาทันทีตั้งแต่เปิด (ค่าถูกล็อกใน refreshBranchOptions อีกชั้น)
+    if (!isAdmin) {
+      for (const id of ['map-branch-filter', 'customer-branch']) {
+        const s = document.getElementById(id);
+        if (s) s.style.display = 'none';
+      }
+    }
   },
 
   // ===== Admin: Open management modal =====

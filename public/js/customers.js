@@ -1120,7 +1120,10 @@ const Customers = {
     const tabSel = document.getElementById('customer-zone');
     const mapSel = document.getElementById('map-zone-filter');
     if (!tabSel && !mapSel) return;
-    const branchVal = document.getElementById('map-branch-filter')?.value || '';
+    // สาขาที่ใช้กรองเขต: แท็บลูกค้า/แผนที่ sync กัน + non-admin ล็อกสาขาตัวเอง
+    let branchVal = document.getElementById('map-branch-filter')?.value || '';
+    const tabBranch = document.getElementById('customer-branch')?.value || '';
+    if (tabBranch) branchVal = tabBranch;
     let recs = [];
     // รวม 2 ถัง (กันถังใดถังหนึ่งว่าง — เช่น กลางยังโหลดไม่เสร็จแต่เครื่องมีข้อมูลแล้ว)
     if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && Array.isArray(CustomerDB._data)) {
@@ -1129,6 +1132,8 @@ const Customers = {
     if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
       try { recs = recs.concat(Storage.getActiveCustomers()); } catch {}
     }
+    const lock = this._userBranch();
+    if (lock && recs.some(r => String(r.branch || '').trim() === lock)) branchVal = lock;
     if (branchVal) recs = recs.filter(r => String(r.branch || '').trim() === String(branchVal));
     const zones = [...new Set(recs.map(r => String(r.zone ?? '').trim()).filter(z => z !== ''))];
     zones.sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
@@ -1154,17 +1159,37 @@ const Customers = {
   // ===== ตัวเลือกสาขาตามข้อมูลจริง (17 ต.ค.69 — แก้บั๊กเลือกสาขาไม่ได้) =====
   // เติมทุก renderAll (sig-guard กัน dropdown กระพริบ) — รวม 2 ถัง (CustomerDB + เครื่อง)
   // ผูก change ครั้งเดียว (dataset.bound) กันยิงซ้ำ
+  // + ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
   _branchSig: '',
+  _userBranch() {
+    // คืนรหัสสาขาของคนใช้ (non-admin) — รหัสเดียวกับข้อมูลลูกค้า (เช่น '854')
+    // admin → null (ไม่ล็อก เห็นทุกสาขา)
+    try {
+      if (typeof Auth !== 'undefined' && Auth.isAdmin && Auth.isAdmin()) return null;
+      const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      const b = String((u && u.branch) || '').trim();
+      return b || null;
+    } catch { return null; }
+  },
   refreshBranchOptions() {
     const sel = document.getElementById('map-branch-filter');
-    if (!sel) return;
-    if (!sel.dataset.bound) {
-      sel.dataset.bound = '1';
-      sel.addEventListener('change', () => {
-        this._branchFilter = sel.value || '';
-        this._lastMarkerHash = null;            // force rebuild
-        this.renderAll();                       // renderMarkers + list
-      });
+    const tabSel = document.getElementById('customer-branch');
+    if (!sel && !tabSel) return;
+    // change สองฝั่ง sync กัน (เลือกฝั่งไหน อีกฝั่งตาม — อ่านจากตัวที่ถูกกด ไม่ใช่ || เพราะ '' คือค่าตั้งใจ)
+    const onChange = (e) => {
+      const src = (e && e.target) || null;
+      const v = src ? src.value : ((sel && sel.value) || (tabSel && tabSel.value) || '');
+      if (sel) sel.value = v;
+      if (tabSel) tabSel.value = v;
+      this._branchFilter = v || '';
+      this._lastMarkerHash = null;            // force rebuild
+      this.renderAll();                       // renderMarkers + list
+    };
+    for (const s of [sel, tabSel]) {
+      if (s && !s.dataset.bound) {
+        s.dataset.bound = '1';
+        s.addEventListener('change', onChange);
+      }
     }
     const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
     const seen = new Set();
@@ -1180,27 +1205,48 @@ const Customers = {
       } catch {}
     }
     const branches = [...seen].sort();
-    const sig = branches.join(',');
+    const lock = this._userBranch();
+    const locked = !!(lock && seen.has(lock));   // ล็อกเฉพาะเมื่อสาขาตัวเองมีข้อมูลจริง (กันซ่อนหมด)
+    const sig = locked ? ('lock:' + lock) : branches.join(',');
     if (sig === this._branchSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM
     this._branchSig = sig;
-    const cur = sel.value;
-    sel.textContent = '';
-    const all = document.createElement('option');
-    all.value = ''; all.textContent = 'ทุกสาขา';
-    sel.appendChild(all);
-    for (const b of branches) {
-      const o = document.createElement('option');
-      o.value = b; o.textContent = names[b] || ('สาขา ' + b);
-      sel.appendChild(o);
+    if (locked) {
+      // ไม่ใช่แอดมิน: ล็อกสาขาตัวเอง + ซ่อน dropdown (เห็นแค่ข้อมูลสาขาตัวเองทุกจุด)
+      for (const s of [sel, tabSel]) {
+        if (!s) continue;
+        s.textContent = '';
+        const o = document.createElement('option');
+        o.value = lock; o.textContent = names[lock] || ('สาขา ' + lock);
+        s.appendChild(o);
+        s.value = lock;
+        s.style.display = 'none';
+      }
+      this._branchFilter = lock;
+      return;
     }
-    sel.value = branches.includes(cur) ? cur : '';
-    if (sel.value !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
+    // admin: โชว์ + เติมทุกสาขา
+    const cur = sel ? sel.value : (tabSel ? tabSel.value : '');
+    for (const s of [sel, tabSel]) {
+      if (!s) continue;
+      s.style.display = '';
+      s.textContent = '';
+      const all = document.createElement('option');
+      all.value = ''; all.textContent = 'ทุกสาขา';
+      s.appendChild(all);
+      for (const b of branches) {
+        const o = document.createElement('option');
+        o.value = b; o.textContent = names[b] || ('สาขา ' + b);
+        s.appendChild(o);
+      }
+      s.value = branches.includes(cur) ? cur : '';
+    }
+    if (((sel && sel.value) || '') !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
   },
 
   // Render everything
   renderAll(routeOrder, opts) {
+    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง + ล็อกตามสิทธิ์ (ต้องก่อนเขต)
     this.refreshZoneOptions();   // เขตตามสาขา (sig-guard: ข้อมูลไม่เปลี่ยนไม่แตะ DOM)
-    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง (เติมช้าแค่ไหนก็มา — ทุก renderAll)
     this.renderMarkers(routeOrder, opts);
     this.updateGpsGauge();
     const customersTab = document.getElementById('tab-customers');
