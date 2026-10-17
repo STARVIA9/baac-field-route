@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f6b3c">
+<title>ติดตามหนี้ถึงกำหนด — ทีมสินเชื่อ (ต้นแบบ A)</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--green:#0f6b3c;--bg:#f4f6f3;--card:#fff;--red:#b34040;--gold:#8a6d00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#111;font-size:18px;line-height:1.65;font-family:system-ui,"Noto Sans Thai",Tahoma,sans-serif}
+body.text-lg{font-size:21px}body.text-lg .card{font-size:21px}body.text-lg table{font-size:18px}
+header{background:var(--green);color:#fff;padding:16px 14px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:24px}
+header p{margin:4px 0 0;font-size:15px;opacity:.95}
+main{padding:12px;max-width:960px;margin:0 auto;padding-bottom:120px;padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
+.card{background:var(--card);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.boxes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.box{border-radius:12px;padding:14px;text-align:center;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.box b{font-size:26px;display:block}
+.box span{font-size:15px;font-weight:bold}
+.box small{font-size:14px;color:#333;display:block}
+.btn{background:var(--green);color:#fff;border:0;border-radius:12px;padding:14px 16px;font-size:19px;min-height:52px;width:100%;font-weight:bold}
+.btn2{background:#fff;color:var(--green);border:2px solid var(--green);border-radius:12px;padding:12px 14px;font-size:18px;min-height:52px;width:100%;margin-top:8px;font-weight:bold}
+input,select,textarea{font-size:18px;padding:12px;border-radius:10px;border:2px solid #999;width:100%;min-height:52px;background:#fff;color:#111}
+table{width:100%;border-collapse:collapse;font-size:16px}
+th,td{padding:10px 8px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
+th{background:#eef4ee;position:sticky;top:0}
+.zone{font-weight:bold;color:var(--green)}
+.st{display:inline-block;padding:4px 12px;border-radius:20px;font-size:15px;font-weight:bold;background:#eee;border:1px solid #999}
+.st.done{background:#d9f0df;border-color:var(--green)}.st.doing{background:#fff3c4;border-color:#8a6d00}.st.wait{background:#fde8e8;border-color:var(--red)}
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.rowbtns button{font-size:16px;padding:12px 14px;min-height:48px;border-radius:10px;border:2px solid #555;background:#fff;flex:1 1 30%}
+.hint{font-size:15px;color:#333}
+.fontbar{display:flex;gap:8px;margin-top:8px}
+.fontbar button{flex:1;font-size:17px;padding:10px;min-height:48px;border-radius:10px;border:2px solid var(--green);background:#fff;font-weight:bold}
+#stickyBar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#111;color:#fff;padding:12px 14px calc(12px + env(safe-area-inset-bottom));font-size:17px;text-align:center}
+#stickyBar b{font-size:19px}
+.alert{background:#fde8e8;border:2px solid var(--red)}
+.alert b{color:var(--red)}
+.ok b{color:var(--green)}
+.qzone{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.qzone button{font-size:17px;padding:12px 16px;min-height:48px;border-radius:24px;border:2px solid var(--green);background:#fff;font-weight:bold}
+.qzone button.on{background:var(--green);color:#fff}
+.footer{font-size:14px;color:#333;text-align:center;margin-top:14px}
+#pinGate{position:fixed;inset:0;background:#0f6b3c;display:flex;align-items:center;justify-content:center;z-index:99;padding:20px}
+#pinBox{background:#fff;border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center}
+#pinBox input{font-size:28px;text-align:center;letter-spacing:8px}
+#syncBar{font-size:14px;padding:6px 10px;border-radius:8px;margin-top:8px;display:inline-block}
+@media(max-width:600px){.boxes{grid-template-columns:1fr}table{font-size:16px}.rowbtns button{flex:1 1 100%}}
+@media(min-width:601px){.rowbtns button{flex:0 1 auto}#list{max-width:100%}}
+</style>
+</head>
+<body>
+<div id="pinGate">
+<div id="pinBox">
+<div style="font-size:40px">🌾</div>
+<b>ทีมสินเชื่อ — เข้าใช้งาน</b>
+<p class="hint">ใส่รหัส 4 หลัก (พ่อกำหนด 3117)<br>หัวหน้า + ทีมเห็นข้อมูลเดียวกัน</p>
+<input id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••">
+<button class="btn" id="pinBtn" style="margin-top:10px">เข้าเว็บ</button>
+<p class="hint" id="pinMsg"></p>
+</div>
+</div>
+<header>
+<h1>🌾 ติดตามหนี้ถึงกำหนด (ต้นแบบ A)</h1>
+<p>อัพไฟล์ Customer Indicator รายสัปดาห์ → ดูตามเขต → ติ๊กติดตาม · <span id="syncBar">○ กำลังเช็กเชื่อมต่อ...</span></p>
+<div class="fontbar">
+<button id="fontS">ตัวเล็ก</button>
+<button id="fontM">ตัวกลาง</button>
+<button id="fontL">ตัวใหญ่ ⭕ ผู้สูงวัย</button>
+</div>
+</header>
+<div id="stickyBar">ยังไม่โหลดข้อมูลค่ะ</div>
+<main>
+<div class="card">
+<b>1. อัพไฟล์ประจำสัปดาห์</b>
+<p class="hint">รับ .csv / .xls / .xlsx ของ Customer Indicator (GOOD BANK เท่านั้นที่นำมาคิด) ไฟล์อยู่ในเครื่องพ่อ ไม่ส่งออกเน็ต</p>
+<input type="file" id="file" accept=".csv,.xls,.xlsx,.xlsm">
+<p class="hint" id="fileinfo">ยังไม่ได้โหลดไฟล์ — กดเลือกไฟล์ด้านบนค่ะ</p>
+<button class="btn2" id="demoBtn">ลองกดดูตัวอย่างก่อน (ไม่ต้องมีไฟล์)</button>
+</div>
+
+<div class="card" id="filterCard" style="display:none">
+<b>2. เลือกดู</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+<select id="monthSel"></select>
+<select id="zoneSel"></select>
+</div>
+<div class="qzone" id="qzone"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+<select id="statusSel">
+<option value="ทั้งหมด">ดูทั้งหมด</option>
+<option value="ยังไม่ตาม">เฉพาะยังไม่ติดตาม</option>
+<option value="กำลังตาม">เฉพาะกำลังตาม (โทร/นัด/ลงพื้นที่)</option>
+<option value="เสร็จ">เฉพาะติดตามแล้ว (เสร็จ)</option>
+</select>
+<select id="sortSel">
+<option value="amt">เรียง: ยอดมาก→น้อย</option>
+<option value="name">เรียง: ชื่อ ก-ฮ</option>
+</select>
+</div>
+<input id="q" placeholder="ค้นชื่อ / CIF / สัญญา..." style="margin-top:8px">
+<p class="hint">ยึด <b>Next Due date</b> เป็นหลัก ถ้าไฟล์ไม่มีคอลัมน์นี้ ระบบจะโชว์ทั้งหมดแล้วให้พ่อกรองเองค่ะ</p>
+</div>
+
+<div class="boxes" id="sumBoxes" style="display:none">
+<div class="box"><span>ต้องตามทั้งหมด (ตามที่กรอง)</span><b id="c1">0</b><small id="c1b"></small></div>
+<div class="box ok"><span>✅ ติดตามแล้ว (เสร็จ)</span><b id="c3">0</b><small id="c3b"></small></div>
+<div class="box alert"><span>🔔 ยังไม่ติดตาม (แจ้งเตือน)</span><b id="c2">0</b><small id="c2b"></small></div>
+</div>
+
+<div class="card" id="zoneCard" style="display:none">
+<b>3. สรุปตามเขต (เจ้าของงานชัด)</b>
+<div id="zoneTable"></div>
+</div>
+
+<div class="card" id="listCard" style="display:none">
+<b>4. รายชื่อต้องตาม (ติ๊กได้เลย จำในเครื่อง)</b>
+<p class="hint">1 CIF = 1 ลูกค้า (รวมทุกสัญญาไว้ด้วยกัน) · ติ๊กแล้วไม่หาย ปิดเปิดใหม่ยังอยู่</p>
+<div id="list"></div>
+<button class="btn" id="weekBtn" style="margin-top:10px">สรุปรายสัปดาห์ → คัดลอกไปประชุม</button>
+<textarea id="weekOut" rows="6" placeholder="กดปุ่มบนแล้วข้อความสรุปจะมาอยู่ตรงนี้ เอาไปวาง LINE ได้เลย" style="margin-top:8px"></textarea>
+<button class="btn2" id="csvBtn">โหลดรายชื่อที่กรองอยู่เป็น CSV</button>
+</div>
+
+<div class="card">
+<b>วิธีใช้แบบง่ายสุด (สำหรับน้อง)</b>
+<p class="hint">จันทร์: หัวหน้าโหลดไฟล์ใหม่ → เลือกเดือนนี้ → ดูว่าเขตใครมีกี่ราย<br>พุธ: น้องติ๊ก โทรแล้ว/นัดแล้ว/ลงพื้นที่<br>ศุกร์: กดสรุปรายสัปดาห์ ส่ง LINE ทีม<br>กติกา: ขาดเอกสาร-คนค้ำ ให้พิมพ์ในช่องหมายเหตุตั้งแต่วันจันทร์ ไม่รอวันศุกร์</p>
+</div>
+<p class="footer">ต้นแบบ A · ไฟล์เดียว · ปรับแก้ได้ง่าย · ยังไม่ลงเว็บจริงตามพ่อสั่ง</p>
+</main>
+<script>
+const ZONE_OWNER={"1":"คุณวรรณวิษา","2":"คุณณภัทร","3":"คุณอภิสรา","4":"คุณสุวภัทร","5":"คุณณภัทร"};
+function ownerOf(z){z=String(z||"").trim();if(z==="76003")return "หัวหน้าหน่วย (รายใหญ่)";const m=z.match(/^[1-5]/);if(m)return ZONE_OWNER[m[0]];return "หัวหน้าหน่วย/เขตอื่น";}
+let ROWS=[];let HEAD=[];
+const LSKEY="debtA_status_v1";
+const PIN_CODE="3117";
+let SHARED_MODE=false; // true = ต่อ server กลางได้ ทุกคนเห็นเหมือนกัน
+let MEM={}; // ข้อมูลกลางในหน่วยความจำ
+try{MEM=JSON.parse(localStorage.getItem(LSKEY)||"{}")}catch(e){MEM={}}
+const getStore=()=>MEM;
+const setStore=s=>{MEM=s;try{localStorage.setItem(LSKEY,JSON.stringify(s))}catch(e){} queueSync();};
+// --- sync กลาง: ลอง Cloudflare (/api/debt-status + JWT) ก่อน แล้วค่อย LAN (/api/status) ---
+let syncTimer=null;
+let SYNC_URL="/api/status";
+function authH(){try{const t=localStorage.getItem("bfr_token");return t?{"Authorization":"Bearer "+t}:{};}catch(e){return{};}}
+function setSyncBar(t,bg){const el=document.getElementById("syncBar");if(!el)return;el.textContent=t;el.style.background=bg||"#eee";}
+async function pullShared(){
+try{
+let r=await fetch("/api/debt-status",{cache:"no-store",headers:{...authH()}});
+if(r.status===401||r.status===404)throw 1; // ไม่มีสิทธิ์/ยังไม่ deploy → ลอง LAN
+if(!r.ok)throw 0;
+const j=await r.json();
+if(j&&j.data){MEM=j.data;try{localStorage.setItem(LSKEY,JSON.stringify(MEM))}catch(e){}}
+SYNC_URL="/api/debt-status";SHARED_MODE=true;setSyncBar("● เชื่อมข้อมูลกลางแล้ว (baacroute.shop) — ทุกคนเห็นเหมือนกัน","#d9f0df");
+if(typeof render==="function"&&ROWS.length)render();return;
+}catch(e){
+if(e!==1){/* fallthrough to LAN */}
+try{
+const r2=await fetch("/api/status",{cache:"no-store"});
+if(!r2.ok)throw 0;
+const j2=await r2.json();
+if(j2&&j2.data){MEM=j2.data;try{localStorage.setItem(LSKEY,JSON.stringify(MEM))}catch(e){}}
+SYNC_URL="/api/status";SHARED_MODE=true;setSyncBar("● เชื่อมข้อมูลกลางแล้ว (server ห้องทีม) — ทุกคนเห็นเหมือนกัน","#d9f0df");
+if(typeof render==="function"&&ROWS.length)render();return;
+}catch(e2){SHARED_MODE=false;setSyncBar("○ โหมดเครื่องเดียว (ยังไม่ต่อข้อมูลกลาง)","#fff3c4");}
+}
+}
+function queueSync(){
+if(!SHARED_MODE)return;
+clearTimeout(syncTimer);
+setSyncBar("● กำลังส่งข้อมูลกลาง...","#fff3c4");
+syncTimer=setTimeout(async()=>{
+try{
+await fetch(SYNC_URL,{method:"POST",headers:{"Content-Type":"application/json",...authH()},body:JSON.stringify({data:MEM})});
+setSyncBar("● เชื่อมข้อมูลกลางแล้ว — ทุกคนเห็นเหมือนกัน","#d9f0df");
+}catch(e){setSyncBar("○ ส่งไม่สำเร็จ — ยังจำในเครื่องไว้ก่อน","#f0d9d9");}
+},600);
+}
+// --- ล็อกรหัส ---
+function unlockIfOk(v){
+if(String(v).trim()===PIN_CODE){
+try{sessionStorage.setItem("debtA_pin","1")}catch(e){}
+document.getElementById("pinGate").style.display="none";
+pullShared();setInterval(pullShared,3000);
+return true;}
+document.getElementById("pinMsg").textContent="รหัสไม่ถูกค่ะ ลองใหม่นะคะ";
+return false;}
+
+function findHeaderIdx(rows){
+// หาแถวที่มีคำว่า เขต + CIF + หนี้คงเหลือ
+for(let i=0;i<Math.min(rows.length,15);i++){
+const j=rows[i].map(x=>String(x||""));
+if(j.some(c=>c.includes("เขต"))&&(j.some(c=>c.includes("CIF"))||j.some(c=>c.includes("ชื่อ"))))return i;
+}
+return 1;
+}
+function colIdx(head,names){for(let i=0;i<head.length;i++){const h=String(head[i]||"");for(const n of names){if(h.includes(n))return i;}}return -1;}
+function parseDue(v){
+if(v==null||v==="")return null;
+if(typeof v==="number"){ // excel date
+const d=XLSX.SSF?XLSX.SSF.parse_date_code(v):null;if(d)return new Date(d.y,d.m-1,d.d);
+return null;}
+let s=String(v).trim();
+// รองรับ 12/09/2569, 12-09-69, 2569-09-12
+let m=s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+if(m){let d=+m[1],mo=+m[2],y=+m[3];if(y<100)y+=2500;if(y>2400)y-=543;return new Date(y,mo-1,d);}
+m=s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+if(m){let y=+m[1];if(y>2400)y-=543;return new Date(y,+m[2]-1,+m[3]);}
+const d2=new Date(s);return isNaN(d2)?null:d2;
+}
+function fmt(n){return Number(n||0).toLocaleString("th-TH",{maximumFractionDigits:0});}
+function monthKey(d){return d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"): "ไม่ระบุ";}
+function monthTH(k){if(k==="ไม่ระบุ")return "ไม่ระบุ";const[y,m]=k.split("-").map(Number);const th=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];return th[m-1]+(y+543);}
+function keyOf(r){return (r.cif||"")+"|"+(r.contract||"");}
+
+function normalize(rows){
+const hi=findHeaderIdx(rows);HEAD=rows[hi].map(x=>String(x||"").trim());
+const iZone=colIdx(HEAD,["เขต"]),iName=colIdx(HEAD,["ชื่อ-สกุล","ชื่อ"]),iCif=colIdx(HEAD,["CIF"]),
+iCon=colIdx(HEAD,["เลขที่สัญญา","สัญญา"]),iOut=colIdx(HEAD,["หนี้คงเหลือ"]),
+iDue=colIdx(HEAD,["Next Due"]),iProv=colIdx(HEAD,["สำรอง","กันสำรอง"]),iAcc=colIdx(HEAD,["เกณฑ์การรับรู้","รับรู้รายได้"]),
+iBank=colIdx(HEAD,["GOOD","BAD","ธนาคาร"]);
+let out=[];
+for(let r=hi+1;r<rows.length;r++){
+const a=rows[r];if(!a||a.length<3)continue;
+// กรอง BAD BANK ถ้ามีคอลัมน์บอก
+if(iBank>=0){const b=String(a[iBank]||"");if(b.includes("BAD"))continue;}
+const cif=String(a[iCif]??"").trim();if(!cif)continue;
+const due= iDue>=0?parseDue(a[iDue]):null;
+out.push({zone:String(a[iZone]??"").trim(),name:String(a[iName]??"").trim(),cif,
+contract:String(a[iCon]??"").trim(),out:Number(String(a[iOut]??"0").replace(/,/g,""))||0,
+due,dueRaw:iDue>=0?String(a[iDue]??""):"",prov:String(a[iProv]??"").trim(),acc:String(a[iAcc]??"").trim()});
+}
+// รวมระดับ CIF (1 ลูกค้า 1 แถว)
+const m={};
+for(const x of out){if(!m[x.cif])m[x.cif]={...x,contracts:[],total:x.out,earliest:x.due};
+else{m[x.cif].contracts.push(x.contract);m[x.cif].total+=x.out;if(x.due&&(!m[x.cif].earliest||x.due<m[x.cif].earliest))m[x.cif].earliest=x.due;}
+if(!m[x.cif].contracts.includes(x.contract)&&x.contract)m[x.cif].contracts.push(x.contract);}
+return Object.values(m);
+}
+
+function refreshFilters(){
+const months=[...new Set(ROWS.map(r=>monthKey(r.earliest||r.due)))].sort();
+const ms=document.getElementById("monthSel");ms.innerHTML="";
+months.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=monthTH(k);ms.appendChild(o);});
+// เลือกเดือนปัจจุบันก่อน ถ้าไม่มีให้เอาตัวแรก
+const now=new Date();const nk=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+if(months.includes(nk))ms.value=nk;
+const zones=["ทั้งหมด",...new Set(ROWS.map(r=>String(r.zone||"ไม่ระบุ")))];
+const zs=document.getElementById("zoneSel");zs.innerHTML="";
+zones.forEach(z=>{const o=document.createElement("option");o.value=z;o.textContent=z==="ทั้งหมด"?"ทุกเขต":("เขต "+z+" · "+ownerOf(z));zs.appendChild(o);});
+const qz=document.getElementById("qzone");qz.innerHTML="";
+zones.forEach(z=>{const b=document.createElement("button");b.textContent=z==="ทั้งหมด"?"ทุกเขต":"เขต "+z;b.dataset.z=z;
+if(z==="ทั้งหมด")b.classList.add("on");
+b.onclick=()=>{document.getElementById("zoneSel").value=z;qz.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");render();};
+qz.appendChild(b);});
+}
+function filtered(){
+const mk=document.getElementById("monthSel").value,zk=document.getElementById("zoneSel").value,q=document.getElementById("q").value.trim();
+const stSel=document.getElementById("statusSel")?document.getElementById("statusSel").value:"ทั้งหมด";
+const sortSel=document.getElementById("sortSel")?document.getElementById("sortSel").value:"amt";
+const store=getStore();
+let F=ROWS.filter(r=>{
+if(mk&&monthKey(r.earliest||r.due)!==mk)return false;
+if(zk&&zk!=="ทั้งหมด"&&String(r.zone)!==zk)return false;
+if(q&&!(r.name.includes(q)||r.cif.includes(q)||(r.contracts.join(",").includes(q))))return false;
+const st=(store[keyOf({cif:r.cif,contract:r.contracts[0]})]||{}).st||"ยังไม่ตาม";
+if(stSel==="ยังไม่ตาม"&&st!=="ยังไม่ตาม")return false;
+if(stSel==="เสร็จ"&&st!=="เสร็จ")return false;
+if(stSel==="กำลังตาม"&&(st==="ยังไม่ตาม"||st==="เสร็จ"))return false;
+return true;});
+if(sortSel==="amt")F.sort((a,b)=>b.total-a.total);else F.sort((a,b)=>String(a.name).localeCompare(String(b.name),"th"));
+return F;}
+function baseFiltered(){
+const mk=document.getElementById("monthSel").value,zk=document.getElementById("zoneSel").value;
+return ROWS.filter(r=>{
+if(mk&&monthKey(r.earliest||r.due)!==mk)return false;
+if(zk&&zk!=="ทั้งหมด"&&String(r.zone)!==zk)return false;
+return true;});}
+function render(){
+const F=filtered(),store=getStore();
+const B=baseFiltered();
+const isSt=(r,s)=>((store[keyOf({cif:r.cif,contract:r.contracts[0]})]||{}).st||"ยังไม่ตาม")===s;
+const doneB=B.filter(r=>isSt(r,"เสร็จ")),notB=B.filter(r=>!isSt(r,"เสร็จ"));
+const amtB=B.reduce((s,r)=>s+r.total,0),amtD=doneB.reduce((s,r)=>s+r.total,0),amtN=notB.reduce((s,r)=>s+r.total,0);
+document.getElementById("sumBoxes").style.display="grid";
+document.getElementById("c1").textContent=F.length+" ราย";
+document.getElementById("c1b").textContent=fmt(amtB)+" บาท · เดือน "+monthTH(document.getElementById("monthSel").value);
+document.getElementById("c3").textContent=doneB.length+" ราย";
+document.getElementById("c3b").textContent=fmt(amtD)+" บาท · "+(amtB?Math.round(amtD/amtB*100):0)+"% ของยอด";
+document.getElementById("c2").textContent=notB.length+" ราย";
+document.getElementById("c2b").textContent=fmt(amtN)+" บาท ต้องตามต่อ";
+const sb=document.getElementById("stickyBar");
+if(sb)sb.innerHTML=`🔔 ยังไม่ตาม <b>${notB.length} ราย ${fmt(amtN)} บาท</b> · ✅ แล้ว ${doneB.length} ราย`;
+// zone table — โชว์ค้างแยกตามเขต
+const by={};B.forEach(r=>{const z=r.zone||"ไม่ระบุ";by[z]=by[z]||{n:0,amt:0,done:0,amtD:0};by[z].n++;by[z].amt+=r.total;if(isSt(r,"เสร็จ")){by[z].done++;by[z].amtD+=r.total;}});
+let h="<table><tr><th>เขต/เจ้าของ</th><th>ทั้งหมด</th><th>✅ แล้ว</th><th>🔔 ยังไม่ตาม</th></tr>";
+Object.keys(by).sort().forEach(z=>{const left=by[z].n-by[z].done,leftAmt=by[z].amt-by[z].amtD;
+h+=`<tr><td class="zone">เขต ${z}<br><small>${ownerOf(z)}</small></td><td>${by[z].n} ราย<br><small>${fmt(by[z].amt)}</small></td><td>${by[z].done} ราย<br><small>${fmt(by[z].amtD)}</small></td><td><b>${left} ราย</b><br><small>${fmt(leftAmt)} บาท</small></td></tr>`;});
+document.getElementById("zoneCard").style.display="block";
+document.getElementById("zoneTable").innerHTML=h+"</table>";
+// list
+let L="";
+F.slice(0,300).forEach(r=>{
+const k=keyOf({cif:r.cif,contract:r.contracts[0]});const sv=store[k]||{st:"ยังไม่ตาม",note:""};
+const due=r.earliest?r.earliest.toLocaleDateString("th-TH"):"ไม่ระบุ";
+L+=`<div class="card" style="margin:8px 0"><b>${r.name||"-"}</b> <span class="st ${sv.st==="เสร็จ"?"done":sv.st==="ยังไม่ตาม"?"wait":"doing"}">${sv.st}</span><br><small>CIF ${r.cif} · เขต ${r.zone} (${ownerOf(r.zone)}) · Next Due ${due}<br>หนี้คงเหลือ ${fmt(r.total)} บาท · สัญญา ${r.contracts.join(", ")||"-"}</small><div class="rowbtns">${["ยังไม่ตาม","โทรแล้ว","นัดแล้ว","ลงพื้นที่","ส่งบริหารหนี้","เสร็จ"].map(s=>`<button data-k="${k}" data-s="${s}">${s}</button>`).join("")}</div><input data-n="${k}" value="${(sv.note||"").replace(/"/g,"&quot;")}" placeholder="หมายเหตุ เช่น ขาดคนค้ำ 1 คน นัด 25 ก.ย."></div>`;
+});
+document.getElementById("listCard").style.display="block";
+document.getElementById("list").innerHTML=L||"<p class='hint'>ไม่พบรายชื่อตามเงื่อนไขค่ะ</p>";
+document.querySelectorAll("#list button").forEach(b=>b.onclick=()=>{const s=getStore();s[b.dataset.k]={st:b.dataset.s,note:(s[b.dataset.k]||{}).note||""};setStore(s);render();});
+document.querySelectorAll("#list input").forEach(i=>i.onchange=()=>{const s=getStore();s[i.dataset.n]={st:(s[i.dataset.n]||{}).st||"ยังไม่ตาม",note:i.value};setStore(s);});
+}
+["monthSel","zoneSel","statusSel","sortSel"].forEach(id=>{const el=document.getElementById(id);if(el)el.onchange=render;});
+document.getElementById("q").oninput=render;
+document.getElementById("file").onchange=e=>{
+const f=e.target.files[0];if(!f)return;
+document.getElementById("fileinfo").textContent="กำลังอ่าน "+f.name+" ...";
+const rd=new FileReader();
+rd.onload=ev=>{try{
+const wb=XLSX.read(ev.target.result,{type:"array"});
+const ws=wb.Sheets[wb.SheetNames[0]];
+const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+ROWS=normalize(rows);
+document.getElementById("fileinfo").textContent="โหลดแล้ว "+ROWS.length+" ราย (1 CIF=1 ราย) จาก "+f.name;
+document.getElementById("filterCard").style.display="block";
+refreshFilters();render();
+}catch(err){document.getElementById("fileinfo").textContent="อ่านไฟล์ไม่ได้: "+err.message+" — ลองส่งไฟล์ให้คาร่าดูหน่อยค่ะ";}};
+rd.readAsArrayBuffer(f);
+};
+document.getElementById("demoBtn").onclick=()=>{
+const N=new Date();
+ROWS=[
+{cif:"100001",name:"นายสมชาย ใจดี",zone:"1",contract:"001",total:250000,earliest:N,contracts:["001"],prov:"1",acc:"AA"},
+{cif:"100002",name:"นางสมศรี ขยัน",zone:"1",contract:"002",total:120000,earliest:N,contracts:["002"],prov:"1",acc:"AA"},
+{cif:"200001",name:"นายมานะ อดทน",zone:"2",contract:"003",total:480000,earliest:N,contracts:["003"],prov:"1",acc:"AA"},
+{cif:"200002",name:"นางมานี มีใจ",zone:"5",contract:"004",total:95000,earliest:N,contracts:["004"],prov:"1",acc:"AA"},
+{cif:"300001",name:"นายวีระ สู้ชีวิต",zone:"3",contract:"005",total:150000,earliest:N,contracts:["005"],prov:"100",acc:"NA"},
+{cif:"300002",name:"นางวีณา พอเพียง",zone:"3",contract:"006",total:320000,earliest:N,contracts:["006"],prov:"1",acc:"AA"},
+{cif:"400001",name:"นายประเสริฐ รุ่งเรือง",zone:"4",contract:"007",total:210000,earliest:N,contracts:["007"],prov:"1",acc:"AA"},
+{cif:"400002",name:"นางประภา รุ่งแจ้ง",zone:"4",contract:"008",total:175000,earliest:N,contracts:["008"],prov:"100",acc:"NA"},
+{cif:"76003001",name:"บจก. รายใหญ่ วังท่าช้าง",zone:"76003",contract:"009",total:2500000,earliest:N,contracts:["009"],prov:"100",acc:"NA"}];
+document.getElementById("fileinfo").textContent="โหมดตัวอย่าง 9 ราย ครบทุกเขต — อัพไฟล์จริงทับได้เลยค่ะ";
+document.getElementById("filterCard").style.display="block";refreshFilters();render();
+};
+document.getElementById("weekBtn").onclick=()=>{
+const B=baseFiltered(),store=getStore();
+const isSt=(r,s)=>((store[keyOf({cif:r.cif,contract:r.contracts[0]})]||{}).st||"ยังไม่ตาม")===s;
+const mk=monthTH(document.getElementById("monthSel").value);
+const zk=document.getElementById("zoneSel").value;
+const done=B.filter(r=>isSt(r,"เสร็จ")),not=B.filter(r=>!isSt(r,"เสร็จ"));
+const amtB=B.reduce((s,r)=>s+r.total,0),amtD=done.reduce((s,r)=>s+r.total,0),amtN=not.reduce((s,r)=>s+r.total,0);
+let txt=`สรุปติดตามหนี้ ${mk} ${zk==="ทั้งหมด"?"ทุกเขต":"เขต "+zk}\nทั้งหมด ${B.length} ราย (${fmt(amtB)} บาท)\n✅ ติดตามแล้ว ${done.length} ราย (${fmt(amtD)} บาท)\n🔔 ยังไม่ตาม ${not.length} ราย (${fmt(amtN)} บาท)\n`;
+const by={};not.forEach(r=>{const z=r.zone||"?";by[z]=by[z]||{n:0,amt:0};by[z].n++;by[z].amt+=r.total;});
+for(const z of Object.keys(by).sort()){txt+=`— เขต ${z} (${ownerOf(z)}) ค้าง ${by[z].n} ราย ${fmt(by[z].amt)} บาท\n`;}
+const lack=B.filter(r=>((store[keyOf({cif:r.cif,contract:r.contracts[0]})]||{}).note||"").includes("ค้ำ")||((store[keyOf({cif:r.cif,contract:r.contracts[0]})]||{}).note||"").includes("ขาด"));
+if(lack.length)txt+=`ติดขาดเอกสาร/คนค้ำ ${lack.length} ราย: `+lack.slice(0,5).map(r=>r.name).join(", ")+(lack.length>5?"...":"")+"\n";
+document.getElementById("weekOut").value=txt;
+document.getElementById("weekOut").select();document.execCommand("copy");
+};
+document.getElementById("csvBtn").onclick=()=>{
+const F=filtered();let s="CIF,ชื่อ,เขต,เจ้าของ,NextDue,หนี้คงเหลือ,สถานะ,หมายเหตุ\n";
+const store=getStore();
+F.forEach(r=>{const k=keyOf({cif:r.cif,contract:r.contracts[0]});const sv=store[k]||{};s+=`"${r.cif}","${r.name}","${r.zone}","${ownerOf(r.zone)}","${r.earliest?r.earliest.toLocaleDateString("th-TH"):""}",${r.total},"${sv.st||""}","${(sv.note||"").replace(/"/g,"'")}"\n`;});
+const b=new Blob(["\ufeff"+s],{type:"text/csv"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="week-due.csv";a.click();
+};
+// PIN wiring
+document.getElementById("pinBtn").onclick=()=>unlockIfOk(document.getElementById("pinInput").value);
+document.getElementById("pinInput").addEventListener("keydown",e=>{if(e.key==="Enter")unlockIfOk(e.target.value);});
+try{if(sessionStorage.getItem("debtA_pin")==="1"){document.getElementById("pinGate").style.display="none";pullShared();setInterval(pullShared,3000);}}catch(e){}
+// ปุ่มตัวอักษร 3 ระดับ — จำค่าไว้
+function setFont(m){document.body.classList.remove("text-lg");if(m==="L")document.body.classList.add("text-lg");if(m==="S")document.body.style.fontSize="16px";else document.body.style.fontSize="";try{localStorage.setItem("debtA_font",m)}catch(e){}}
+const fS=document.getElementById("fontS"),fM=document.getElementById("fontM"),fL=document.getElementById("fontL");
+if(fS)fS.onclick=()=>setFont("S");if(fM)fM.onclick=()=>setFont("M");if(fL)fL.onclick=()=>setFont("L");
+try{const fm=localStorage.getItem("debtA_font");if(fm)setFont(fm);}catch(e){}
+</script>
+</body>
+</html>
