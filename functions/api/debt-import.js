@@ -424,15 +424,17 @@ export async function onRequestPost(context) {
     // ล้างข้อมูลหนี้ของ CIF ที่ไม่อยู่ในไฟล์ใหม่ (เฉพาะที่ยังมีหนี้ค้าง — ล้างแล้วข้าม)
     // ⛔ ห้ามล้างข้ามสาขา: ไฟล์แต่ละรอบเป็นของสาขาเดียว → ล้างเฉพาะ CIF ที่ branch ตรงกับในไฟล์
     let cleared = 0;
+    const cifSet = new Set(cifList);
+    const fileBranches = new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
+    const debtBranchOf = new Map(); // cif → แถว D1 (สาขา+สถานะล้างแล้ว) — ใช้ทั้งล้าง D1 และรวมคลัง KV
     if (cifList.length > 0) {
       try {
-        const cifSet = new Set(cifList);
-        const fileBranches = new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
         const existingDebtRows = await env.BFR_DB.prepare(
           `SELECT cif, branch, debt_class, debt_balance, reserve_pct, recognition,
                   overdue_15m, next_due, subsidy, commitment_date
            FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
         ).all();
+        (existingDebtRows.results || []).forEach(r => debtBranchOf.set(String(r.cif), r));
         const toClear = (existingDebtRows.results || [])
           .filter(r => !cifSet.has(r.cif) && (fileBranches.size === 0 || fileBranches.has((r.branch || '').trim())) && !isDebtClean(r))
           .map(r => r.cif);
@@ -465,6 +467,27 @@ export async function onRequestPost(context) {
     const estimatedWrites = statements.length;
     const quota = await getWriteBudget(env);
 
+    // รวมคลังการ์ดหนี้ (KV debt:data) แบบเดียวกับกฎล้าง D1 — ห้ามเขียนทับทั้งก้อน
+    // (17 ต.ค.69: ไฟล์ 145 ทับคลังทั้งก้อน → การ์ด 854 หายเกลี้ยง ทั้งที่ D1 ยังอยู่)
+    let kvPrev = [];
+    if (env.BFR_KV) {
+      try { kvPrev = JSON.parse((await env.BFR_KV.get('debt:data')) || '[]'); } catch (e) { kvPrev = []; }
+    }
+    const kvMerged = new Map();
+    for (const r of kvPrev) if (r && r.cif != null) kvMerged.set(String(r.cif), r);
+    for (const r of debtRows) kvMerged.set(String(r.cif), r);
+    let kvDropped = 0;
+    for (const cif of [...kvMerged.keys()]) {
+      if (cifSet.has(cif)) continue;
+      const d = debtBranchOf.get(cif);
+      const b = ((d && d.branch) || '').trim();
+      if (fileBranches.size === 0 || fileBranches.has(b)) {
+        if (!d || !isDebtClean(d)) { kvMerged.delete(cif); kvDropped++; }
+      }
+    }
+    const kvFinal = [...kvMerged.values()];
+    const kvKept = kvFinal.length - debtRows.length;
+
     // โหมดวิเคราะห์: ตอบอย่างเดียว ไม่เขียน D1/KV ไม่นับโควต้า
     if (dryrun) {
       const fieldTh = {};
@@ -477,6 +500,7 @@ export async function onRequestPost(context) {
         will_add: added,
         will_skip_identical: skipped,
         will_clear: cleared,
+        kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped,
         field_diff: fieldTh,
         estimated_writes: estimatedWrites,
         quota,
@@ -502,11 +526,11 @@ export async function onRequestPost(context) {
     await trackWrites(env, estimatedWrites, 'debt-import');
     const quotaAfter = await getWriteBudget(env);
 
-    // เขียน debt-data.json ฉบับใหม่ลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด
+    // เขียนคลังการ์ดหนี้ฉบับรวมลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด (ครบทุกสาขา)
     let kvWritten = false;
     if (env.BFR_KV) {
       try {
-        await env.BFR_KV.put('debt:data', JSON.stringify(debtRows));
+        await env.BFR_KV.put('debt:data', JSON.stringify(kvFinal));
         await env.BFR_KV.put('debt:updated', now);
         kvWritten = true;
       } catch (e) {
@@ -522,6 +546,7 @@ export async function onRequestPost(context) {
       added,
       skipped_identical: skipped,
       cleared,
+      kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped,
       field_diff: Object.fromEntries(Object.entries(fieldDiff).map(([f, n]) => [FIELD_TH[f] || f, n])),
       estimated_writes: estimatedWrites,
       quota: quotaAfter,
