@@ -2674,7 +2674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const result = await Storage.reloadStaticDB();
         if (typeof Utils !== 'undefined') {
-          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย`);
+          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย` + (result.backfilled > 0 ? ` · เติมของเก่า ${result.backfilled} ราย` : ''));
         }
         // Re-render everything
         if (typeof Customers !== 'undefined') Customers.renderAll();

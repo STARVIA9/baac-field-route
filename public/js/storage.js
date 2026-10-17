@@ -113,10 +113,11 @@ const Storage = {
   // This replaces the old fragmented static customers-db.json + KV stores with
   // one D1-backed endpoint. Only records with lat/lng render as map markers.
   async importFromStaticDB() {
-    // Pull full customer list from D1 (single source of truth)
+    // Pull full customer list from D1 (single source of truth) — limit 10000
+    // ครอบ 9,132 รายทั้งหมด (ค่าเริ่มต้นเซิร์ฟเวอร์ให้แค่ 5,000 → ข้อมูลแหว่ง)
     let res;
     try {
-      res = await API.get('/api/customers');
+      res = await API.get('/api/customers?limit=10000');
     } catch (e) {
       console.warn('[Storage] importFromStaticDB: network error', e.message);
       throw new Error('ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้ — กรุณาตรวจสอบอินเทอร์เน็ต');
@@ -125,11 +126,12 @@ const Storage = {
     const db = res.customers || [];
 
     // Find existing CIFs to avoid duplicates
-    const existing = new Set(this.getActiveCustomers().map(c => c.cif).filter(Boolean));
-    const toImport = db.filter(r => r.cif && !existing.has(r.cif));
+    const byCif = new Map(this.getActiveCustomers().map(c => [c.cif, c]).filter(([k]) => k));
+    const toImport = db.filter(r => r.cif && !byCif.has(r.cif));
     const withGPS = toImport.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng)).length;
 
     // Build customer objects (lat/lng null-safe — non-GPS records stay searchable)
+    // branch/zone มาด้วยเสมอ — หน้าสรุปกรองสาขา/นับพิกัดต้องใช้ (17 ต.ค.69 เคยลืม → เกจนับได้ 0)
     const make = (r) => ({
       id: r.id || 'db_' + r.cif,
       cif: r.cif,
@@ -139,6 +141,8 @@ const Storage = {
       address: r.address || [r.extra?.moo && 'ม.' + r.extra.moo, r.extra?.tambon && 'ต.' + r.extra.tambon, r.extra?.amphoe && 'อ.' + r.extra.amphoe, r.extra?.province && 'จ.' + r.extra.province].filter(Boolean).join(' '),
       lat: r.lat ?? null,
       lng: r.lng ?? null,
+      branch: r.branch || '',
+      zone: r.zone || '',
       riskLevel: r.riskLevel || 'unclassified',
       debtType: r.debtType || null,
       createdAt: r.createdAt || new Date().toISOString(),
@@ -149,6 +153,22 @@ const Storage = {
 
     const list = this.getCustomers();
     for (const r of toImport) list.push(make(r));
+    // Backfill ของเดิมในเครื่อง: เติม branch/zone/lat/lng จากเซิร์ฟเวอร์ (server wins
+    // เฉพาะ 4 ช่องนี้ — ชื่อ/เบอร์ฝีมือคนแก้ไม่แตะ) ไม่งั้นเครื่องเก่าเห็นเลขค้าง
+    let backfilled = 0;
+    for (const r of db) {
+      if (!r.cif) continue;
+      const old = byCif.get(r.cif);
+      if (!old) continue;
+      if ((old.branch || '') !== (r.branch || '') || (old.zone || '') !== (r.zone || '') ||
+          (old.lat ?? null) !== (r.lat ?? null) || (old.lng ?? null) !== (r.lng ?? null)) {
+        old.branch = r.branch || '';
+        old.zone = r.zone || '';
+        old.lat = r.lat ?? null;
+        old.lng = r.lng ?? null;
+        backfilled++;
+      }
+    }
     this.saveCustomers(list);
 
     // Apply any server GPS overlay updates (kept for live marker refresh)
@@ -159,7 +179,7 @@ const Storage = {
       // Non-fatal — import succeeded, overlay can be retried later
     }
 
-    return { imported: toImport.length, withGPS, skipped: existing.size, total: db.length };
+    return { imported: toImport.length, withGPS, skipped: byCif.size, backfilled, total: db.length };
   },
 
   // ===== Apply bulk GPS overlay (admin file uploads) — SERVER-AUTHORITATIVE =====
@@ -842,7 +862,7 @@ const Storage = {
       debtTotal = DebtDB._byCif ? DebtDB._byCif.size : 0;
     }
 
-    return { removed, imported: result?.imported || 0, total: result?.total || 0, debt: debtTotal };
+    return { removed, imported: result?.imported || 0, backfilled: result?.backfilled || 0, total: result?.total || 0, debt: debtTotal };
   },
 };
 
