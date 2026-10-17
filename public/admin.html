@@ -16,10 +16,8 @@
       <h1>🔧 จัดการข้อมูลลูกค้า</h1>
       <p>เข้าสู่ระบบด้วยบัญชี Admin เท่านั้น</p>
       <form id="login-form" autocomplete="off">
-        <label for="login-username">ชื่อผู้ใช้</label>
-        <input type="text" id="login-username" autocomplete="username" required>
-        <label for="login-password">รหัสผ่าน</label>
-        <input type="password" id="login-password" autocomplete="current-password" required>
+        <label for="login-pin">PIN แอดมิน</label>
+        <input type="password" id="login-pin" inputmode="numeric" autocomplete="off" placeholder="••••" required>
         <button type="submit">เข้าสู่ระบบ</button>
         <div class="admin-login-error" id="login-error"></div>
       </form>

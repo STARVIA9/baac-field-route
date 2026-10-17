@@ -103,12 +103,11 @@ const Admin = {
 
   async handleLogin(e) {
     e.preventDefault();
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
+    const pin = document.getElementById('login-pin').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
 
-    const ok = await Auth.login(username, password);
+    const ok = await Auth.loginPIN(pin);
     if (ok) {
       if (Auth.isAdmin()) this.showApp();
       else {
@@ -116,7 +115,7 @@ const Admin = {
         Auth.logout();
       }
     } else {
-      errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+      errEl.textContent = 'PIN ไม่ถูกต้อง';
     }
   },
 

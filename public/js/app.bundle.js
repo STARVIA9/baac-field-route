@@ -2700,7 +2700,7 @@ const App = {
   async init() {
     // attachEvents + version watcher MUST bind even before login resolves.
     // afterLogin is async (network/sync) and can be slow or throw — if we await
-    // it first, header/panel buttons (help/report/change-password/refresh/logout)
+    // it first, header/panel buttons (help/report/refresh/logout)
     // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
@@ -2714,14 +2714,12 @@ const App = {
         await this.afterLogin();
       } else {
         Auth.showLogin();
-        // เปิดมาเจอช่อง PIN เลย — พนักงานใช้ PIN เป็นหลัก ไม่ต้องกด "เข้าสู่ระบบด้วย PIN" ก่อน
+        // เปิดมาเจอช่อง PIN เลย (ทางเข้าเดียว — เลิกรหัสผ่าน 17 ต.ค.69)
         try {
           document.getElementById('login-screen').classList.add('login-mode');
           const pinForm = document.getElementById('pin-form');
           if (pinForm) {
             pinForm.classList.remove('hidden');
-            const toggleBtn = document.getElementById('toggle-pin-login');
-            if (toggleBtn) toggleBtn.textContent = 'ซ่อน PIN';
             // โหลดปุ่มรายชื่อพนักงาน (แตะชื่อ+PIN) — พังก็ช่าง ยังใส่ PIN แอดมินได้
             try { this.loadStaffGrid(); } catch {}
           }
@@ -3252,46 +3250,8 @@ const App = {
     const $ = (id) => document.getElementById(id);
     const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
 
-    // Login form (username/password)
-    on('login-form', 'submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('login-username').value.trim();
-      const password = document.getElementById('login-password').value;
-      const errEl = document.getElementById('login-error');
-      errEl.textContent = '';
-      const btn = document.getElementById('login-btn');
-      
-      // Show loading state
-      setLoginLoading(btn, true);
-      
-      const ok = await Auth.login(username, password);
-      if (ok) {
-        // Save remember me preference
-        saveRememberMe(username);
-        await this.afterLogin();
-      } else {
-        errEl.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
-      }
-      
-      // Hide loading state
-      setLoginLoading(btn, false);
-      btn.textContent = 'เข้าสู่ระบบ';
-    });
-
-    // PIN fallback toggle
-    on('toggle-pin-login', 'click', () => {
-      const pinForm = document.getElementById('pin-form');
-      const toggleBtn = document.getElementById('toggle-pin-login');
-      if (!pinForm || !toggleBtn) return;
-      pinForm.classList.toggle('hidden');
-      toggleBtn.textContent = pinForm.classList.contains('hidden') ? 'เข้าสู่ระบบด้วย PIN' : 'ซ่อน PIN';
-      if (!pinForm.classList.contains('hidden')) {
-        try { this.loadStaffGrid(); } catch {}
-        setTimeout(() => { const pi = document.getElementById('pin-input'); if (pi) pi.focus(); }, 100);
-      }
-    });
-
-    // PIN form — staff แตะชื่อ+PIN, ไม่เลือกชื่อ = PIN แอดมินเดิม
+    // PIN form — แตะชื่อ+PIN (ทางเข้าเดียว — เลิกรหัสผ่าน 17 ต.ค.69 ตามพ่อสั่ง)
+    // ไม่เลือกชื่อ = PIN แอดมิน
     on('pin-form', 'submit', async (e) => {
       e.preventDefault();
       const pin = document.getElementById('pin-input').value;
@@ -3317,14 +3277,13 @@ const App = {
 
     // Admin buttons
     on('admin-users-btn', 'click', () => this.openAdminUsers());
+    on('export-users-btn', 'click', () => this.exportUsersCSV());
+    on('close-staff-pin', 'click', () => { const m = document.getElementById('staff-pin-modal'); if (m) m.classList.add('hidden'); });
+    on('staff-pin-modal', 'click', (e) => { if (e.target.id === 'staff-pin-modal') e.target.classList.add('hidden'); });
+    on('staff-pin-form', 'submit', (e) => { e.preventDefault(); this.submitStaffPin(); });
     on('admin-data-btn', 'click', () => { window.location.href = '/admin.html'; });
 
-    // Change password
-    on('change-password-btn', 'click', () => this.openChangePassword());
-    on('close-change-password', 'click', () => { const m = document.getElementById('change-password-modal'); if (m) m.classList.add('hidden'); });
-    on('change-password-modal', 'click', (e) => { if (e.target.id === 'change-password-modal') e.target.classList.add('hidden'); });
-    on('change-password-form-standalone', 'submit', (e) => { e.preventDefault(); this.submitChangePasswordStandalone(); });
-    on('change-password-form', 'submit', (e) => { e.preventDefault(); this.submitChangePassword(); });
+    // (change-password ลบแล้ว 17 ต.ค.69 — เหลือ PIN อย่างเดียว)
 
     // === Sheet tabs ===
     document.querySelectorAll('.sheet-tab').forEach(t => {
@@ -4447,9 +4406,7 @@ const App = {
       };
     });
 
-    // สาย Admin PIN ไม่มีรหัสให้เปลี่ยน — ซ่อนแท็บรหัสผ่าน (16 ต.ค.69)
-    const pwTabBtn = modal.querySelector('.admin-tab[data-admin-tab="password"]');
-    if (pwTabBtn) pwTabBtn.style.display = (Auth.isPinSession() && Auth.isAdmin()) ? 'none' : '';
+    // (แท็บรหัสผ่านลบแล้ว 17 ต.ค.69 — เหลือ PIN อย่างเดียว)
 
     // Load branches into select (always refresh)
     const branchSelect = document.getElementById('new-branch');
@@ -4492,18 +4449,16 @@ const App = {
       const errEl = document.getElementById('admin-user-error');
       errEl.textContent = '';
       const username = document.getElementById('new-username').value.trim();
-      const password = document.getElementById('new-password').value;
       const pin = ((document.getElementById('new-staff-pin') || {}).value || '').trim();
       const displayName = document.getElementById('new-display-name').value.trim();
       const branch = document.getElementById('new-branch').value;
-      if (!password && !pin) {
-        errEl.textContent = 'ต้องใส่รหัสผ่านหรือ PIN อย่างใดอย่างหนึ่ง';
+      if (!pin) {
+        errEl.textContent = 'ต้องใส่ PIN (4-8 หลัก)';
         return;
       }
 
       try {
         const body = { username, displayName, branch };
-        if (password) body.password = password;
         if (pin) body.pin = pin;
         const res = await API.post('/api/admin/users', body);
         if (res.success) {
@@ -4925,16 +4880,22 @@ const App = {
     try {
       const res = await API.get('/api/admin/users');
       if (!res.success || !res.users.length) {
+        this._adminUsers = [];
+        const cnt = document.getElementById('admin-users-count');
+        if (cnt) cnt.textContent = '';
         listEl.innerHTML = '<p class="text-muted">ยังไม่มีผู้ใช้ — เพิ่มคนแรกด้านล่างเลย</p>';
         return;
       }
+      this._adminUsers = res.users;   // จำไว้ให้ปุ่ม export ใช้ (ไม่ยิง API ซ้ำ)
+      const cnt = document.getElementById('admin-users-count');
+      if (cnt) cnt.textContent = `ทั้งหมด ${res.users.length} คน`;
       listEl.innerHTML = res.users.map(u => `
         <div class="admin-user-card">
           <div class="admin-user-info">
             <span class="admin-user-name">${this.escapeHTML(u.displayName)}</span>
-            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'} · ${u.hasPin ? '🔑มี PIN' : '— ไม่มี PIN'}</span>
+            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'} · ${u.pin ? ('🔑PIN ' + this.escapeHTML(u.pin)) : (u.hasPin ? '🔑มี PIN (เก่า)' : '— ไม่มี PIN')}</span>
           </div>
-          ${u.role !== 'admin' ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.setStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🔑</button>` : ''}
+          ${u.role !== 'admin' ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.openStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}', '${u.pin || ''}')">🔑</button>` : ''}
           ${u.role !== 'admin' && u.hasPin ? `<button class="btn-icon-sm" title="ปิด login ด้วย PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🚫</button>` : ''}
           <button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>
         </div>
@@ -4942,6 +4903,45 @@ const App = {
     } catch (err) {
       listEl.innerHTML = `<p class="login-error">โหลดรายชื่อไม่สำเร็จ: ${err.message}</p>`;
     }
+  },
+
+  // ===== รายงานผู้ใช้ CSV (17 ต.ค.69 — พ่อสั่ง: ดูรายชื่อ+รหัสในเมนูจัดการระบบ) =====
+  // หมายเหตุ: เลข PIN จริง export ไม่ได้ (เก็บแบบ hash ทางเดียว ถอดกลับไม่ได้แม้แอดมิน)
+  // รายงานจึงบอกแค่ว่ามี/ไม่มี PIN + ตั้งใหม่ได้ทีละคนด้วยปุ่ม 🔑 ในการ์ด
+  _adminUsers: [],
+  buildUsersCSV(users) {
+    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [['Username', 'ชื่อที่แสดง', 'สาขา', 'สิทธิ์', 'PIN', 'มี PIN', 'สร้างเมื่อ']];
+    for (const u of (users || [])) {
+      rows.push([
+        u.username || '',
+        u.displayName || '',
+        u.branchName || u.branch || '',
+        u.role === 'admin' ? 'Admin' : 'User',
+        u.pin || '—',
+        u.hasPin ? 'มี' : 'ไม่มี',
+        u.createdAt || '-',
+      ]);
+    }
+    return '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n');
+  },
+  exportUsersCSV() {
+    const users = this._adminUsers || [];
+    if (!users.length) {
+      if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('ยังไม่มีรายชื่อผู้ใช้ให้ export', 'warn');
+      return;
+    }
+    const blob = new Blob([this.buildUsersCSV(users)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    const d = new Date();
+    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    a.href = URL.createObjectURL(blob);
+    a.download = `users-report-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📥 โหลดรายงาน ${users.length} คนแล้ว`);
   },
 
   // ===== Staff grid: แตะชื่อ + PIN (แผน B, แยกสาขาอัตโนมัติ) =====
@@ -5035,22 +5035,42 @@ const App = {
     }
   },
 
-  // ===== Admin: ตั้ง/ปิด PIN พนักงาน =====
-  async setStaffPin(id, name) {
-    const pin = prompt(`ตั้ง PIN ให้ "${name}" (ตัวเลข 4-8 หลัก):`, '');
-    if (pin === null) return;
-    if (!/^\d{4,8}$/.test(pin.trim())) { Utils.toast('PIN ต้องเป็นตัวเลข 4-8 หลัก', 'error'); return; }
+  // ===== Admin: ตั้ง/ปิด PIN พนักงาน (ฟอร์ม 17 ต.ค.69 — เห็นเลขเดิมก่อนเปลี่ยน กันพิมพ์ผิด) =====
+  _staffPinId: null,
+  openStaffPin(id, name, currentPin) {
+    this._staffPinId = id;
+    document.getElementById('staff-pin-name').textContent = name;
+    document.getElementById('staff-pin-current').textContent =
+      currentPin ? `PIN ปัจจุบัน: ${currentPin}` : 'ยังไม่มี PIN';
+    document.getElementById('staff-pin-new').value = '';
+    document.getElementById('staff-pin-confirm').value = '';
+    document.getElementById('staff-pin-error').textContent = '';
+    document.getElementById('staff-pin-modal').classList.remove('hidden');
+    setTimeout(() => { const el = document.getElementById('staff-pin-new'); if (el) el.focus(); }, 100);
+  },
+  async submitStaffPin() {
+    const errEl = document.getElementById('staff-pin-error');
+    errEl.textContent = '';
+    const p1 = document.getElementById('staff-pin-new').value.trim();
+    const p2 = document.getElementById('staff-pin-confirm').value.trim();
+    if (!/^\d{4,8}$/.test(p1)) { errEl.textContent = 'PIN ต้องเป็นตัวเลข 4-8 หลัก'; return; }
+    if (p1 !== p2) { errEl.textContent = 'PIN สองช่องไม่ตรงกัน'; return; }
     try {
-      const res = await API.put('/api/admin/users', { id, pin: pin.trim() });
-      if (res.success) { Utils.toast(`🔑 ตั้ง PIN ให้ "${name}" แล้ว`); await this.loadAdminUsers(); }
-      else Utils.toast(res.error || 'ตั้ง PIN ไม่สำเร็จ', 'error');
+      const res = await API.put('/api/admin/users', { id: this._staffPinId, pin: p1 });
+      if (res.success) {
+        Utils.toast(`🔑 ตั้ง PIN ใหม่แล้ว: ${p1}`);
+        document.getElementById('staff-pin-modal').classList.add('hidden');
+        await this.loadAdminUsers();
+      } else {
+        errEl.textContent = res.error || 'ตั้ง PIN ไม่สำเร็จ';
+      }
     } catch (err) {
-      Utils.toast('ตั้ง PIN ไม่สำเร็จ: ' + err.message, 'error');
+      errEl.textContent = err.message || 'ตั้ง PIN ไม่สำเร็จ';
     }
   },
 
   async clearStaffPin(id, name) {
-    if (!confirm(`ปิด login ด้วย PIN ของ "${name}"? (ยังเข้าด้วยรหัสผ่านได้ถ้ามี)`)) return;
+    if (!confirm(`ปิด login ด้วย PIN ของ "${name}"?`)) return;
     try {
       const res = await API.put('/api/admin/users', { id, clearPin: true });
       if (res.success) { Utils.toast(`ปิด PIN ของ "${name}" แล้ว`); await this.loadAdminUsers(); }
@@ -5085,135 +5105,6 @@ const App = {
     }
   },
 
-  // ===== Change Password (self-service for all users) =====
-  openChangePassword() {
-    const modal = document.getElementById('change-password-modal');
-    document.getElementById('change-password-form-standalone').reset();
-    document.getElementById('cp-error-standalone').textContent = '';
-    document.getElementById('cp-success-standalone').style.display = 'none';
-    const u = Auth.getUser();
-    // Admin PIN ไม่มีรหัสให้เปลี่ยน (กัน session เก่าที่ยังเห็นปุ่ม) (16 ต.ค.69)
-    if (u && Auth.isPinSession() && u.role === 'admin') {
-      document.getElementById('cp-error-standalone').textContent = 'บัญชีนี้เข้าใช้งานด้วย PIN — ไม่มีรหัสผ่านให้เปลี่ยน (เปลี่ยน PIN ได้ที่หน้าจัดการ)';
-      modal.classList.remove('hidden');
-      return;
-    }
-    // โหมดตั้งรหัสครั้งแรก (staff สาย PIN ที่ยังไม่มีรหัส) — ซ่อนช่องรหัสเดิม (16 ต.ค.69)
-    const firstSet = !!(u && u.hasPassword === false);
-    document.getElementById('cp-current-row-standalone').style.display = firstSet ? 'none' : '';
-    document.getElementById('cp-current-standalone').required = !firstSet;
-    document.getElementById('cp-modal-title').textContent = firstSet ? '🔑 ตั้งรหัสผ่านครั้งแรก' : '🔑 เปลี่ยนรหัสผ่าน';
-    document.getElementById('btn-change-password-standalone').textContent = firstSet ? 'ตั้งรหัสผ่าน' : 'เปลี่ยนรหัสผ่าน';
-    modal.classList.remove('hidden');
-  },
-
-  async submitChangePassword() {
-    const errEl = document.getElementById('cp-error');
-    const successEl = document.getElementById('cp-success');
-    errEl.textContent = '';
-    successEl.style.display = 'none';
-
-    // สาย PIN อย่างเดียวไม่มีรหัสให้เปลี่ยน (กัน session เก่าที่ยังเห็นฟอร์ม) (16 ต.ค.69)
-    const me = Auth.getUser();
-    if (me && me.hasPassword === false) {
-      errEl.textContent = 'บัญชีนี้เข้าใช้งานด้วย PIN — ไม่มีรหัสผ่านให้เปลี่ยน';
-      return;
-    }
-
-    const currentPassword = document.getElementById('cp-current').value;
-    const newPassword = document.getElementById('cp-new').value;
-    const confirmPassword = document.getElementById('cp-confirm').value;
-
-    if (newPassword !== confirmPassword) {
-      errEl.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน';
-      return;
-    }
-    if (newPassword.length < 4) {
-      errEl.textContent = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร';
-      return;
-    }
-
-    const btn = document.getElementById('btn-change-password');
-    btn.disabled = true;
-    btn.textContent = 'กำลังเปลี่ยน...';
-
-    try {
-      // postRaw เพื่อเอาข้อความ error ภาษาไทยจากเซิร์ฟเวอร์มาโชว์ (API.post ให้แค่ "HTTP 400")
-      const res = await API.postRaw('/api/change-password', { currentPassword, newPassword });
-      if (res.ok && res.data && res.data.success) {
-        successEl.textContent = 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
-        successEl.style.display = 'block';
-        document.getElementById('cp-current').value = '';
-        document.getElementById('cp-new').value = '';
-        document.getElementById('cp-confirm').value = '';
-        Utils.toast('🔑 เปลี่ยนรหัสผ่านสำเร็จ');
-        if (res.data.relogin) this._afterPasswordChanged();
-      } else {
-        errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
-      }
-    } catch (err) {
-      errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'เปลี่ยนรหัสผ่าน';
-    }
-  },
-
-  // เปลี่ยนรหัสแล้วกุญแจเก่าใช้ต่อไม่ได้ — บังคับ login ใหม่ (16 ต.ค.69)
-  _afterPasswordChanged() {
-    Utils.toast('🔑 กรุณาเข้าสู่ระบบใหม่', 'warn');
-    setTimeout(() => Auth.logout(), 1500);
-  },
-
-  // Standalone change password (for non-admin users via header button)
-  async submitChangePasswordStandalone() {
-    const errEl = document.getElementById('cp-error-standalone');
-    const successEl = document.getElementById('cp-success-standalone');
-    errEl.textContent = '';
-    successEl.style.display = 'none';
-
-    // โหมดตั้งรหัสครั้งแรก: ไม่ถามรหัสเดิม ส่งแค่รหัสใหม่ (16 ต.ค.69)
-    const firstSet = !!(Auth.getUser() && Auth.getUser().hasPassword === false);
-    const currentPassword = document.getElementById('cp-current-standalone').value;
-    const newPassword = document.getElementById('cp-new-standalone').value;
-    const confirmPassword = document.getElementById('cp-confirm-standalone').value;
-
-    if (newPassword !== confirmPassword) {
-      errEl.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน';
-      return;
-    }
-    if (newPassword.length < 4) {
-      errEl.textContent = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร';
-      return;
-    }
-
-    const btn = document.getElementById('btn-change-password-standalone');
-    const btnLabel = firstSet ? 'ตั้งรหัสผ่าน' : 'เปลี่ยนรหัสผ่าน';
-    btn.disabled = true;
-    btn.textContent = 'กำลังเปลี่ยน...';
-
-    try {
-      // postRaw เพื่อเอาข้อความ error ภาษาไทยจากเซิร์ฟเวอร์มาโชว์ (API.post ให้แค่ "HTTP 400")
-      const body = firstSet ? { newPassword } : { currentPassword, newPassword };
-      const res = await API.postRaw('/api/change-password', body);
-      if (res.ok && res.data && res.data.success) {
-        successEl.textContent = firstSet ? 'ตั้งรหัสผ่านสำเร็จ ✅' : 'เปลี่ยนรหัสผ่านสำเร็จ ✅';
-        successEl.style.display = 'block';
-        document.getElementById('cp-current-standalone').value = '';
-        document.getElementById('cp-new-standalone').value = '';
-        document.getElementById('cp-confirm-standalone').value = '';
-        Utils.toast(firstSet ? '🔑 ตั้งรหัสผ่านสำเร็จ' : '🔑 เปลี่ยนรหัสผ่านสำเร็จ');
-        if (res.data.relogin) this._afterPasswordChanged();
-      } else {
-        errEl.textContent = (res.data && res.data.error) || `เปลี่ยนรหัสไม่สำเร็จ (${res.status})`;
-      }
-    } catch (err) {
-      errEl.textContent = err.message || 'เปลี่ยนรหัสไม่สำเร็จ';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = btnLabel;
-    }
-  },
 
   // ===== Admin: Load branch list =====
   async loadAdminBranches() {

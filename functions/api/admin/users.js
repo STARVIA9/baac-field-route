@@ -6,6 +6,7 @@
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
+import { encryptPin, decryptPin } from '../../_lib/pin-vault.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../../_lib/branches.js';
 
 const KV_KEY = 'users:all';
@@ -55,9 +56,15 @@ export async function onRequestGet(context) {
   const branchList = await loadBranches(env.BFR_KV);
 
   // Return safe view (no password hashes)
-  const safeUsers = users
-    .filter(u => !u.deleted)
-    .map(u => ({
+  // + ถอด PIN จากตู้ (pinEnc) ให้แอดมินดูได้ — ของเก่าที่ยังไม่มีซองได้ null (17 ต.ค.69)
+  const vault = (() => { try { return jwtSecret(env, request); } catch { return null; } })();
+  const safeUsers = [];
+  for (const u of users.filter(x => !x.deleted)) {
+    let pin = null;
+    if (u.pinEnc && vault) {
+      try { pin = await decryptPin(u.pinEnc, vault); } catch { pin = null; }
+    }
+    safeUsers.push({
       id: u.id,
       username: u.username,
       displayName: u.displayName,
@@ -65,8 +72,10 @@ export async function onRequestGet(context) {
       branch: u.branch,
       branchName: (branchList.find(b => b.code === u.branch) || {}).name || u.branch,
       hasPin: !!u.pinHash,
+      pin,
       createdAt: u.createdAt,
-    }));
+    });
+  }
 
   return json({ success: true, users: safeUsers });
 }
@@ -83,17 +92,14 @@ export async function onRequestPost(context) {
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { username, password, pin, displayName, role, branch } = body;
+  const { username, pin, displayName, role, branch } = body;
 
-  // Validate — ต้องมี password หรือ pin อย่างใดอย่างหนึ่ง (staff ใช้ pin, admin ใช้ password)
-  if (!username || !displayName || !branch || (!password && !pin)) {
-    return json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบ (username, displayName, branch + password หรือ PIN)' }, 400);
+  // PIN อย่างเดียว (17 ต.ค.69 — เลิกรหัสผ่านตามพ่อสั่ง)
+  if (!username || !displayName || !branch || !pin) {
+    return json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบ (username, displayName, branch + PIN)' }, 400);
   }
   if (username.length < 3) {
     return json({ success: false, error: 'username ต้องมีอย่างน้อย 3 ตัวอักษร' }, 400);
-  }
-  if (password && password.length < 4) {
-    return json({ success: false, error: 'password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400);
   }
   // ponytail: staff PIN = ตัวเลข 4-8 หลักเท่านั้น (กดง่ายบนมือถือ)
   if (pin && !/^\d{4,8}$/.test(pin)) {
@@ -122,15 +128,23 @@ export async function onRequestPost(context) {
     }
   }
 
-  // Hash password และ/หรือ PIN
-  const passwordHash = password ? await hashPassword(password) : null;
+  // Hash PIN อย่างเดียว (17 ต.ค.69 — เลิกรหัสผ่าน)
+  // + เก็บซองเข้าตู้ให้แอดมินดูได้ (ถอดไม่ได้ไม่เป็นไร login ยังใช้ hash)
   const pinHash = pin ? await hashPassword(pin) : null;
+  let pinEnc = null;
+  if (pin) {
+    try {
+      const vault = jwtSecret(env, request);
+      if (vault) pinEnc = await encryptPin(pin, vault);
+    } catch {}
+  }
 
   const newUser = {
     id: genId(),
     username,
-    password: passwordHash,
+    password: null,
     pinHash,
+    pinEnc,
     pwdVersion: 1, // เปลี่ยนรหัส/PIN → bump → กุญแจเก่าต่ออายุไม่ได้ (16 ต.ค.69)
     displayName,
     role: role === 'admin' ? 'admin' : 'user',
@@ -160,7 +174,7 @@ export async function onRequestPut(context) {
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { id, password, pin, clearPin, displayName, role, branch } = body;
+  const { id, pin, clearPin, displayName, role, branch } = body;
   if (!id) return json({ success: false, error: 'ต้องระบุ user id' }, 400);
 
   const raw = await env.BFR_KV.get(KV_KEY);
@@ -175,10 +189,7 @@ export async function onRequestPut(context) {
     const branchList = await loadBranches(env.BFR_KV);
     if (branchList.find(b => b.code === branch)) users[idx].branch = branch;
   }
-  if (password && password.length >= 4) {
-    users[idx].password = await hashPassword(password);
-    users[idx].pwdVersion = (users[idx].pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
-  }
+  // (รหัสผ่านเลิกใช้แล้ว 17 ต.ค.69 — ส่ง password มาถูกเฉย)
   // ตั้ง/เปลี่ยน PIN staff — เช็คซ้ำยกเว้นตัวเอง, clearPin=true = ปิด login ด้วย PIN
   if (pin) {
     if (!/^\d{4,8}$/.test(pin)) return json({ success: false, error: 'PIN ต้องเป็นตัวเลข 4-8 หลัก' }, 400);
@@ -189,9 +200,14 @@ export async function onRequestPut(context) {
       }
     }
     users[idx].pinHash = await hashPassword(pin);
+    try {
+      const vault = jwtSecret(env, request);
+      users[idx].pinEnc = vault ? await encryptPin(pin, vault) : null;
+    } catch { users[idx].pinEnc = null; }
     users[idx].pwdVersion = (users[idx].pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
   } else if (clearPin) {
     delete users[idx].pinHash;
+    delete users[idx].pinEnc;
   }
 
   await env.BFR_KV.put(KV_KEY, JSON.stringify(users));

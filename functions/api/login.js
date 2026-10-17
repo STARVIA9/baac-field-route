@@ -1,71 +1,14 @@
 // Auth handler — POST /api/login
-// Supports: username/password (KV users) + admin PIN (KV) + legacy team PINs
+// PIN อย่างเดียว (17 ต.ค.69 — เลิกรหัสผ่านตามพ่อสั่ง): Admin PIN (KV) + staff แตะชื่อ+PIN
 
 import { signHS256, jwtSecret } from '../_lib/jwt.js';
 import { verifyPassword } from '../_lib/crypto.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../_lib/branches.js';
 import { verifyAdminPin, getPinVersion } from './admin/pin.js';
 
-// Admin PIN login — admin-pin (กับ KV) เท่านั้น
-// ผู้ใช้ทั่วไปต้องสร้างผ่าน /api/admin/users (username+password+สาขา)
+// Admin PIN login — admin-pin (ใน KV) เท่านั้น
+// ผู้ใช้ทั่วไปสร้างผ่าน /api/admin/users (username+PIN+สาขา)
 
-// Default admin user (seeded into KV if missing) — survives total KV wipe
-// ⚠️ PRE-COMPUTED PBKDF2 hash (500 iterations) of 'admin1234'.
-// This eliminates the "Worker exceeded resource limits" 503 on fresh deploy
-// because no PBKDF2 runs at runtime during seed. If you change DEFAULT_ADMIN.password,
-// regenerate this hash with: node -e "crypto.pbkdf2Sync(...)" and update below.
-const DEFAULT_ADMIN_HASH = '500.R8a6ojXPiGLTsYLF7TSLGnHynomzOqNi-xpT366Y3GY._gZIc2kKe2p5N6WqPDvSPSfUgzhFIEhAAKMwPaCBg2I.jwnbz6XjwdQZgBFI6oict8gsWSvHP_-KAwDj_wjg1hM';
-
-const DEFAULT_ADMIN = {
-  username: 'admin',
-  displayName: 'Admin',
-  // password: null = ปิด login ด้วยรหัสผ่านโรงงาน (admin/admin1234) ถาวร
-  // เหตุผล: verifyPassword ถูกแก้ให้ทำงานจริงแล้ว ถ้า seed hash โรงงานไว้
-  // รหัส admin1234 ที่เขียนอยู่ในคอมเมนต์จะกลายเป็นประตูหลังทันที
-  // admin เข้าทาง Admin PIN (3117 ใน KV) อย่างเดียว อยากได้ password ค่อยตั้งผ่าน PUT /api/admin/users
-  password: null,
-  role: 'admin',
-  branch: 'WTC',
-};
-
-/**
- * Idempotent seed — if KV has no `users:all`, write default admin (password=null).
- * Migration: รหัสโรงงานทุกรูปแบบ (hash 100000 รอบเก่า / hash admin1234)
- * ถูกปิดเป็น null — เหลือแค่ Admin PIN เป็นทางเข้า (รหัส custom ที่ admin ตั้งเองไม่โดนแตะ)
- */
-async function seedDefaultAdminIfMissing(kv) {
-  const raw = await kv.get('users:all');
-  if (raw) {
-    // Check if existing admin still carries a factory password → disable it
-    const users = JSON.parse(raw);
-    let needsUpdate = false;
-    for (const u of users) {
-      if (u.username === 'admin' && u.password && (u.password.startsWith('100000.') || u.password === DEFAULT_ADMIN_HASH)) {
-        // รหัสโรงงาน (เก่า 100K หรือ admin1234) — ปิดทิ้ง, admin ใช้ PIN อย่างเดียว
-        u.password = null;
-        u.updatedAt = new Date().toISOString();
-        needsUpdate = true;
-        console.log('[login] Disabled factory admin password — admin PIN only from now on');
-      }
-    }
-    if (needsUpdate) {
-      await kv.put('users:all', JSON.stringify(users));
-    }
-    return; // Already seeded
-  }
-  // KV empty — seed with NO password (admin PIN only)
-  const user = {
-    id: 'admin',
-    username: DEFAULT_ADMIN.username,
-    displayName: DEFAULT_ADMIN.displayName,
-    password: null,
-    role: DEFAULT_ADMIN.role,
-    branch: DEFAULT_ADMIN.branch,
-    createdAt: new Date().toISOString(),
-  };
-  await kv.put('users:all', JSON.stringify([user]));
-  console.log('[login] Seeded default admin with NO password (admin PIN only)');
-}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -119,54 +62,10 @@ export async function onRequestPost(context) {
     }
   }
 
-  // ===== Username/password login (primary) =====
+  // ===== Username/password — ลบแล้ว (17 ต.ค.69 เหลือ PIN อย่างเดียวตามพ่อสั่ง) =====
   if (username && password) {
-    if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
-
-    // Self-heal: seed default admin if KV was wiped
-    await seedDefaultAdminIfMissing(env.BFR_KV);
-
-    const usersRaw = await env.BFR_KV.get('users:all');
-    const users = usersRaw ? JSON.parse(usersRaw) : [];
-    const user = users.find(u => u.username === username && !u.deleted);
-
-    if (!user) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
-
-    // Verify password inside try/catch — if PBKDF2 ever throws (corrupt hash, etc.)
-    // surface as 401 (not 500) so the frontend can fallback to PIN instead.
-    let valid = false;
-    try {
-      valid = await verifyPassword(password, user.password);
-    } catch (e) {
-      console.error('[login] verifyPassword crashed:', e?.message);
-      return json({ success: false, error: 'ระบบยืนยันรหัสผ่านขัดข้อง — กรุณาใช้ PIN แทน' }, 401);
-    }
-    if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
-
-    const secret = __secret;
-    const branchName = await getBranchName(user.branch, env.BFR_KV);
-    const tokenPayload = {
-      sub: user.id,
-      username: user.username,
-      name: user.displayName,
-      role: user.role,
-      branch: user.branch,
-      branchName,
-      pv: user.pwdVersion || 1, // เปลี่ยนรหัส → bump → refresh-token เช็ค (กุญแจเก่าต่ออายุไม่ได้)
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 86400 * 7,
-    };
-    const token = await signHS256(tokenPayload, secret);
-
-    // Clear rate limit on successful login
     if (env.BFR_KV) { try { await env.BFR_KV.delete(rateKey); } catch {} }
-
-    return json({
-      success: true,
-      token,
-      // loginMethod: หน้าบ้านใช้ซ่อนปุ่มเปลี่ยนรหัสผ่านของสาย PIN (16 ต.ค.69)
-      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName, loginMethod: 'password', hasPassword: true },
-    });
+    return json({ success: false, error: 'เลิกใช้รหัสผ่านแล้ว — กรุณาเข้าใช้งานด้วย PIN' }, 400);
   }
 
   // ===== PIN login =====
@@ -233,5 +132,5 @@ export async function onRequestPost(context) {
     return json({ success: false, error: 'กรุณาเลือกชื่อก่อนใส่ PIN' }, 401);
   }
 
-  return json({ success: false, error: 'กรุณากรอก username+password หรือ PIN' }, 400);
+  return json({ success: false, error: 'กรุณาเข้าใช้งานด้วย PIN ที่หน้าแรก' }, 400);
 }

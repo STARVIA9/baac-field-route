@@ -18,8 +18,8 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261017l" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261017l" as="script">
+  <link rel="preload" href="css/app.css?v=20261017m" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261017m" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -146,8 +146,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261017l">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261017l"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261017m">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261017m"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="lib/lucide.min.js" defer></script>
@@ -269,28 +269,7 @@
           <p style="font-size:14px;color:#666;margin:0">เข้าสู่ระบบ</p>
         </div>
 
-        <form id="login-form" autocomplete="off">
-          <label for="login-username">ชื่อผู้ใช้</label>
-          <input type="text" id="login-username" autocomplete="username" placeholder="username" required>
-          
-          <label for="login-password">รหัสผ่าน</label>
-          <div class="password-input-wrap">
-            <input type="password" id="login-password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
-            <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)" title="แสดง/ซ่อนรหัสผ่าน">👁️</button>
-          </div>
-
-          <label class="login-remember">
-            <input type="checkbox" id="remember-me" checked>
-            <span>จดจำฉัน</span>
-          </label>
-
-          <button type="submit" class="btn-primary" id="login-btn">เข้าสู่ระบบ</button>
-          <p class="login-error" id="login-error"></p>
-        </form>
-
-        <div class="login-divider"><span>หรือ</span></div>
-        <button class="btn-link" id="toggle-pin-login">เข้าสู่ระบบด้วย PIN</button>
-        <form id="pin-form" class="hidden" autocomplete="off">
+        <form id="pin-form" autocomplete="off">
           <label>แตะชื่อของคุณ แล้วใส่ PIN</label>
           <div id="staff-grid" class="staff-grid">
             <p class="text-muted">กำลังโหลดรายชื่อ...</p>
@@ -342,10 +321,6 @@
             <i data-lucide="more-vertical" class="icon"></i>
           </button>
           <div class="more-menu-dropdown" id="more-menu-dropdown">
-            <button class="more-menu-item" id="change-password-btn">
-              <i data-lucide="key-round" class="icon"></i>
-              <span>เปลี่ยนรหัสผ่าน</span>
-            </button>
             <button class="more-menu-item admin-only" id="admin-users-btn" style="display:none">
               <i data-lucide="settings" class="icon"></i>
               <span>จัดการระบบ</span>
@@ -1125,13 +1100,16 @@
           <button class="admin-tab active" data-admin-tab="users">👥 ผู้ใช้</button>
           <button class="admin-tab" data-admin-tab="branches">🏢 สาขา</button>
           <button class="admin-tab" data-admin-tab="pin">🔐 PIN</button>
-          <button class="admin-tab" data-admin-tab="password">🔑 รหัสผ่าน</button>
           <button class="admin-tab" data-admin-tab="debt">📊 อัปเดตหนี้</button>
           <button class="admin-tab" data-admin-tab="views">📖 สมุดคุม</button>
         </div>
 
         <!-- Tab: Users -->
         <div class="admin-tab-pane active" id="admin-tab-users">
+          <div class="admin-users-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span class="text-muted" id="admin-users-count"></span>
+            <button class="btn-secondary" id="export-users-btn" title="โหลดรายงานผู้ใช้เป็นไฟล์ CSV (เปิดใน Excel ได้)">📥 รายงานผู้ใช้ (CSV)</button>
+          </div>
           <div id="admin-users-list" class="admin-users-list">
             <p class="text-muted">กำลังโหลด...</p>
           </div>
@@ -1142,10 +1120,6 @@
                 <div class="form-group">
                   <label for="new-username">Username</label>
                   <input type="text" id="new-username" placeholder="เช่น somchai" required minlength="3">
-                </div>
-                <div class="form-group">
-                  <label for="new-password">Password (ไม่บังคับถ้ามี PIN)</label>
-                  <input type="password" id="new-password" placeholder="รหัสผ่าน" minlength="4">
                 </div>
               </div>
               <div class="form-row">
@@ -1246,30 +1220,7 @@
           </div>
         </div>
 
-        <!-- Tab: เปลี่ยนรหัสผ่าน -->
-        <div class="admin-tab-pane" id="admin-tab-password">
-          <div class="admin-pin-section">
-            <h3>🔑 เปลี่ยนรหัสผ่าน</h3>
-            <p class="text-muted" style="text-align:left;margin-bottom:12px">เปลี่ยนรหัสผ่านสำหรับเข้าสู่ระบบของคุณ</p>
-            <form id="change-password-form">
-              <div class="form-group" style="margin-bottom:14px">
-                <label for="cp-current">รหัสผ่านปัจจุบัน</label>
-                <input type="password" id="cp-current" placeholder="รหัสผ่านเดิม" required minlength="4">
-              </div>
-              <div class="form-group" style="margin-bottom:14px">
-                <label for="cp-new">รหัสผ่านใหม่</label>
-                <input type="password" id="cp-new" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
-              </div>
-              <div class="form-group" style="margin-bottom:14px">
-                <label for="cp-confirm">ยืนยันรหัสผ่านใหม่</label>
-                <input type="password" id="cp-confirm" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
-              </div>
-              <button type="submit" class="btn-primary" id="btn-change-password">เปลี่ยนรหัสผ่าน</button>
-              <p class="login-error" id="cp-error"></p>
-              <p class="text-muted" id="cp-success" style="color:var(--baac-green);display:none"></p>
-            </form>
-          </div>
-        </div>
+        <!-- Tab: เปลี่ยนรหัสผ่าน (ลบแล้ว 17 ต.ค.69 — เลิกรหัสผ่าน เหลือ PIN อย่างเดียว) -->
 
         <!-- Tab: อัปเดตหนี้ -->
         <div class="admin-tab-pane" id="admin-tab-debt">
@@ -1346,30 +1297,27 @@
     </div>
   </div>
 
-  <!-- Change Password Modal (for all users) -->
-  <div id="change-password-modal" class="modal hidden">
-    <div class="modal-card" style="max-width:400px">
+  <!-- Staff PIN modal (17 ต.ค.69 — แอดมินตั้ง PIN ให้ทุกคนได้ เผื่อลืม) -->
+  <div id="staff-pin-modal" class="modal hidden">
+    <div class="modal-card" style="max-width:360px">
       <div class="modal-header">
-        <h2 id="cp-modal-title">🔑 เปลี่ยนรหัสผ่าน</h2>
-        <button class="btn-icon modal-close" id="close-change-password">✕</button>
+        <h2>🔑 ตั้ง PIN ใหม่</h2>
+        <button class="btn-icon modal-close" id="close-staff-pin">✕</button>
       </div>
       <div class="modal-body">
-        <form id="change-password-form-standalone">
-          <div class="form-group" id="cp-current-row-standalone" style="margin-bottom:14px">
-            <label for="cp-current-standalone">รหัสผ่านปัจจุบัน</label>
-            <input type="password" id="cp-current-standalone" placeholder="รหัสผ่านเดิม" required minlength="4">
+        <p id="staff-pin-name" style="font-weight:700;margin:0 0 2px"></p>
+        <p class="text-muted" id="staff-pin-current" style="margin:0 0 12px"></p>
+        <form id="staff-pin-form">
+          <div class="form-group" style="margin-bottom:14px">
+            <label for="staff-pin-new">PIN ใหม่ (4-8 หลัก)</label>
+            <input type="password" id="staff-pin-new" inputmode="numeric" maxlength="8" placeholder="เช่น 1234" required minlength="4">
           </div>
           <div class="form-group" style="margin-bottom:14px">
-            <label for="cp-new-standalone">รหัสผ่านใหม่</label>
-            <input type="password" id="cp-new-standalone" placeholder="รหัสผ่านใหม่ (อย่างน้อย 4 ตัว)" required minlength="4">
+            <label for="staff-pin-confirm">ยืนยัน PIN ใหม่</label>
+            <input type="password" id="staff-pin-confirm" inputmode="numeric" maxlength="8" placeholder="พิมพ์อีกครั้ง" required minlength="4">
           </div>
-          <div class="form-group" style="margin-bottom:14px">
-            <label for="cp-confirm-standalone">ยืนยันรหัสผ่านใหม่</label>
-            <input type="password" id="cp-confirm-standalone" placeholder="พิมพ์รหัสใหม่อีกครั้ง" required minlength="4">
-          </div>
-          <button type="submit" class="btn-primary" id="btn-change-password-standalone">เปลี่ยนรหัสผ่าน</button>
-          <p class="login-error" id="cp-error-standalone"></p>
-          <p class="text-muted" id="cp-success-standalone" style="color:var(--baac-green);display:none"></p>
+          <button type="submit" class="btn-primary">บันทึก PIN</button>
+          <p class="login-error" id="staff-pin-error"></p>
         </form>
       </div>
     </div>
@@ -1379,8 +1327,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261017l"></script>
-  <script src="js/app.bundle.js?v=20261017l"></script>
+  <script src="js/vendor.js?v=20261017m"></script>
+  <script src="js/app.bundle.js?v=20261017m"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
@@ -1431,33 +1379,6 @@
         btn.disabled = false;
       }
     }
-
-    // ===== Remember me functionality =====
-    function saveRememberMe(username) {
-      const remember = document.getElementById('remember-me');
-      if (remember && remember.checked) {
-        localStorage.setItem('bfr_remember_user', username);
-        localStorage.setItem('bfr_remember_me', 'true');
-      } else {
-        localStorage.removeItem('bfr_remember_user');
-        localStorage.removeItem('bfr_remember_me');
-      }
-    }
-
-    function loadRememberMe() {
-      const remember = localStorage.getItem('bfr_remember_me') === 'true';
-      const username = localStorage.getItem('bfr_remember_user');
-  
-      if (remember && username) {
-        const usernameInput = document.getElementById('login-username');
-        const rememberCheckbox = document.getElementById('remember-me');
-        if (usernameInput) usernameInput.value = username;
-        if (rememberCheckbox) rememberCheckbox.checked = true;
-      }
-    }
-
-    // Load remembered username on page load
-    document.addEventListener('DOMContentLoaded', loadRememberMe);
 
     // ===== Offline indicator =====
     function updateOnlineStatus() {

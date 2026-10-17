@@ -1,8 +1,6 @@
 // Auth handler — POST /api/auth/login (legacy fallback)
+// 17 ต.ค.69 — เลิกรหัสผ่าน เหลือ PIN อย่างเดียว: endpoint นี้ตอบแค่ข้อความบอกให้ใช้ PIN
 // Rate-limited: max 10 attempts per IP per 15 minutes (KV-based)
-// ⚠️ PIN ทีมถูกลบแล้ว — ใช้เฉพาะ username/password ที่สร้างจาก /api/admin/users
-
-import { signHS256, jwtSecret } from '../../_lib/jwt.js';
 
 const MAX_ATTEMPTS = 10;
 const WINDOW_SEC = 15 * 60;
@@ -37,42 +35,15 @@ export async function onRequestPost(context) {
     } catch (e) { /* fail open */ }
   }
 
-  // ===== Username/password =====
+  // ===== Username/password — ลบแล้ว (17 ต.ค.69 เหลือ PIN อย่างเดียว) =====
   if (username && password) {
-    if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
-    const raw = await env.BFR_KV.get('users:all');
-    const users = raw ? JSON.parse(raw) : [];
-    const user = users.find(u => u.username === username && !u.deleted);
-    if (!user) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
-
-    const { verifyPassword } = await import('../../_lib/crypto.js');
-    let valid = false;
-    try { valid = await verifyPassword(password, user.password); } catch (e) {
-      return json({ success: false, error: 'ระบบยืนยันรหัสผ่านขัดข้อง' }, 401);
-    }
-    if (!valid) return json({ success: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, 401);
-
-    const secret = jwtSecret(env, request);
-    if (!secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
-    const branchName = user.branch || '';
-    const token = await signHS256({
-      sub: user.id, username: user.username, name: user.displayName,
-      role: user.role, branch: user.branch, branchName,
-      pv: user.pwdVersion || 1, // เปลี่ยนรหัส → bump → refresh-token เช็ค
-      iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 7,
-    }, secret);
-
-    if (env.BFR_KV) await env.BFR_KV.delete(rateKey);
-    return json({
-      success: true, token,
-      user: { id: user.id, username: user.username, name: user.displayName, role: user.role, branch: user.branch, branchName, loginMethod: 'password', hasPassword: true },
-    });
+    return json({ success: false, error: 'เลิกใช้รหัสผ่านแล้ว — กรุณาเข้าใช้งานด้วย PIN' }, 400);
   }
 
-  // ===== PIN (ยกเลิกแล้ว) =====
+  // ===== PIN (ทางเข้าเดียว) =====
   if (pin) {
-    return json({ success: false, error: 'PIN ทีมถูกยกเลิก — กรุณาใช้ username/password' }, 401);
+    return json({ success: false, error: 'กรุณาเข้าใช้งานด้วย PIN ที่หน้าแรก' }, 400);
   }
 
-  return json({ success: false, error: 'กรุณากรอก username+password' }, 400);
+  return json({ success: false, error: 'กรุณาเข้าใช้งานด้วย PIN ที่หน้าแรก' }, 400);
 }

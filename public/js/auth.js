@@ -170,30 +170,15 @@ const Auth = {
         ? `👤 ${user.name} · ${branchLabel}`
         : `👤 ${user.name}`;
     }
-    // Admin PIN ไม่มีรหัสให้เปลี่ยน — ซ่อนปุ่มเฉพาะสายนี้ (staff สาย PIN ยังเห็นเพื่อตั้งรหัสครั้งแรก) (16 ต.ค.69)
-    // session เก่าที่ไม่มี field loginMethod = แสดงปุ่มเหมือนเดิม (server ดักให้)
-    const cpBtn = document.getElementById('change-password-btn');
-    if (cpBtn) cpBtn.style.display = (this.isPinSession() && this.isAdmin()) ? 'none' : '';
-    
     // Start token refresh and session warning timers
     this.startRefreshTimer();
     this.startSessionWarningTimer();
   },
 
-  // ===== Login with username/password (primary) =====
+  // ===== Login with username/password — ลบแล้ว (17 ต.ค.69 เหลือ PIN อย่างเดียวตามพ่อสั่ง) =====
+  // กันโค้ดเก่าเรียกมาแล้วเงียบ: บอกให้ใช้ PIN แทน
   async login(username, password) {
-    // Try primary endpoint
-    let data;
-    try {
-      data = await API.post('/api/login', { username, password });
-    } catch (err) {
-      console.warn('Primary login failed:', err);
-      // Legacy /api/auth/login รับแค่ PIN ไม่รับ username/password — เลยไม่ fallback
-      // ให้แสดง error ชัดๆ ว่าลองใช้ PIN แทน
-      Utils.toast('ระบบเข้าสู่ระบบขัดข้อง — กรุณาใช้ PIN หรือลองใหม่อีกครั้ง');
-      return false;
-    }
-    if (data?.success) return this._finalizeLogin(data, '🌟');
+    if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('เลิกใช้รหัสผ่านแล้ว — กรุณาเข้าใช้งานด้วย PIN');
     return false;
   },
 
