@@ -2596,12 +2596,8 @@ const App = {
     const el = document.getElementById('version-label');
     if (!el) return;
     el.textContent = `v${ver}`;
-    // กดที่ label = อัปเดตเป็นเวอร์ชันล่าสุดทันที
-    if (!el.dataset.bound) {
-      el.dataset.bound = '1';
-      el.style.cursor = 'pointer';
-      el.addEventListener('click', () => App.applyUpdate());
-    }
+    el.style.cursor = 'default';
+    el.title = 'เวอร์ชันปัจจุบันของเว็บ';
   },
 
   // ===== Initialize header components =====
@@ -2664,7 +2660,7 @@ const App = {
       if (label) {
         label.textContent = `v${serverVer}`;
         label.classList.add('has-update');
-        label.title = 'เวอร์ชันใหม่พร้อมใช้งาน — กดเพื่ออัปเดต';
+        label.title = 'มีเวอร์ชันใหม่ — ระบบกำลังอัปเดตให้อัตโนมัติ';
       }
       // ===== AUTO-UPDATE: สั่ง SW ใหม่เข้าควบคุมทันที =====
       // ไม่ต้องรอให้ผู้ใช้กดปุ่ม — เว็บอัปเดตตัวเองอัตโนมัติ
@@ -5127,7 +5123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ===== Refresh button binding — กดเดียว = อัปเดตเป็นเวอร์ชันล่าสุดจริง =====
+  // ===== Refresh button binding — รีเฟรชจอล้วน (งานข้อมูลเป็นของปุ่ม ⬇️) =====
   const btn = document.getElementById('refresh-btn');
   if (btn) {
     btn.addEventListener('click', async (e) => {
@@ -5139,24 +5135,8 @@ document.addEventListener('DOMContentLoaded', () => {
           App.applyUpdate();
           return;
         }
-        // ยังไม่มี has-update: กดปุ๊บ = ดึงเวอร์ชันล่าสุดเสมอ
-        // 1) push ข้อมูลเครื่องขึ้นเว็บก่อน (กันข้อมูลหายตอน reload)
-        try {
-          const result = await Storage.retrySync();
-          if (result && result.success) {
-            const c = result.counts || {};
-            if (typeof Utils !== 'undefined') {
-              Utils.toast(`🔄 Sync สำเร็จ — ${c.customers ?? '?'} ลูกค้า, ${c.visits ?? '?'} visits`);
-            }
-          } else if (result && result.error) {
-            if (typeof Utils !== 'undefined') {
-              Utils.toast(`⚠️ Sync ล้มเหลว: ${result.error} — ข้อมูลยังอยู่ในเครื่องนี้`, 'error');
-            }
-          }
-        } catch (err) {
-          console.warn('retrySync failed, continuing to refresh:', err);
-        }
-        // 2) hard refresh — เคลียร์ service worker + cache แล้วโหลดเวอร์ชันใหม่ล่าสุด
+        // รีเฟรชจอทันที ไม่ sync ก่อนแล้ว (เดิมรอ sync นานจนเหมือนปุ่มเสีย)
+        // ข้อมูลในเครื่องไม่หาย — อยู่ใน localStorage เดิม เดี๋ยว poll ส่งเอง
         App.hardRefresh();
       } finally {
         btn.classList.remove('spinning');
