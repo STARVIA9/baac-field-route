@@ -529,6 +529,13 @@ export async function onRequestPost(context) {
       }
     }
     await trackWrites(env, estimatedWrites, 'debt-import');
+    // D1-SAVER (18ต.ค.69): อัพหนี้เปลี่ยน next_due → ล้างแคชเดือนหนี้ (คู่กับ debt-sync-full)
+    try {
+      if (env.BFR_KV && (updated > 0 || added > 0 || cleared > 0)) {
+        await env.BFR_KV.delete('meta:debt-months');
+        await env.BFR_KV.delete('meta:debt-months-updated');
+      }
+    } catch (e) { /* miss ครั้งหน้า recompute เอง */ }
     const quotaAfter = await getWriteBudget(env);
 
     // เขียนคลังการ์ดหนี้ฉบับรวมลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด (ครบทุกสาขา)

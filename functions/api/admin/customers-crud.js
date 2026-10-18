@@ -255,16 +255,27 @@ export async function onRequestGet(context) {
       debtMonths = JSON.parse(cachedDebtMonths);
       d1EtagHit = true;
     } else {
-      // ETAG MISS — query COUNT + debtMonths จริง + refresh cache
-      const mRes = await env.BFR_DB.prepare(
-        `SELECT DISTINCT substr(next_due, 4, 7) m FROM customers WHERE deleted = 0 AND next_due != '' AND next_due IS NOT NULL ORDER BY m DESC`
-      ).all();
-      debtMonths.push(...(mRes.results || []).map(r => r.m).filter(Boolean));
+      // ETAG MISS — refresh MAX/counts cache; debtMonths ใช้ TTL ของตัวเอง 24 ชม.
+      // (D1-SAVER 18ต.ค.69: DISTINCT substr สแกน 16,812 rows — แพงสุดในไฟล์นี้
+      // รายชื่อเดือนเปลี่ยนเฉพาะตอน sync หนี้ ไม่เกี่ยวกับแก้ชื่อ/พิกัด → ไม่ผูกกับ MAX)
+      const debtFresh = cachedDebtMonths && cachedDebtMonthsTime &&
+        (Date.now() - new Date(cachedDebtMonthsTime).getTime()) < 24 * 60 * 60 * 1000;
+      if (debtFresh) {
+        try { debtMonths = JSON.parse(cachedDebtMonths); } catch (e) { /* คำนวณใหม่ข้างล่าง */ }
+      }
+      if (debtMonths.length === 0) {
+        const mRes = await env.BFR_DB.prepare(
+          `SELECT DISTINCT substr(next_due, 4, 7) m FROM customers WHERE deleted = 0 AND next_due != '' AND next_due IS NOT NULL ORDER BY m DESC`
+        ).all();
+        debtMonths.push(...(mRes.results || []).map(r => r.m).filter(Boolean));
+      }
       try {
         await env.BFR_KV.put('meta:db-max-updated', maxRes?.m || new Date().toISOString());
         await env.BFR_KV.put('meta:db-cache-written', new Date().toISOString());
-        await env.BFR_KV.put('meta:debt-months', JSON.stringify(debtMonths));
-        await env.BFR_KV.put('meta:debt-months-updated', new Date().toISOString());
+        if (!debtFresh && debtMonths.length > 0) {
+          await env.BFR_KV.put('meta:debt-months', JSON.stringify(debtMonths));
+          await env.BFR_KV.put('meta:debt-months-updated', new Date().toISOString());
+        }
       } catch (e) { console.warn('crud cache put failed:', e.message); }
     }
   } catch (e) { console.warn('crud etag gate failed (fallback full query):', e.message); }

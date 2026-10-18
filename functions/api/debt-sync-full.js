@@ -202,6 +202,14 @@ export async function onRequestPost(context) {
       }
     }
     await trackWrites(env, statements.length, 'debt-sync-full');
+    // D1-SAVER (18ต.ค.69): sync หนี้เปลี่ยน next_due → ล้างแคชเดือนหนี้
+    // ให้หน้าแอดมินคำนวณใหม่แค่ครั้งเดียว แล้วใช้แคช 24 ชม.ต่อ
+    try {
+      if (env.BFR_KV && (updated > 0 || added > 0)) {
+        await env.BFR_KV.delete('meta:debt-months');
+        await env.BFR_KV.delete('meta:debt-months-updated');
+      }
+    } catch (e) { /* miss ครั้งหน้า recompute เอง */ }
 
     return json({
       success: true,

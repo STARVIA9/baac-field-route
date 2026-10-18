@@ -229,11 +229,21 @@ export async function onRequestPost(context) {
   }
   const visitsUpdated = visitsChanged ? serverTime : null;
 
-  // Branch for count queries in POST
-  const baacCodePost = auth.user.role !== 'admin' ? toBaacCode(auth.user.branch) : '';
-
-  const d1Count = await d1CountCustomers(env, baacCodePost);
-  const gpsCount = await d1GpsCount(env, baacCodePost);
+  // D1-SAVER (18ต.ค.69): ไม่นับ COUNT ทั้งตารางทุก push (9133+267 rows_read)
+  // frontend ใช้ counts จาก GET เป็นหลัก — POST อ่านเลขจากแคชพอ ถ้าไม่มีแคชค่อยนับจริง
+  let d1Count = 0, gpsCount = 0;
+  try {
+    const cached = env.BFR_KV ? await env.BFR_KV.get('meta:counts-d1') : null;
+    if (cached) {
+      const c = JSON.parse(cached);
+      d1Count = c.customers || 0; gpsCount = c.gps || 0;
+    }
+  } catch (e) { /* cache เสีย → นับจริงข้างล่าง */ }
+  if (!d1Count) {
+    const baacCodePost = auth.user.role !== 'admin' ? toBaacCode(auth.user.branch) : '';
+    d1Count = await d1CountCustomers(env, baacCodePost);
+    gpsCount = await d1GpsCount(env, baacCodePost);
+  }
 
   return json({
     success: true,
