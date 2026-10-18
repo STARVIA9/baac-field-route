@@ -53,7 +53,7 @@ html{scroll-behavior:smooth}
 .score{font-size:27px}
 .item input[type=number]{font-size:20px;font-weight:700;padding:11px 12px}
 [id^="it-"]{scroll-margin-top:200px}
-#alerts a{color:inherit}
+#alerts a{color:inherit}#psum [data-dt].on{background:var(--green);color:#fff}
 </style>
 </head>
 <body>
@@ -143,7 +143,22 @@ if(!Array.isArray(arr))return 'ยังไม่คีย์รายเดื�
 const n=arr.filter(x=>x!=null&&x!=='').length;let s=0;arr.forEach((x,i)=>{s+=jtierW(W[i]||0,[it.b1,it.b2,it.b3,it.b4,it.b5].map(Number),x);});
 return `คีย์แล้ว ${n}/${arr.length} งวด · รวม ${Math.round(s/2*1000)/1000} แต้ม (งวดที่เหลือได้สูงสุด ${W.map((w,i)=>arr[i]==null||arr[i]==='' ?w:0).reduce((a,c)=>a+c,0)/2} แต้ม)`;}
 function pbands(p,it){const c=(((p||{}).crit)||{})[it.id]||{};const g=k=>Number(c[k]??it[k]);return [g('b1'),g('b2'),g('b3'),g('b4'),g('b5')];}
-function rag(it){if(it.score==null)return['⚪','w'];const p=it.score/it.full;if(p>=1)return['🟢','g'];if(p>=0.6)return['🟡','a'];return['🔴','r'];}
+function pgap(p,it,pid){const f=Number(it.full),b=pbands(p,it).map(Number);
+const r=((it.actuals||{})[pid]);const a=r==null||r==='' ?null:Number(r),lo=b[0]>b[4],u=it.unit;
+const fmt=v=>Number(Math.round(v*10000)/10000);
+if(a==null)return{text:'ยังไม่คีย์',need:null,gain:f};
+const th=[b[4],b[3],b[2],b[1],b[0]],pts=[1,.8,.6,.4,.2],cur=jscoreI(f,b,a);
+for(let i=0;i<5;i++){if(lo?a<=th[i]:a>=th[i]){if(i===0)return{text:'เต็มขั้นแล้ว',need:0,gain:0};
+const nd=lo?fmt(a-th[i-1]):fmt(th[i-1]-a);const nx=jscoreI(f,b,th[i-1]);
+return{text:`อีก ${nd} ${u} → +${Math.round((nx-cur)*100)/100} แต้ม`,need:nd,gain:Math.round((nx-cur)*100)/100};}}
+const nd=lo?fmt(a-b[0]):fmt(b[0]-a);const nx=jscoreI(f,b,b[0]);
+return{text:`ต่ำกว่าขั้น 1 อีก ${nd} ${u}`,need:nd,gain:Math.round((nx-cur)*100)/100};}
+function peerRows(items,persons,pid){const me0=persons.find(q=>q.id===pid);return items.map(it=>{let best=null,bn='';
+persons.forEach(q=>{if(q.id===pid)return;const s=pscore(q,it,q.id);if(s!=null&&(best==null||s>best)){best=s;bn=q.name;}});
+const me=pscore(me0,it,pid);
+return{code:it.code,name:it.name,id:it.id,full:Number(it.full),me,best,bestName:bn,
+behind:(me!=null&&best!=null)?Math.round((best-me)*100)/100:null};});}
+function dtab(n){document.querySelectorAll('#psum [data-dt]').forEach(b=>b.classList.toggle('on',b.dataset.dt==String(n)));document.querySelectorAll('#psum [data-dp]').forEach(d=>d.style.display=d.dataset.dp==String(n)?'block':'none');}function rag(it){if(it.score==null)return['⚪','w'];const p=it.score/it.full;if(p>=1)return['🟢','g'];if(p>=0.6)return['🟡','a'];return['🔴','r'];}
 function dueTxt(d){if(!d)return'';const t=new Date();t.setHours(0,0,0,0);const e=new Date(d+'T00:00:00');const n=Math.round((e-t)/864e5);if(n>0)return`เหลือ ${n} วัน`;if(n===0)return'ครบกำหนดวันนี้';return`เลยมา ${-n} วัน`;}
 async function loadBranches(){const d=await api('GET',null,'?action=branches');const s=$('#br');s.innerHTML=(d.branches.length?'':'<option value="">— เลือกสาขา —</option>')+d.branches.map(b=>`<option value="${b.code}">${b.code} ${b.name}</option>`).join('');if(d.branches.length&&!BR)BR=d.branches[0].code;if(BR)s.value=BR;else BR=s.value;}
 async function loadItems(){if(!BR){$('#items').innerHTML='<div class="card">เพิ่มสาขาก่อน</div>';return;}const d=await api('GET',null,'?action=branch&code='+encodeURIComponent(BR));if(!d.success)return;CACHE=d;
@@ -153,7 +168,14 @@ $('#alerts').innerHTML=(over.length?`<div class="bad">⏰ <b>เลยวัน�
 $('#plist').innerHTML=persons.length?persons.map(p=>`<span class="chip">${p.name}<button data-rmp="${p.id}">✕</button></span>`).join(''):'<span class="mut">ยังไม่มี — เพิ่มชื่อเขต/คนรับผิดชอบเพื่อคีย์รายคน</span>';
 document.querySelectorAll('[data-rmp]').forEach(b=>b.onclick=async()=>{const nm=(persons.find(p=>p.id===b.dataset.rmp)||{}).name||'';if(!confirm(`ลบ ${nm} ออกจากสาขา? (ผลงานรายคนที่คีย์ไว้จะหาย)`))return;const keep=persons.filter(p=>p.id!==b.dataset.rmp).map(p=>({id:p.id,name:p.name,crit:p.crit}));await api('POST',{op:'save-persons',code:BR,persons:keep});loadItems();});
 const pv=$('#pview');pv.innerHTML='<option value="">ภาพรวมสาขา</option>'+persons.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');pv.value=PVIEW;
-if(PVIEW){const p=persons.find(x=>x.id===PVIEW);if(p){let g=0,f=0,n=0;d.branch.items.forEach(it=>{const m=it.m||{};const has=((it.actuals||{})[PVIEW]!=null)||(((p.crit||{})[it.id])!=null)||((m.p61||{})[PVIEW]!=null)||((m.p62||{})[PVIEW]!=null);if(!has)return;const s=pscore(p,it,PVIEW);f+=Number(it.full||0);if(s!=null){g+=s;n++;}});const pc=f?Math.round(g/f*1000)/10:0;const gg=Math.round(g*100)/100,ff=Math.round(f*100)/100;const CC2=2*Math.PI*26;$('#psum').innerHTML=`<div class="ok"><div class="row"><div><svg width="84" height="84" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke="#e3ebe5" stroke-width="10"/><circle cx="35" cy="35" r="26" fill="none" stroke="${pc>=100?'#0b6b3a':pc>=60?'#d99a00':'#b3261e'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.min(pc,100)/100*CC2} ${CC2}" transform="rotate(-90 35 35)"/><text x="35" y="40" text-anchor="middle" font-size="14" font-weight="800" fill="#123">${pc}%</text></svg></div><div class="grow">👤 <b>${p.name}</b> — รวม ${gg}/${ff} (${pc}%) · คีย์แล้ว ${n}/${d.branch.items.length} ข้อ</div></div></div>`;}else $('#psum').innerHTML='';}else $('#psum').innerHTML='';
+if(PVIEW){const p=persons.find(x=>x.id===PVIEW);if(p){let g=0,f=0,n=0;d.branch.items.forEach(it=>{const m=it.m||{};const has=((it.actuals||{})[PVIEW]!=null)||(((p.crit||{})[it.id])!=null)||((m.p61||{})[PVIEW]!=null)||((m.p62||{})[PVIEW]!=null);if(!has)return;const s=pscore(p,it,PVIEW);f+=Number(it.full||0);if(s!=null){g+=s;n++;}});const pc=f?Math.round(g/f*1000)/10:0;const gg=Math.round(g*100)/100,ff=Math.round(f*100)/100;const CC2=2*Math.PI*26;
+const rks=persons.map(q=>{let t2=0,u2=0;d.branch.items.forEach(it=>{const m=it.m||{};const has=((it.actuals||{})[q.id]!=null)||((((q.crit||{}))[it.id])!=null)||((m.p61||{})[q.id]!=null)||((m.p62||{})[q.id]!=null);if(!has)return;const s=pscore(q,it,q.id);u2+=Number(it.full||0);if(s!=null)t2+=s;});return{id:q.id,pc:u2?t2/u2*100:0};}).sort((a,b)=>b.pc-a.pc);
+const myRk=rks.findIndex(r=>r.id===PVIEW)+1;
+const prs=peerRows(d.branch.items,persons,PVIEW);
+const strong=prs.filter(r=>r.me!=null).map(r=>({...r,pct:r.full?r.me/r.full:0})).sort((a,b)=>b.pct-a.pct).slice(0,3);
+const chase=prs.map(r=>{const it=d.branch.items.find(x=>x.id===r.id);if(!it||it.code==='4.1'||it.code==='4.2'||r.me==null||r.me>=r.full)return null;return{...r,gp:pgap(p,it,PVIEW)};}).filter(Boolean).sort((a,b)=>b.gp.gain-a.gp.gain);
+const dHead=`<div class="ok"><div class="row"><div><svg width="84" height="84" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke="#e3ebe5" stroke-width="10"/><circle cx="35" cy="35" r="26" fill="none" stroke="${pc>=100?'#0b6b3a':pc>=60?'#d99a00':'#b3261e'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${Math.min(pc,100)/100*CC2} ${CC2}" transform="rotate(-90 35 35)"/><text x="35" y="40" text-anchor="middle" font-size="14" font-weight="800" fill="#123">${pc}%</text></svg></div><div class="grow">👤 <b>${p.name}</b> — รวม ${gg}/${ff} (${pc}%) · ที่ ${myRk}/${persons.length} ในสาขา · คีย์แล้ว ${n}/${d.branch.items.length} ข้อ</div></div></div>`;const dStrong=`<div class="card><b>💪 จุดเด่นของ${p.name}</b>${strong.length?strong.map(s=>`<div style="margin-top:6px">✅ <b>${s.code} ${s.name}</b> — ${s.me}/${s.full} แต้ม${s.behind!=null&&s.behind>0?` <span class="mut">(เพื่อนดีสุด ${s.bestName} ${s.best})</span>`:' <span class="pill g">ดีสุดในสาขา</span>'}<div class="bar"><div style="width:${Math.min(100,Math.round(s.pct*100))}%"></div></div></div>`).join(''):'<span class="mut">ยังไม่มีข้อมูล</span>'}</div>`;const dChase=`<div class="card"><b>🎯 ต้องวิ่งเพิ่มแต้ม</b>${chase.length?chase.map(c=>`<div style="margin-top:6px">👉 <a href="#it-${c.id}"><b>${c.code} ${c.name}</b></a> — ${c.gp.text} <span class="mut">(ตอนนี้ ${c.me}/${c.full})</span></div>`).join(''):'<div class="ok">🎉 ทุกข้อเต็มขั้นแล้ว</div>'}</div>`;const dPeer=`<div class="card"><b>📊 เทียบเพื่อนรายข้อ</b><table style="margin-top:6px"><tr><th>ข้อ</th><th>ฉัน</th><th>เพื่อนดีสุด</th><th>ตามหลัง</th></tr>${prs.map(r=>`<tr><td>${r.code}<br><span class="mut">${r.name}</span></td><td>${r.me==null?'–':`<b>${r.me}</b>/${r.full}<div class="bar" style="min-width:60px"><div style="width:${Math.min(100,Math.round(r.me/r.full*100))}%"></div></div>`}</td><td>${r.best==null||(r.me!=null&&r.me>=r.best)?'–':`<b>${r.best}</b><br><span class=\"mut\">${r.bestName}</span>`}</td><td>${r.behind==null?'–':(r.behind>0?r.behind:'=')}</td></tr>`).join('')}</table></div>`;
+const dash=`<div class="row" style="margin-top:6px"><button class="ghost small on" data-dt="0" onclick="dtab(0)">ภาพรวม</button><button class="ghost small" data-dt="1" onclick="dtab(1)">จุดเด่น</button><button class="ghost small" data-dt="2" onclick="dtab(2)">ต้องวิ่ง</button><button class="ghost small" data-dt="3" onclick="dtab(3)">เทียบเพื่อน</button></div><div data-dp="0">${dHead}</div><div data-dp="1" style="display:none">${dStrong}</div><div data-dp="2" style="display:none">${dChase}</div><div data-dp="3" style="display:none">${dPeer}</div>`;$('#psum').innerHTML=dash;}else $('#psum').innerHTML='';}else $('#psum').innerHTML='';
 let g=0,a=0,r=0,w=0;d.branch.items.forEach(it=>{const c=rag(it)[1];if(c==='g')g++;else if(c==='a')a++;else if(c==='r')r++;else w++;});
 const pct=d.totalFull?Math.round(d.totalGot/d.totalFull*1000)/10:0;
 $('#sumBox').style.display='block';const CC=2*Math.PI*34;const tot=d.branch.items.length||1;
