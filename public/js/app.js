@@ -2052,6 +2052,9 @@ const App = {
         const cs = Storage.getCustomers();
         const lg = cs.filter(c => c.lat && c.lng).length;
         localTxt = `<br>📱 เครื่องนี้: เก็บลูกค้า ${cs.length.toLocaleString()} ราย (มีพิกัด ${lg.toLocaleString()})` + (loadMs != null ? ` · ⏱️ โหลดหน้าเว็บ ${loadMs.toLocaleString()} มิลลิวินาที` : '');
+        if (typeof DebtDB !== 'undefined' && DebtDB._loaded && DebtDB._byCif) {
+          localTxt += `<br>💰 หนี้ในเครื่อง: ${DebtDB._byCif.size.toLocaleString()} ราย` + (DebtDB._fromCache ? ' (ใช้แคช — ไม่โหลดใหม่)' : ' (โหลดสดจากเว็บ)');
+        }
       } catch (e) { /* ข้อมูลเครื่องเป็นของเสริม */ }
       el.innerHTML =
         `<div style="font-size:20px">📍 พิกัดรวม <strong style="color:${gpsColor};font-size:26px">${h.gpsPct}%</strong> (${h.gps.toLocaleString()}/${h.total.toLocaleString()} ราย)</div>`

@@ -1811,6 +1811,63 @@ const DebtDB = {
   _byCif: null,
   _loaded: false,
   _loading: false,
+  _fromCache: false,   // true = รอบนี้ใช้แคชในเครื่อง ไม่ได้โหลดใหม่ (ดูในแท็บสุขภาพได้)
+
+  KEY_DEBT_UPDATED: 'bfr_debt_updated',
+  CACHE_STORE: 'bfr-debt-v1',
+
+  // ขอบเขตแคชรายคน (staff คนละสาขาเห็นข้อมูลคนละชุด — ห้ามใช้แคชข้ามกัน)
+  _cacheScope() {
+    try {
+      if (typeof Auth !== 'undefined' && Auth.getUser) {
+        const u = Auth.getUser();
+        return String((u && (u.id || u.username)) || 'anon');
+      }
+    } catch {}
+    return 'anon';
+  },
+  _cacheKey() { return API.baseUrl() + '/api/debt-data?scope=' + encodeURIComponent(this._cacheScope()); },
+  _stamp() { try { return localStorage.getItem(this.KEY_DEBT_UPDATED) || ''; } catch { return ''; } },
+  _saveStamp(v) { try { if (v) localStorage.setItem(this.KEY_DEBT_UPDATED, v); } catch {} },
+
+  // ถามเวอร์ชันเซิร์ฟเวอร์อย่างเดียว (เบามาก — ไม่โหลดข้อมูล 7MB)
+  async _serverVersion() {
+    try {
+      const res = await fetch(API.baseUrl() + '/api/debt-data?v=1', { headers: API.headers() });
+      if (!res.ok) return null;
+      const j = await res.json();
+      return (j && j.success) ? (j.updated || null) : null;
+    } catch { return null; }
+  },
+
+  async _readCache(key) {
+    try {
+      if (typeof caches === 'undefined') return null;
+      const hit = await (await caches.open(this.CACHE_STORE)).match(key);
+      if (!hit) return null;
+      const data = await hit.json();
+      return Array.isArray(data) ? data : null;
+    } catch { return null; }
+  },
+
+  // เก็บสำเนาลงเครื่อง + ลบของคนอื่นในเครื่องนี้ (กันแคชบวม + กันหยิบข้ามสาขา)
+  // หมายเหตุ: เรียกด้วย res.clone() ก่อน res.json() เสมอ (body อ่านได้ครั้งเดียว)
+  async _writeCache(key, copy) {
+    try {
+      if (typeof caches === 'undefined' || !copy) return;
+      const c = await caches.open(this.CACHE_STORE);
+      for (const k of await c.keys()) { if (k.url !== key) await c.delete(k); }
+      await c.put(key, copy);
+    } catch {}
+  },
+
+  _fill(data, tag) {
+    this._byCif = new Map();
+    for (const r of data) this._byCif.set(r.cif, r);
+    this._loaded = true;
+    this._loadedAt = Date.now();
+    console.log(`[DebtDB] Loaded ${data.length} customers` + tag);
+  },
 
   async load() {
     if (this._loaded) return true;
@@ -1818,15 +1875,28 @@ const DebtDB = {
     this._loading = true;
     try {
       // โหลดจาก API (อ่าน KV ที่อัปเดตล่าสุดจาก /api/debt-import → fallback static เดิม)
+      const key = this._cacheKey();
+      const want = this._cacheScope() + '|' + (await this._serverVersion());
+      // เวอร์ชันตรงกับที่จำไว้ → ใช้ของในเครื่อง ไม่โหลด 7MB ใหม่ (เฟส 2)
+      if (want && this._stamp() === want) {
+        const cached = await this._readCache(key);
+        if (cached) {
+          this._fromCache = true;
+          this._fill(cached, ' (จากแคชในเครื่อง — ข้อมูลหนี้ไม่เปลี่ยน)');
+          this._loading = false;
+          return true;
+        }
+      }
+      this._fromCache = false;
       const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
       if (!res.ok) throw new Error('Failed to load debt data');
+      const copy = res.clone();
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('debt data not array');
-      this._byCif = new Map();
-      for (const r of data) this._byCif.set(r.cif, r);
-      this._loaded = true;
-      this._loadedAt = Date.now();
-      console.log(`[DebtDB] Loaded ${data.length} customers` + (res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : ''));
+      const up = res.headers.get('X-Debt-Updated');
+      if (up) this._saveStamp(this._cacheScope() + '|' + up);
+      await this._writeCache(key, copy);
+      this._fill(data, res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : '');
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
       this._byCif = new Map();
@@ -1839,14 +1909,17 @@ const DebtDB = {
   // โดยไม่ต้องรีเฟรชหน้า) — ไม่บล็อก ล้มเหลวเงียบ
   async refresh() {
     try {
+      const key = this._cacheKey();
       const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
       if (!res.ok) return false;
+      const copy = res.clone();
       const data = await res.json();
       if (!Array.isArray(data)) return false;
-      this._byCif = new Map();
-      for (const r of data) this._byCif.set(r.cif, r);
-      this._loaded = true;
-      this._loadedAt = Date.now();
+      const up = res.headers.get('X-Debt-Updated');
+      if (up) this._saveStamp(this._cacheScope() + '|' + up);
+      await this._writeCache(key, copy);
+      this._fromCache = false;
+      this._fill(data, ' (หลังอัพหนี้ใหม่)');
       console.log(`[DebtDB] Refreshed ${data.length} customers (หลังอัพหนี้ใหม่)`);
       return true;
     } catch (err) {

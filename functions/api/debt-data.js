@@ -40,6 +40,18 @@ export async function onRequestGet(context) {
   // สาขาของผู้เรียก (admin = '' = เห็นทั้งหมด)
   const wantBranch = payload.role !== 'admin' ? String(toBaacCode(payload.branch) || '').trim() : '';
 
+  // ?v=1 — ถามเวอร์ชันอย่างเดียว (เบามาก: KV 1 read) → หน้าบ้านใช้เทียบแคชในเครื่อง
+  // ถ้าตรงกันข้ามการโหลด 7MB ไปเลย (เฟส 2)
+  if (new URL(request.url).searchParams.get('v') === '1') {
+    let updated = null;
+    try { updated = env.BFR_KV ? await env.BFR_KV.get('debt:updated') : null; } catch {}
+    return json({ success: true, updated });
+  }
+
+  // ตราประทับรอบอัพหนี้ล่าสุด → แปะหัว X-Debt-Updated ให้หน้าบ้านจำเทียบรอบหน้า
+  let debtUpdated = null;
+  try { debtUpdated = env.BFR_KV ? await env.BFR_KV.get('debt:updated') : null; } catch {}
+
   // 1) แหล่งหลัก: KV (ฉบับล่าสุดจาก /api/debt-import — รายสัญญาครบ)
   if (env.BFR_KV) {
     try {
@@ -60,6 +72,7 @@ export async function onRequestGet(context) {
               'Content-Type': 'application/json; charset=utf-8',
               'Cache-Control': 'no-cache',
               'X-Debt-Source': 'kv',
+              ...(debtUpdated ? { 'X-Debt-Updated': debtUpdated } : {}),
             },
           });
         } catch (e) {
