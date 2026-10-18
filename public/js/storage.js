@@ -50,13 +50,34 @@ const Storage = {
     }));
   },
 
+  // เฟส 2-4: เก็บลงเครื่องเฉพาะ 18 ฟิลด์ที่หน้าแผนที่อ่านจริง (วัดการใช้จริงทุกจุดแล้ว)
+  // ตัดทิ้ง: สแนปช็อตหนี้ 9 ฟิลด์ (UI อ่านจากแคชหนี้ DebtDB ไม่ได้อ่านใบนี้),
+  //   extra ทั้งก้อน (เลขบัตร/วันเกิด — PII ที่ไม่มีจุดไหนอ่าน), potential/customerClass/debtClass/geo_source (UI อ่านจาก CustomerDB)
+  // ปลอดภัยทาง push: เซิร์ฟเวอร์ UPDATE/INSERT แค่ 9 คอลัมน์ที่แก้ได้ (functions/api/sync.js) ไม่แตะฟิลด์ที่ตัด
+  _KEEP: ['id', 'cif', 'name', 'nickname', 'phone', 'address', 'lat', 'lng', 'branch', 'zone', 'riskLevel', 'debtType', 'photo', 'note', 'createdBy', 'createdAt', 'updatedAt', 'deleted'],
+
+  _slim(list) {
+    return (list || []).map(c => {
+      const o = {};
+      for (const k of this._KEEP) o[k] = c[k] ?? null;
+      return o;
+    });
+  },
+
   // โหลดรายชื่อเข้า _mem ครั้งเดียว + ย้ายของเก่าจาก localStorage (ครั้งเดียวแล้วลบ)
   _loadMem() {
     return this._idbGet('customers').then(seed => {
-      if (Array.isArray(seed)) { this._mem = seed; return seed; }
+      if (Array.isArray(seed)) {
+        this._mem = this._slim(seed);
+        // ของที่เซฟไว้ก่อนเฟส 2-4 (ใบเต็ม) → เขียนกลับแบบสลิมครั้งเดียว
+        if (seed.length && (seed[0].extra !== undefined || seed[0].debtBalance !== undefined)) {
+          this._idbPut('customers', this._mem).catch(() => {});
+        }
+        return this._mem;
+      }
       let old = null;
       try { old = JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || 'null'); } catch {}
-      this._mem = Array.isArray(old) ? old : [];
+      this._mem = this._slim(Array.isArray(old) ? old : []);
       if (this._mem.length) {
         this._idbPut('customers', this._mem).then(() => {
           try { localStorage.removeItem(this.KEY_CUSTOMERS); } catch {}
@@ -64,7 +85,7 @@ const Storage = {
       }
       return this._mem;
     }).catch(() => {
-      try { this._mem = JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || '[]'); }
+      try { this._mem = this._slim(JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || '[]')); }
       catch { this._mem = []; }
       return this._mem;
     });
@@ -119,10 +140,11 @@ const Storage = {
   },
 
   saveCustomers(list) {
-    this._mem = list;
+    const slim = this._slim(list);   // เฟส 2-4: จำแค่ 18 ฟิลด์ที่ใช้จริง (ทั้งในแรมและ IndexedDB)
+    this._mem = slim;
     // เฟส 2-3: เขียนลง IndexedDB (จุ ~50MB+) — localStorage เป็นแค่ทางถอยตอน IDB ใช้ไม่ได้
-    this._idbPut('customers', list).catch(() => {
-      try { localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list)); }
+    this._idbPut('customers', slim).catch(() => {
+      try { localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(slim)); }
       catch (e) {
         console.error('[Storage] save failed (IDB+localStorage):', e);
         Utils.toast('❌ พื้นที่จัดเก็บเต็ม — ข้อมูลอาจไม่บันทึก', 'error');
