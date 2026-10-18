@@ -1456,20 +1456,40 @@ const Storage = {
     return tick();
   },
 
-  // รอบเช็ค 20 วิ (เดิม 60) — เครื่องอื่นเห็นหมุดใหม่ไวกว่า
-  // ต้นทุนจริง ~1 rows_read/รอบ ตอนไม่มีข้อมูลใหม่ (etag cache hit) → ไม่ชนโควตา D1
-  startPolling(intervalMs = 20000) {
-    this.stopPolling();
+  // รอบเช็คปรับตามการใช้งาน (เฟส 2): เปิดจอดู = 20 วิ · พับจอ/สลับแท็บ = 120 วิ
+  // (จอซ่อนแล้วยังเช็คถี่ = เผาโควตาเปล่า — ช้าลง 6 เท่าตอนไม่ได้ดู กลับมาดูเช็คทันที)
+  _pollBaseMs: 20000,
+  _pollSlowMs: 120000,
+  _pollActive: false,
+  _visBound: false,
+  _effectiveInterval() {
+    try { return (typeof document !== 'undefined' && document.hidden) ? this._pollSlowMs : this._pollBaseMs; }
+    catch { return this._pollBaseMs; }
+  },
+  _clearPollTimer() {
+    if (this._pollingTimer) { clearInterval(this._pollingTimer); this._pollingTimer = null; }
+  },
+  startPolling(intervalMs = 20000, slowMs = 120000) {
+    this._pollBaseMs = intervalMs; this._pollSlowMs = slowMs;
+    this._pollActive = true;
+    if (!this._visBound && typeof document !== 'undefined' && document.addEventListener) {
+      this._visBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!this._pollActive) return;
+        this._clearPollTimer();
+        this._pollingTimer = setInterval(() => this.pollOnce(), this._effectiveInterval());
+        if (!document.hidden) this.pollOnce();   // กลับมาดู → เช็คทันที ไม่รอรอบ
+      });
+    }
     // Run immediately, then every interval
     this.pollOnce();
-    this._pollingTimer = setInterval(() => this.pollOnce(), intervalMs);
+    this._clearPollTimer();
+    this._pollingTimer = setInterval(() => this.pollOnce(), this._effectiveInterval());
   },
 
   stopPolling() {
-    if (this._pollingTimer) {
-      clearInterval(this._pollingTimer);
-      this._pollingTimer = null;
-    }
+    this._pollActive = false;
+    this._clearPollTimer();
   },
 
   // ===== Reload customers from D1 (clear seed + re-import) =====
