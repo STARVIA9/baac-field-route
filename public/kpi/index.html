@@ -54,10 +54,18 @@ html{scroll-behavior:smooth}
 .item input[type=number]{font-size:20px;font-weight:700;padding:11px 12px}
 [id^="it-"]{scroll-margin-top:200px}
 #alerts a{color:inherit}#psum [data-dt].on{background:var(--green);color:#fff}
+#lock{position:fixed;inset:0;background:var(--green);z-index:99;display:flex;align-items:center;justify-content:center;padding:20px}
+#lock .box{background:#fff;border-radius:18px;padding:28px 24px;max-width:380px;width:100%;text-align:center}
+#lock h2{margin:0 0 6px;font-size:24px}#lock p{margin:0 0 14px;font-size:16px;color:#456}
+#lock input{font-size:26px;font-weight:800;text-align:center;letter-spacing:8px;padding:12px}
+#lock .go{width:100%;margin-top:12px;font-size:19px;padding:13px}
+#lock .err{color:var(--red);font-size:15px;min-height:22px;margin-top:8px}
+#lockBtn{background:none;border:1.5px solid #fff;color:#fff;border-radius:10px;padding:4px 12px;font-size:14px;margin-top:8px}
 </style>
 </head>
 <body>
-<header><h1>📊 คำนวณคะแนน KPI ธ.ก.ส.</h1><p>คีย์ผลงาน → คะแนนขึ้นทันที · ใช้ได้ทุกสาขา</p></header>
+<div id="lock" style="display:none"><div class="box"><h2>🔒 เว็บ KPI</h2><p>ใส่รหัส 4 หลักเพื่อเข้าใช้งาน</p><input id="lockPin" type="password" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off"><button class="go" id="lockGo">ปลดล็อก</button><div class="err" id="lockErr"></div></div></div>
+<header><h1>📊 คำนวณคะแนน KPI ธ.ก.ส.</h1><p>คีย์ผลงาน → คะแนนขึ้นทันที · ใช้ได้ทุกสาขา</p><button id="lockBtn">🔒 ล็อก</button></header>
 <nav>
 <button data-t="key" class="on">📝 คีย์ผลงาน</button>
 <button data-t="items">➕ หัวข้อ/เกณฑ์</button>
@@ -123,7 +131,10 @@ if(a==null)return`ยังไม่คีย์ — ถึงขั้น 5 ต
 const th=[b[4],b[3],b[2],b[1],b[0]];
 for(let i=0;i<5;i++){if(lo?a<=th[i]:a>=th[i]){if(i===0)return`🎉 เต็มขั้นแล้ว (เป้า ${fmt(it.target)} ${u})`;const need=lo?fmt(a-th[i-1]):fmt(th[i-1]-a);const pts=[1,.8,.6,.4,.2];return`อีก ${need} ${u} ขึ้นขั้น ${6-i} → ได้ ${Math.round(f*pts[i-1]*100)/100} แต้ม`;}}
 const need=lo?fmt(a-b[0]):fmt(b[0]-a);return`ต่ำกว่าขั้น 1 — อีก ${need} ${u} ถึงขั้น 1 (20%)`;}
-async function api(m,p,q){const u='/api/kpi'+(q||'');const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:p?JSON.stringify(p):undefined});return r.json();}
+function kpin(){return sessionStorage.getItem('kpi_pin')||'';}
+function showLock(msg){$('#lock').style.display='flex';if(msg)$('#lockErr').textContent=msg;setTimeout(()=>$('#lockPin').focus(),50);}
+function hideLock(){$('#lock').style.display='none';$('#lockErr').textContent='';$('#lockPin').value='';}
+async function api(m,p,q){const u='/api/kpi'+(q||'');const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json','x-kpi-pin':kpin()},body:p?JSON.stringify(p):undefined});const d=await r.json();if(r.status===401){showLock(d.error==='ต้องใส่รหัส PIN'?'รหัสไม่ถูกต้อง ลองอีกครั้ง':'ต้องใส่รหัสก่อน');throw new Error('need-pin');}return d;}
 function jscoreI(full,b,a){if(a==null||a==='')return null;full=Number(full);const R=v=>Math.round(v*100)/100;const lo=b[0]>b[4];
 if(!lo){const t=b;if(a>=t[4])return full;if(a<t[0])return R(full/5);for(let i=3;i>=0;i--){if(a>=t[i])return R((i+1+(a-t[i])/(t[i+1]-t[i]))/5*full);}return R(full/5);}
 const t=[b[4],b[3],b[2],b[1],b[0]];if(a<=t[0])return full;if(a>t[4])return R(full/5);for(let k=1;k<=4;k++){if(a<=t[k])return R(((5-k)+(t[k]-a)/(t[k]-t[k-1]))/5*full);}return R(full/5);}
@@ -207,7 +218,11 @@ $('#niGo').onclick=async()=>{if(!$('#niName').value.trim()){alert('ใส่ช�
 $('#resetBr').onclick=async()=>{if(confirm('รีเซ็ตเป็นเกณฑ์ตั้งต้น?')){await api('POST',{op:'reset-branch',code:BR});loadManage();loadItems();}};
 $('#delBr').onclick=async()=>{if(confirm('ลบสาขานี้ทั้งหมด?')){await api('POST',{op:'del-branch',code:BR});BR='';PVIEW='';await loadBranches();loadItems();}};
 $('#snapGo').onclick=async()=>{if(!$('#snapP').value){alert('ใส่งวดก่อน เช่น 10/2569');return;}await api('POST',{op:'save-snapshot',code:BR,period:$('#snapP').value});$('#snapP').value='';loadTrend();};
-(async()=>{await loadBranches();await loadItems();})();
+async function unlock(){const v=$('#lockPin').value.trim();if(!v){$('#lockErr').textContent='ใส่รหัสก่อนจ้า';return;}sessionStorage.setItem('kpi_pin',v);try{await loadBranches();await loadItems();hideLock();}catch(e){/* api โชว์จอล็อกเอง + ล้างรหัสผิด */if(String(e&&e.message)==='need-pin')sessionStorage.removeItem('kpi_pin');}}
+$('#lockGo').onclick=unlock;
+$('#lockPin').onkeydown=e=>{if(e.key==='Enter')unlock();};
+$('#lockBtn').onclick=()=>{sessionStorage.removeItem('kpi_pin');PVIEW='';showLock();};
+(async()=>{if(!kpin()){showLock();return;}try{await loadBranches();await loadItems();}catch(e){/* ล็อกเด้งเอง */}})();
 </script>
 </body>
 </html>

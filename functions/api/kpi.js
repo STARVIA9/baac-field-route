@@ -23,6 +23,14 @@ const PRESETS = [
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
+
+// 🔒 ล็อกรหัสเว็บ KPI — PIN เดียวทั้งเว็บ (ค่าเริ่ม 3117 เปลี่ยนผ่าน env KPI_PIN)
+const getKpiPin = (env) => (env && env.KPI_PIN) || '3117';
+function checkPin(request, env, bodyPin) {
+  const url = new URL(request.url);
+  const pin = request.headers.get('x-kpi-pin') || bodyPin || url.searchParams.get('pin');
+  return pin === getKpiPin(env);
+}
 async function getPresets(env) {
   const EVAL_DEFAULT = { '4.1': 'สิ้นเดือนที่ 2', '4.2': 'สิ้นเดือนที่ 3', '3.5': 'รายไตรมาส', '3.6': 'ถัวเฉลี่ยสิ้นปีบัญชี' };
   try {
@@ -104,6 +112,7 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const action = url.searchParams.get('action');
+  if (!checkPin(request, env, null)) return json({ success: false, error: 'ต้องใส่รหัส PIN' }, 401);
   if (action === 'branches') return json({ success: true, branches: await getBranches(env) });
   if (action === 'branch') {
     const b = await getBranch(env, url.searchParams.get('code') || '');
@@ -142,6 +151,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
+  if (!checkPin(request, env, body.pin)) return json({ success: false, error: 'ต้องใส่รหัส PIN' }, 401);
   const op = body.op;
   const list = await getBranches(env);
 
