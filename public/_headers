@@ -34,9 +34,10 @@
 /version.json
   Cache-Control: no-cache, no-store, must-revalidate
 
-# CORS for API routes
+# CORS for API routes — เฟส 4: ล็อกเฉพาะเว็บตัวเอง (เดิม * = เว็บไหนในโลกก็เรียกได้)
+# แอปเรียกแบบ same-origin ทั้งหมด (API.baseUrl = location.origin) จึงไม่กระทบใช้งาน
 /api/*
-  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Origin: https://baacroute.shop
   Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
   Access-Control-Allow-Headers: Content-Type, Authorization
   Access-Control-Max-Age: 86400

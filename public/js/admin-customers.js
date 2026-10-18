@@ -67,6 +67,7 @@ const Admin = {
     document.getElementById('btn-gps-import').addEventListener('click', () => this.openGpsImport());
     document.getElementById('btn-debt-import').addEventListener('click', () => this.openDebtImport());
     document.getElementById('btn-export').addEventListener('click', () => this.openExport());
+    document.getElementById('btn-backup').addEventListener('click', () => this.downloadBackup());
     document.getElementById('btn-recycle').addEventListener('click', () => this.openRecycle());
     document.getElementById('btn-batch-delete').addEventListener('click', () => this.handleBatchDelete());
 
@@ -846,7 +847,25 @@ const Admin = {
     return records;
   },
 
-  // ===== Export =====
+  // ===== สำรองข้อมูล + Export =====
+  async downloadBackup() {
+    try {
+      Utils.toast('💾 กำลังสำรองข้อมูล...', 'success');
+      const data = await API.get('/api/admin/backup');
+      if (!data || !data.success) throw new Error((data && data.error) || 'สำรองไม่สำเร็จ');
+      const day = (data.exported_at || '').slice(0, 10);
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `backup-${day}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      Utils.toast(`✅ สำรองแล้ว ${(data.counts?.customers || 0).toLocaleString()} ราย + KV ${data.counts?.kv_keys || 0} คีย์`, 'success');
+    } catch (err) {
+      Utils.toast('สำรองไม่สำเร็จ: ' + err.message, 'error');
+    }
+  },
+
   openExport() {
     const fields = prompt(
       'เลือก field ที่ต้องการ Export (คั่นด้วย ,):\n' +

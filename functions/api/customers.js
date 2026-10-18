@@ -14,6 +14,7 @@
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
 import { toBaacCode } from '../_lib/branches.js';
+import { stripPII } from '../_lib/shared.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -119,7 +120,7 @@ export async function onRequestGet(context) {
         return json({ success: false, error: 'Customer not found' }, 404);
       }
     }
-    return json({ success: true, customer: rowToCustomer(rows[0]) });
+    return json({ success: true, customer: stripPII(rowToCustomer(rows[0]), isAdmin) });
   }
 
   // List customers
@@ -146,7 +147,7 @@ export async function onRequestGet(context) {
     `SELECT * FROM customers ${where} ORDER BY name ASC LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`,
     ...params
   );
-  const customers = rows.map(rowToCustomer);
+  const customers = rows.map(r => stripPII(rowToCustomer(r), isAdmin));
 
   // Count with branch filter
   const countWhere = includeDeleted ? '' : 'WHERE deleted=0' +
@@ -278,7 +279,7 @@ export async function onRequestPut(context) {
   if (env.BFR_KV) await env.BFR_KV.put('meta:overlay-updated', now);
 
   const fresh = await q(env, 'SELECT * FROM customers WHERE cif=?1', cif);
-  return json({ success: true, customer: rowToCustomer(fresh[0]) });
+  return json({ success: true, customer: stripPII(rowToCustomer(fresh[0]), auth.user.role === 'admin') });
 }
 
 // ==================== DELETE (soft) / restore ====================

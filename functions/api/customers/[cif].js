@@ -3,7 +3,7 @@
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { toBaacCode } from '../../_lib/branches.js';
-import { logGpsHistory, trackWrites } from '../../_lib/shared.js';
+import { logGpsHistory, trackWrites, stripPII } from '../../_lib/shared.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -98,7 +98,7 @@ export async function onRequestGet(context) {
   } catch (e) {
     console.error('[views] log failed:', e?.message);
   }
-  return json({ success: true, customer: rowToCustomer(row) });
+  return json({ success: true, customer: stripPII(rowToCustomer(row), auth.user.role === 'admin') });
 }
 
 export async function onRequestPut(context) {
@@ -184,7 +184,7 @@ export async function onRequestPut(context) {
   // W13 FIX: Don't read-modify-write KV overlay here — GET /api/gps-overlay
   // already reads from D1 directly. Just bump the timestamp so clients know
   // to refetch. This eliminates the KV race condition entirely.
-  return json({ success: true, customer: rowToCustomer(fresh) });
+  return json({ success: true, customer: stripPII(rowToCustomer(fresh), auth.user.role === 'admin') });
 }
 
 export async function onRequestDelete(context) {

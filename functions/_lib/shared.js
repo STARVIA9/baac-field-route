@@ -166,3 +166,12 @@ export function rowToCustomer(r) {
     debtUpdatedAt: r.debt_updated_at || '',
   };
 }
+
+// ===== PDPA เฟส 4: ซ่อน PII (เลขบัตร/วันเกิด) จากคนที่ไม่ใช่แอดมิน =====
+// เรียกครอบ customer ก่อนส่งออกทุก endpoint ที่ staff เรียกถึง
+// (ที่อยู่แยกส่วน amphoe/tambon/… ยังให้ — หน้าแผนที่ต้องใช้ประกอบที่อยู่)
+export function stripPII(customer, isAdmin) {
+  if (isAdmin || !customer || !customer.extra) return customer;
+  const { idCard, dob, ...rest } = customer.extra;
+  return { ...customer, extra: rest };
+}
