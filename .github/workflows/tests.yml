@@ -1,0 +1,39 @@
+name: ✅ Auto tests
+
+# รัน harness ทุกไฟล์เมื่อมี push แตะโค้ด/เทส — แดงรู้เลย ไม่ต้องรอพ่อเจอบั๊ก (เฟส 5)
+
+on:
+  push:
+    paths:
+      - 'functions/**'
+      - 'public/js/**'
+      - 'public/_headers'
+      - 'public/admin.html'
+      - 'tests/**'
+  workflow_dispatch: {}      # กดมือได้จากแท็บ Actions
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: node syntax (functions + js)
+        run: |
+          node --check functions/_lib/shared.js
+          node --check functions/api/customers.js
+          node --check "functions/api/customers/[cif].js"
+          node --check functions/api/admin/backup.js
+          node --check public/js/storage.js
+          node --check public/js/vendor.js
+          node --check public/js/admin-customers.js
+      - name: harness ทุกไฟล์
+        run: |
+          fail=0
+          for f in tests/test_*.mjs; do echo "== $f"; node "$f" || fail=1; done
+          exit $fail

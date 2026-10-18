@@ -4698,6 +4698,15 @@ const App = {
     el.innerHTML = `📝 โควต้าเขียนวันนี้: <strong>${quota.used.toLocaleString()}/${quota.limit.toLocaleString()}</strong> (เหลือ ${quota.remaining.toLocaleString()})`
       + `<div style="height:8px;background:#eee;border-radius:4px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div></div>`
       + (ops ? `<small class="text-muted">ใช้ไป: ${ops}</small>` : '');
+    // เฟส 5: เตือนเชิงรุกครั้งเดียวต่อรอบเปิดแอป — ตอนแอดมินเปิดจอนำเข้าไฟล์ตอนโควต้าใกล้เต็ม
+    if ((quota.blockBulk || quota.warn) && !this._quotaWarned) {
+      this._quotaWarned = true;
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(quota.blockBulk
+          ? '🛑 โควต้าเขียนวันนี้ใกล้เต็ม — งานนำเข้าไฟล์ใหญ่ถูกล็อกชั่วคราว'
+          : '⚠️ โควต้าเขียนวันนี้ใกล้เต็มแล้ว — นำเข้าเฉพาะที่จำเป็น', 'error');
+      }
+    }
   },
 
   async loadDebtQuota() {
