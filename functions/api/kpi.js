@@ -45,10 +45,38 @@ async function getBranches(env) {
 async function getBranch(env, code) {
   try { return JSON.parse((await env.BFR_KV.get('kpi:branch:' + code)) || 'null'); } catch { return null; }
 }
+const W61 = [0.9, 0.9, 1.15, 0.9, 0.9, 1.15, 0.9, 0.9, 1.15, 1.15];
+const W62 = [0.6, 0.6, 0.8, 0.6, 0.6, 0.8, 0.6, 0.6, 0.8, 0.6, 0.6, 0.8, 0.6, 0.6, 0.8];
+function tieredW(w, b, a) {
+  if (a === null || a === undefined || a === '') return 0.1;
+  const v = Number(a);
+  const lo = b[0] > b[4];
+  const thr = [b[4], b[3], b[2], b[1], b[0]];
+  const pct = [1, 0.8, 0.6, 0.4, 0.2];
+  for (let i = 0; i < 5; i++) {
+    if (lo ? v <= thr[i] : v >= thr[i]) return Math.round(w * pct[i] * 100) / 100;
+  }
+  return 0.1;
+}
+function compo41(bands, arr) {
+  if (!Array.isArray(arr) || !arr.some((x) => x !== null && x !== undefined && x !== '')) return null;
+  const s = arr.reduce((t, m, i) => t + tieredW(W61[i] || 0, bands, m), 0);
+  return Math.round((s / 2) * 1000) / 1000;
+}
+function compo42(bands, arr) {
+  if (!Array.isArray(arr) || !arr.some((x) => x !== null && x !== undefined && x !== '')) return null;
+  const s = arr.reduce((t, m, i) => t + tieredW(W62[i] || 0, bands, m), 0);
+  return Math.round((s / 2) * 1000) / 1000;
+}
 function scoreOf(it) {
+  const b = [it.b1, it.b2, it.b3, it.b4, it.b5].map(Number);
+  if ((it.code === '4.1' || it.code === '4.2') && it.m) {
+    const arr = it.code === '4.1' ? it.m.b61 : it.m.b62;
+    const c = it.code === '4.1' ? compo41(b, arr) : compo42(b, arr);
+    if (c !== null) return c;
+  }
   if (it.actual === null || it.actual === undefined || it.actual === '') return null;
   const a = Number(it.actual), full = Number(it.full);
-  const b = [it.b1, it.b2, it.b3, it.b4, it.b5].map(Number);
   const lo = b[0] > b[4];
   const thr = [b[4], b[3], b[2], b[1], b[0]];
   const pct = [1, 0.8, 0.6, 0.4, 0.2];
@@ -122,7 +150,7 @@ export async function onRequestPost(context) {
   if (op === 'save-item') {
     const it = b.items.find((x) => x.id === body.item.id);
     if (!it) return json({ success: false, error: 'ไม่พบหัวข้อ' }, 404);
-    ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'actual', 'actuals',
+    ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'actual', 'actuals', 'm',
      'owner', 'action', 'baseline', 'eval_note', 'eval_date'].forEach((k) => {
       if (body.item[k] !== undefined) it[k] = body.item[k];
     });
