@@ -16,10 +16,11 @@
   Cache-Control: no-cache, no-store, must-revalidate
 /admin
   Cache-Control: no-cache, no-store, must-revalidate
+# JS/CSS ทุกไฟล์ที่เว็บโหลดต้องมี ?v= เสมอ (เปลี่ยนเลข = URL ใหม่ = ได้ของใหม่ทันที) — ห้ามอ้างไฟล์เปล่าไม่มี ?v=
 /js/*
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: public, max-age=31536000, immutable
 /css/*
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: public, max-age=31536000, immutable
 /manifest.json
   Cache-Control: no-cache, no-store, must-revalidate
 

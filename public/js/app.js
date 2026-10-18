@@ -1774,6 +1774,9 @@ const App = {
     await this.loadAdminUsers();
     await this.loadAdminBranches();
     await this.loadAdminViews();
+    this.loadAdminHealth();
+    const healthBtn = document.getElementById('health-refresh');
+    if (healthBtn && !healthBtn.dataset.bound) { healthBtn.dataset.bound = '1'; healthBtn.onclick = () => this.loadAdminHealth(true); }
 
     // สมุดคุม: พิมพ์ชื่อ user แล้วกด Enter เพื่อกรอง
     const viewsFilter = document.getElementById('admin-views-filter');
@@ -2025,6 +2028,38 @@ const App = {
       const data = await res.json();
       if (data && data.success) this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
     } catch (e) { /* เงียบไว้ — แถบโควต้าเป็นของเสริม */ }
+  },
+
+  // ===== สุขภาพระบบ (เฟส 0): เส้นฐานพิกัด/หนี้/โควต้า + เวลาโหลดเครื่องนี้ =====
+  async loadAdminHealth(force = false) {
+    const el = document.getElementById('health-panel');
+    if (!el) return;
+    try {
+      const token = Auth.getToken();
+      const res = await fetch('/api/admin/quota' + (force ? '?force=1' : ''), { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (!data || !data.success || !data.health) { el.innerHTML = '<p class="text-muted">โหลดข้อมูลสุขภาพไม่สำเร็จ</p>'; return; }
+      const h = data.health, q = data.quota || {};
+      const branchName = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
+      const rows = (h.branches || []).map(b =>
+        `<div style="padding:8px 10px;border:1px solid #dfe8e2;border-radius:10px;margin:6px 0">🏢 <strong>${branchName[b.branch] || ('สาขา ' + (b.branch || 'ไม่ระบุ'))}</strong>`
+        + `<br>👥 ลูกค้า <strong>${b.total.toLocaleString()}</strong> ราย · 📍 มีพิกัด <strong>${b.gps.toLocaleString()}</strong> ราย (<strong>${b.gpsPct}%</strong>) · 💰 มีหนี้ ${b.debt.toLocaleString()} ราย</div>`).join('');
+      const gpsColor = h.gpsPct >= 50 ? 'var(--baac-green)' : (h.gpsPct >= 20 ? '#f9a825' : 'var(--danger)');
+      const nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+      const loadMs = nav ? Math.round(nav.domContentLoadedEventEnd || nav.loadEventEnd || 0) : null;
+      let localTxt = '';
+      try {
+        const cs = Storage.getCustomers();
+        const lg = cs.filter(c => c.lat && c.lng).length;
+        localTxt = `<br>📱 เครื่องนี้: เก็บลูกค้า ${cs.length.toLocaleString()} ราย (มีพิกัด ${lg.toLocaleString()})` + (loadMs != null ? ` · ⏱️ โหลดหน้าเว็บ ${loadMs.toLocaleString()} มิลลิวินาที` : '');
+      } catch (e) { /* ข้อมูลเครื่องเป็นของเสริม */ }
+      el.innerHTML =
+        `<div style="font-size:20px">📍 พิกัดรวม <strong style="color:${gpsColor};font-size:26px">${h.gpsPct}%</strong> (${h.gps.toLocaleString()}/${h.total.toLocaleString()} ราย)</div>`
+        + `<div style="height:10px;background:#eee;border-radius:5px"><div style="width:${Math.min(100, h.gpsPct)}%;height:100%;background:${gpsColor};border-radius:5px"></div></div>`
+        + rows
+        + `<div>📝 โควต้าเขียนวันนี้: <strong>${(q.used || 0).toLocaleString()}/${(q.limit || 100000).toLocaleString()}</strong> (ใช้ ${(q.pct || 0)}%)</div>`
+        + `<div class="text-muted" style="font-size:14px">🕐 วัดเมื่อ ${new Date(h.at).toLocaleString('th-TH')}${h.cached ? ` · จากแคช (อายุ ${h.cacheAgeSec} วิ)` : ' · วัดสดจากฐานข้อมูล'}${localTxt}</div>`;
+    } catch (e) { el.innerHTML = '<p class="text-muted">โหลดข้อมูลสุขภาพไม่สำเร็จ</p>'; }
   },
 
   // ===== Debt Import: โชว์ผลวิเคราะห์ก่อนยืนยัน =====

@@ -2784,6 +2784,10 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   max-width: 400px;
 }
 
+/* แท็บใน modal จัดการระบบ: โชว์เฉพาะแผงที่เลือก (เดิมไม่มีกฎนี้ ทุกแผงกองโชว์ซ้อนกัน) */
+.admin-tab-pane { display: none; }
+.admin-tab-pane.active { display: block; }
+
 .modal-header {
   display: flex;
   align-items: center;

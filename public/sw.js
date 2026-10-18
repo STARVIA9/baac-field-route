@@ -2,8 +2,8 @@
 // Strategy: NETWORK-FIRST for HTML/JS/CSS (always fresh), CACHE-FIRST for tiles/images
 // Enhanced: Full offline support for field work
 
-const CACHE_NAME = "bfr-v20261018a";
-const STATIC_CACHE = "bfr-static-v20261018a";
+const CACHE_NAME = "bfr-v20261018b";
+const STATIC_CACHE = "bfr-static-v20261018b";
 const TILE_CACHE = "bfr-tiles-v20260828a";
 
 const ASSETS = [
@@ -47,6 +47,23 @@ self.addEventListener('message', (event) => {
 // Fetch handler
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+
+  // ไฟล์โค้ดที่มี ?v= (immutable): ใช้ของในเครื่องก่อน — เปิดซ้ำไม่โหลดใหม่, เลขเวอร์ชันเปลี่ยน = URL ใหม่เอง
+  const isVersionedStatic =
+    url.origin === location.origin &&
+    (url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/')) &&
+    url.searchParams.has('v');
+
+  if (isVersionedStatic) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+        const clone = res.clone();
+        caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+        return res;
+      }))
+    );
+    return;
+  }
 
   // Network-first for app shell + version.json (always want fresh code)
   const isAppShell =

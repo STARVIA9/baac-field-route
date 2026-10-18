@@ -18,8 +18,8 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261018a" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261018a" as="script">
+  <link rel="preload" href="css/app.css?v=20261018b" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261018b" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -146,11 +146,11 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261018a">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261018a"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261018b">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261018b"></noscript>
   
   <!-- Non-critical JS (defer) -->
-  <script src="lib/lucide.min.js" defer></script>
+  <script src="js/icons.js?v=20261018b" defer></script>
   <script src="lib/leaflet.js" defer></script>
   <script src="lib/leaflet.markercluster.js" defer></script>
 </head>
@@ -1102,6 +1102,7 @@
           <button class="admin-tab" data-admin-tab="pin">🔐 PIN</button>
           <button class="admin-tab" data-admin-tab="debt">📊 อัปเดตหนี้</button>
           <button class="admin-tab" data-admin-tab="views">📖 สมุดคุม</button>
+          <button class="admin-tab" data-admin-tab="health">💚 สุขภาพระบบ</button>
         </div>
 
         <!-- Tab: Users -->
@@ -1293,6 +1294,16 @@
             <p class="text-muted">กำลังโหลด...</p>
           </div>
         </div>
+
+        <!-- Tab: สุขภาพระบบ (เฟส 0 — เส้นฐานก่อนยกระดับ/ประกวด) -->
+        <div class="admin-tab-pane" id="admin-tab-health">
+          <h3>💚 สุขภาพระบบ — เส้นฐานปัจจุบัน</h3>
+          <div id="health-panel" style="font-size:16px;line-height:1.9">
+            <p class="text-muted">กำลังโหลด...</p>
+          </div>
+          <button type="button" class="btn-secondary" id="health-refresh" style="min-height:48px;font-size:16px">🔄 วัดใหม่ตอนนี้</button>
+          <p class="text-muted" style="font-size:14px">ตัวเลขเซิร์ฟเวอร์เก็บแคช 10 นาที — เปิดแท็บนี้กี่ครั้งก็ไม่เปลืองโควต้าฐานข้อมูลค่ะ</p>
+        </div>
       </div>
     </div>
   </div>
@@ -1327,8 +1338,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261018a"></script>
-  <script src="js/app.bundle.js?v=20261018a"></script>
+  <script src="js/vendor.js?v=20261018b"></script>
+  <script src="js/app.bundle.js?v=20261018b"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
