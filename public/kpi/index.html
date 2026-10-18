@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>คำนวณคะแนน KPI ธ.ก.ส.</title>
+<style>
+:root{--green:#0b6b3a;--bg:#f2f6f3;--card:#fff;--line:#dfe8e2;--red:#b3261e;--amber:#9a6a00}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#123;font:16px/1.6 system-ui,'Noto Sans Thai',sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--green);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:20px}header p{margin:2px 0 0;font-size:14px;opacity:.9}
+nav{display:flex;gap:8px;padding:10px 12px;position:sticky;top:66px;background:var(--bg);z-index:4}
+nav button{flex:1;border:2px solid var(--green);background:#fff;color:var(--green);border-radius:12px;padding:10px 4px;font-size:15px;font-weight:700}
+nav button.on{background:var(--green);color:#fff}
+main{padding:4px 12px 40px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+label{font-size:14px;color:#456;display:block}
+input,select,textarea{font-size:17px;padding:9px 10px;border:1.5px solid #bcd;border-radius:10px;width:100%;background:#fff;font-family:inherit}
+button.go{background:var(--green);color:#fff;border:0;border-radius:10px;padding:11px 16px;font-size:16px;font-weight:700}
+button.ghost{background:#fff;color:var(--green);border:1.5px solid var(--green);border-radius:10px;padding:8px 12px;font-size:15px}
+button.danger{background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:10px;padding:8px 12px;font-size:15px}
+.item{border-bottom:1px solid var(--line);padding:10px 0}
+.item:last-child{border-bottom:0}
+.score{font-size:22px;font-weight:800;color:var(--green)}
+.bands{font-size:13px;color:#678}
+.total{font-size:20px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
+th{background:#e7f2ea}
+.grow{flex:1;min-width:120px}
+.mut{font-size:13px;color:#678}
+.ok{background:#e7f6ec;border:1px solid #9ed3ae;border-radius:12px;padding:10px 12px;margin:10px 0}
+.warn{background:#fff8e6;border:1px solid #e0c36a;border-radius:12px;padding:10px 12px;margin:10px 0}
+.dot{font-size:20px}
+.bar{height:10px;background:#e3ebe5;border-radius:6px;overflow:hidden;margin-top:4px}
+.bar>div{height:100%;background:var(--green)}
+.bar.red>div{background:var(--red)}.bar.amber>div{background:#d99a00}
+.pill{display:inline-block;border-radius:20px;padding:2px 10px;font-size:13px;font-weight:700;margin:2px 4px 2px 0}
+.pill.g{background:#e7f6ec;color:var(--green)}.pill.a{background:#fff3d6;color:var(--amber)}.pill.r{background:#fdecea;color:var(--red)}.pill.w{background:#eee;color:#678}
+details{margin-top:6px}summary{cursor:pointer}
+textarea{font-size:15px;min-height:56px}
+</style>
+</head>
+<body>
+<header><h1>📊 คำนวณคะแนน KPI ธ.ก.ส.</h1><p>คีย์ผลงาน → คะแนนขึ้นทันที · ใช้ได้ทุกสาขา</p></header>
+<nav>
+<button data-t="key" class="on">📝 คีย์ผลงาน</button>
+<button data-t="items">➕ หัวข้อ/เกณฑ์</button>
+<button data-t="rank">🏆 อันดับ</button>
+</nav>
+<main>
+<section id="t-key">
+<div class="card"><div class="row">
+<div class="grow"><label>สาขา</label><select id="br"></select></div>
+<div><button class="go" id="addBrBtn">＋ เพิ่มสาขา</button></div>
+</div><div id="addBr" style="display:none;margin-top:8px"><div class="row">
+<div class="grow"><label>รหัส</label><input id="nbCode" placeholder="0854"></div>
+<div class="grow"><label>ชื่อสาขา</label><input id="nbName" placeholder="วังท่าช้าง"></div>
+<div class="grow"><label>จังหวัด</label><input id="nbProv" placeholder="ปราจีนบุรี"></div>
+<div><button class="go" id="nbGo">บันทึก</button></div>
+</div></div></div>
+<div class="ok" id="sumBox" style="display:none"></div>
+<div class="card" id="secBox" style="display:none"></div>
+<div id="items"></div>
+<div class="card"><b>📸 บันทึกงวดนี้ดูแนวโน้ม</b><div class="row" style="margin-top:6px">
+<div><label>งวด (ดด/ปปปป)</label><input id="snapP" placeholder="10/2569" style="width:130px"></div>
+<div><button class="go" id="snapGo">บันทึกงวด</button></div>
+</div><div id="trend"></div></div>
+</section>
+<section id="t-items" style="display:none">
+<div class="card"><b>เพิ่มหัวข้อเองให้สาขาที่เลือก</b><div class="row" style="margin-top:8px">
+<div class="grow"><label>หมวด</label><input id="niSec" value="งานเพิ่มเติม"></div>
+<div class="grow"><label>รหัสข้อ</label><input id="niCode" value="X.1"></div>
+</div><div class="row" style="margin-top:8px">
+<div class="grow"><label>ชื่อตัวชี้วัด</label><input id="niName"></div>
+<div><label>หน่วย</label><input id="niUnit" value="ร้อยละ" style="width:110px"></div>
+</div><div class="row" style="margin-top:8px">
+<div><label>แต้มเต็ม</label><input id="niFull" type="number" value="1" style="width:90px"></div>
+<div><label>เป้าหมาย</label><input id="niT" type="number" value="0" style="width:110px"></div>
+<div><label>ขั้น1</label><input class="nib" type="number" value="0" style="width:90px"></div>
+<div><label>ขั้น2</label><input class="nib" type="number" value="0" style="width:90px"></div>
+<div><label>ขั้น3</label><input class="nib" type="number" value="0" style="width:90px"></div>
+<div><label>ขั้น4</label><input class="nib" type="number" value="0" style="width:90px"></div>
+<div><label>ขั้น5</label><input class="nib" type="number" value="0" style="width:90px"></div>
+<div class="grow"><label>🗓 รอบวัดผล</label><input id="niEval" placeholder="เช่น สิ้นเดือนที่ 2"></div>
+<div><button class="go" id="niGo">เพิ่ม</button></div>
+</div></div>
+<div id="manage"></div>
+<div class="card"><button class="ghost" id="resetBr">🔄 รีเซ็ตสาขานี้เป็นเกณฑ์ตั้งต้น</button>
+<button class="danger" id="delBr">🗑 ลบสาขานี้</button></div>
+</section>
+<section id="t-rank" style="display:none"><div class="card" id="rankBox">กำลังโหลด…</div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+let BR='';
+async function api(m,p,q){const u='/api/kpi'+(q||'');const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:p?JSON.stringify(p):undefined});return r.json();}
+function rag(it){if(it.score==null)return['⚪','w'];const p=it.score/it.full;if(p>=1)return['🟢','g'];if(p>=0.6)return['🟡','a'];return['🔴','r'];}
+function dueTxt(d){if(!d)return'';const t=new Date();t.setHours(0,0,0,0);const e=new Date(d+'T00:00:00');const n=Math.round((e-t)/864e5);if(n>0)return`เหลือ ${n} วัน`;if(n===0)return'ครบกำหนดวันนี้';return`เลยมา ${-n} วัน`;}
+async function loadBranches(){const d=await api('GET',null,'?action=branches');const s=$('#br');s.innerHTML=d.branches.map(b=>`<option value="${b.code}">${b.code} ${b.name}</option>`).join('');if(d.branches.length&&!BR)BR=d.branches[0].code;if(BR)s.value=BR;else BR=s.value;}
+async function loadItems(){if(!BR){$('#items').innerHTML='<div class="card">เพิ่มสาขาก่อน</div>';return;}const d=await api('GET',null,'?action=branch&code='+encodeURIComponent(BR));if(!d.success)return;
+let g=0,a=0,r=0,w=0;d.branch.items.forEach(it=>{const c=rag(it)[1];if(c==='g')g++;else if(c==='a')a++;else if(c==='r')r++;else w++;});
+const pct=d.totalFull?Math.round(d.totalGot/d.totalFull*1000)/10:0;
+$('#sumBox').style.display='block';const CC=2*Math.PI*34;const tot=d.branch.items.length||1;
+$('#sumBox').innerHTML=`<div class="row"><div><svg width="110" height="110" viewBox="0 0 90 90"><circle cx="45" cy="45" r="34" fill="none" stroke="#e3ebe5" stroke-width="12"/><circle cx="45" cy="45" r="34" fill="none" stroke="${pct>=100?'#0b6b3a':pct>=60?'#d99a00':'#b3261e'}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${Math.min(pct,100)/100*CC} ${CC}" transform="rotate(-90 45 45)"/><text x="45" y="51" text-anchor="middle" font-size="16" font-weight="800" fill="#123">${pct}%</text></svg></div><div class="grow"><span class="total">รวม ${d.totalGot} / ${d.totalFull} แต้ม</span><br><span class="pill g">🟢 ${g}</span><span class="pill a">🟡 ${a}</span><span class="pill r">🔴 ${r}</span><span class="pill w">⚪ ${w}</span><div class="bar" style="display:flex;height:12px"><div style="width:${g/tot*100}%;background:#0b6b3a"></div><div style="width:${a/tot*100}%;background:#d99a00"></div><div style="width:${r/tot*100}%;background:#b3261e"></div><div style="width:${w/tot*100}%;background:#cfd8d1"></div></div></div></div>`;
+const secs={};d.branch.items.forEach(it=>{(secs[it.section]=secs[it.section]||{g:0,f:0}).g+=it.score||0;secs[it.section].f+=Number(it.full||0);});
+$('#secBox').style.display='block';$('#secBox').innerHTML='<b>ภาพรวมรายหมวด</b>'+Object.entries(secs).map(([s,v])=>{const p=v.f?Math.round(v.g/v.f*100):0;const cl=p>=100?'':p>=60?'amber':'red';return`<div style="margin-top:6px">${s} — <b>${Math.round(v.g*100)/100}/${Math.round(v.f*100)/100}</b> (${p}%)<div class="bar ${cl}"><div style="width:${Math.min(p,100)}%"></div></div></div>`;}).join('');
+$('#items').innerHTML=d.branch.items.map(it=>{const dot=rag(it)[0];return`<div class="card item"><span class="dot">${dot}</span> <b>${it.code} ${it.name}</b> <span class="mut">เป้า ${it.target} ${it.unit} · เต็ม ${it.full}</span><br><span class="bands">ขั้น 1–5: ${[it.b1,it.b2,it.b3,it.b4,it.b5].join(' / ')}${it.b1>it.b5?' (ยิ่งน้อยยิ่งดี)':''}</span><br><span class="mut">👤 ${it.owner||'ยังไม่มีเจ้าของ'}${it.baseline!=null&&it.baseline!==''?' · เริ่ม '+it.baseline:''}</span>${it.eval_note||it.eval_date?`<div class="mut">🗓 รอบวัดผล: ${it.eval_note||'–'}${it.eval_date?' · '+it.eval_date.split('-').reverse().join('/')+' · <b>'+dueTxt(it.eval_date)+'</b>':''}</div>`:''}${it.action?`<div class="warn">📝 แผนแก้: ${it.action}</div>`:''}<div class="row" style="margin-top:6px"><div class="grow"><label>ผลงานจริง (${it.unit})</label><input type="number" step="any" data-a="${it.id}" value="${it.actual??''}"></div><div><span class="score">${it.score??'–'}</span> <span class="mut">แต้ม</span></div></div><details><summary class="mut">✏️ แก้เกณฑ์/รายละเอียดข้อนี้</summary><div class="row" style="margin-top:6px"><div><label>แต้มเต็ม</label><input type="number" step="any" data-f="full" data-i="${it.id}" value="${it.full}" style="width:80px"></div><div><label>เป้าหมาย</label><input type="number" step="any" data-f="target" data-i="${it.id}" value="${it.target}" style="width:100px"></div>${[1,2,3,4,5].map(k=>`<div><label>ขั้น${k}</label><input type="number" step="any" data-f="b${k}" data-i="${it.id}" value="${it['b'+k]}" style="width:90px"></div>`).join('')}<div class="grow"><label>👤 เจ้าของ</label><input data-f="owner" data-i="${it.id}" value="${it.owner||''}"></div><div><label>ฐานเริ่มต้น</label><input type="number" step="any" data-f="baseline" data-i="${it.id}" value="${it.baseline??''}" style="width:100px"></div><div class="grow"><label>🗓 รอบวัดผล</label><input data-f="eval_note" data-i="${it.id}" value="${it.eval_note||''}"></div><div><label>📅 วันที่วัดผล</label><input type="date" data-f="eval_date" data-i="${it.id}" value="${it.eval_date||''}"></div></div><div style="margin-top:6px"><label>📝 แผนแก้ (ข้อสีแดงควรมี)</label><textarea data-f="action" data-i="${it.id}">${it.action||''}</textarea></div><div style="margin-top:6px"><button class="ghost" data-save="${it.id}">บันทึกข้อนี้</button></div></details></div>`;}).join('');
+document.querySelectorAll('[data-a]').forEach(el=>el.onchange=async()=>{await api('POST',{op:'save-item',code:BR,item:{id:el.dataset.a,actual:el.value===''?null:Number(el.value)}});loadItems();});
+document.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{const id=b.dataset.save;const g=f=>{const e=document.querySelector(`[data-f="${f}"][data-i="${id}"]`);return e?e.value:undefined;};const num=v=>v===''||v==null?null:Number(v);const item={id,full:Number(g('full')),target:Number(g('target')),b1:Number(g('b1')),b2:Number(g('b2')),b3:Number(g('b3')),b4:Number(g('b4')),b5:Number(g('b5')),owner:g('owner'),action:g('action'),eval_note:g('eval_note'),eval_date:g('eval_date')||null,baseline:num(g('baseline'))};await api('POST',{op:'save-item',code:BR,item});loadItems();});
+loadTrend();}
+async function loadTrend(){if(!BR)return;const d=await api('GET',null,'?action=snapshots&code='+encodeURIComponent(BR));const s=d.snaps||[];let chart='';if(s.length){const W=300,H=112,P=16;const vs=s.map(x=>x.pct);const mn=Math.min(...vs,0),mx=Math.max(...vs,100);const X=i=>P+i*(W-2*P)/Math.max(s.length-1,1);const Y=v=>H-P-(v-mn)/Math.max(mx-mn,1)*(H-2*P);chart=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;background:#fff;border:1px solid #dfe8e2;border-radius:10px;margin-top:8px"><polyline fill="none" stroke="#0b6b3a" stroke-width="2.5" points="${s.map((x,i)=>X(i)+','+Y(x.pct)).join(' ')}"/>${s.map((x,i)=>`<circle cx="${X(i)}" cy="${Y(x.pct)}" r="4" fill="#0b6b3a"/><text x="${X(i)}" y="${H-1}" text-anchor="middle" font-size="9" fill="#456">${x.period}</text><text x="${X(i)}" y="${Y(x.pct)-7}" text-anchor="middle" font-size="9" font-weight="700" fill="#123">${x.pct}%</text>`).join('')}</svg>`;}
+$('#trend').innerHTML=chart+(s.length?`<table style="margin-top:8px"><tr><th>งวด</th><th>คะแนน</th><th>%</th><th>เทียบงวดก่อน</th></tr>${s.map((x,i)=>{const pv=i>0?s[i-1].pct:null;const df=pv==null?'–':((Math.round((x.pct-pv)*10)/10>=0?'+':'')+(Math.round((x.pct-pv)*10)/10));return`<tr><td>${x.period}</td><td>${x.got}/${x.full}</td><td>${x.pct}%</td><td>${df}</td></tr>`;}).join('')}</table>`:'<span class="mut">ยังไม่มีงวดที่บันทึก</span>');}
+async function loadManage(){if(!BR)return;const d=await api('GET',null,'?action=branch&code='+encodeURIComponent(BR));if(!d.success)return;$('#manage').innerHTML='<div class="card"><b>หัวข้อที่เพิ่มเอง (ลบได้)</b>'+(d.branch.items.filter(i=>i.id[0]==='c').map(i=>`<div class="row" style="margin-top:6px"><div class="grow">${i.code} ${i.name}</div><div><button class="danger" data-del="${i.id}">ลบ</button></div></div>`).join('')||'<span class="mut">ไม่มี</span>')+'</div>';document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(confirm('ลบหัวข้อนี้?')){await api('POST',{op:'del-item',code:BR,id:b.dataset.del});loadManage();loadItems();}});}
+async function loadRank(){const d=await api('GET',null,'?action=ranking');if(!d.rows.length){$('#rankBox').innerHTML='ยังไม่มีสาขา';return;}const avg=Math.round(d.rows.reduce((s,r)=>s+r.pct,0)/d.rows.length*10)/10;$('#rankBox').innerHTML=`<div class="mut">ค่าเฉลี่ยทุกสาขา: <b>${avg}%</b></div><table style="margin-top:6px"><tr><th>ที่</th><th>สาขา</th><th>คะแนน</th><th>%</th><th>คีย์แล้ว</th></tr>${d.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.code} ${r.name}<br><span class="mut">${r.province}</span></td><td><b>${r.got}/${r.full}</b></td><td>${r.pct}%</td><td>${r.done}</td></tr>`).join('')}</table>`;}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');['key','items','rank'].forEach(t=>$('#t-'+t).style.display=t===b.dataset.t?'block':'none');if(b.dataset.t==='rank')loadRank();if(b.dataset.t==='items')loadManage();});
+$('#br').onchange=e=>{BR=e.target.value;loadItems();};
+$('#addBrBtn').onclick=()=>{$('#addBr').style.display=$('#addBr').style.display==='none'?'block':'none';};
+$('#nbGo').onclick=async()=>{await api('POST',{op:'upsert-branch',code:$('#nbCode').value,name:$('#nbName').value,province:$('#nbProv').value});BR=$('#nbCode').value;await loadBranches();loadItems();};
+$('#niGo').onclick=async()=>{const bb=[...document.querySelectorAll('.nib')].map(e=>Number(e.value));await api('POST',{op:'add-item',code:BR,item:{section:$('#niSec').value,code:$('#niCode').value,name:$('#niName').value,unit:$('#niUnit').value,full:Number($('#niFull').value),target:Number($('#niT').value),b1:bb[0],b2:bb[1],b3:bb[2],b4:bb[3],b5:bb[4],eval_note:$('#niEval').value}});$('#niName').value='';loadManage();loadItems();};
+$('#resetBr').onclick=async()=>{if(confirm('รีเซ็ตเป็นเกณฑ์ตั้งต้น?')){await api('POST',{op:'reset-branch',code:BR});loadManage();loadItems();}};
+$('#delBr').onclick=async()=>{if(confirm('ลบสาขานี้ทั้งหมด?')){await api('POST',{op:'del-branch',code:BR});BR='';await loadBranches();loadItems();}};
+$('#snapGo').onclick=async()=>{if(!$('#snapP').value){alert('ใส่งวดก่อน เช่น 10/2569');return;}await api('POST',{op:'save-snapshot',code:BR,period:$('#snapP').value});$('#snapP').value='';loadTrend();};
+(async()=>{await loadBranches();await loadItems();})();
+</script>
+</body>
+</html>
