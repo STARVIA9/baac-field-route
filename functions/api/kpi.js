@@ -23,13 +23,21 @@ const PRESETS = [
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
-const EVAL_DEFAULT = { '4.1': 'สิ้นเดือนที่ 2', '4.2': 'สิ้นเดือนที่ 3', '3.5': 'รายไตรมาส', '3.6': 'ถัวเฉลี่ยสิ้นปีบัญชี' };
-function mkItems() {
+async function getPresets(env) {
+  const EVAL_DEFAULT = { '4.1': 'สิ้นเดือนที่ 2', '4.2': 'สิ้นเดือนที่ 3', '3.5': 'รายไตรมาส', '3.6': 'ถัวเฉลี่ยสิ้นปีบัญชี' };
+  try {
+    const raw = await env.BFR_KV.get('kpi:presets');
+    if (raw) return JSON.parse(raw);
+  } catch { /* fallback ข้างล่าง */ }
   return PRESETS.map(([section, code, name, unit, full, target, bands], i) => ({
     id: 'p' + i, section, code, name, unit, full, target,
-    b1: bands[0], b2: bands[1], b3: bands[2], b4: bands[3], b5: bands[4], actual: null,
-    owner: '', action: '', baseline: null, eval_note: EVAL_DEFAULT[code] || '', eval_date: null,
+    b1: bands[0], b2: bands[1], b3: bands[2], b4: bands[3], b5: bands[4],
+    eval_note: EVAL_DEFAULT[code] || '',
   }));
+}
+async function mkItems(env) {
+  const presets = await getPresets(env);
+  return presets.map((p) => ({ ...p, actual: null, actuals: {}, owner: '', action: '', baseline: null, eval_date: null }));
 }
 async function getBranches(env) {
   try { return JSON.parse((await env.BFR_KV.get('kpi:branches')) || '[]'); } catch { return []; }
@@ -84,6 +92,7 @@ export async function onRequestGet(context) {
     try { snaps = JSON.parse((await env.BFR_KV.get('kpi:snaps:' + code)) || '[]'); } catch { snaps = []; }
     return json({ success: true, snaps });
   }
+  if (action === 'presets') return json({ success: true, presets: await getPresets(env) });
   return json({ success: false, error: 'unknown action' }, 400);
 }
 
@@ -100,12 +109,12 @@ export async function onRequestPost(context) {
     if (!list.find((b) => b.code === code)) {
       list.push({ code, name: String(body.name || code), province: String(body.province || '') });
       await env.BFR_KV.put('kpi:branches', JSON.stringify(list));
-      await env.BFR_KV.put('kpi:branch:' + code, JSON.stringify({ code, items: mkItems(), updated: new Date().toISOString() }));
+      await env.BFR_KV.put('kpi:branch:' + code, JSON.stringify({ code, persons: [], items: await mkItems(env), updated: new Date().toISOString() }));
     }
     return json({ success: true });
   }
   const b = await getBranch(env, body.code || '');
-  if (!b) return json({ success: false, error: 'ไม่พบสาขา' }, 404);
+  if (!b && !['save-preset', 'add-preset', 'del-preset'].includes(op)) return json({ success: false, error: 'ไม่พบสาขา' }, 404);
   const save = async () => {
     b.updated = new Date().toISOString();
     await env.BFR_KV.put('kpi:branch:' + b.code, JSON.stringify(b));
@@ -113,7 +122,7 @@ export async function onRequestPost(context) {
   if (op === 'save-item') {
     const it = b.items.find((x) => x.id === body.item.id);
     if (!it) return json({ success: false, error: 'ไม่พบหัวข้อ' }, 404);
-    ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'actual',
+    ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'actual', 'actuals',
      'owner', 'action', 'baseline', 'eval_note', 'eval_date'].forEach((k) => {
       if (body.item[k] !== undefined) it[k] = body.item[k];
     });
@@ -134,13 +143,53 @@ export async function onRequestPost(context) {
     return json({ success: true });
   }
   if (op === 'reset-branch') {
-    b.items = mkItems();
+    b.items = await mkItems(env);
+    await save();
+    return json({ success: true });
+  }
+  if (op === 'save-persons') {
+    const ps = Array.isArray(body.persons) ? body.persons : [];
+    b.persons = ps.filter((p) => p && p.name).map((p, i) => ({ id: p.id || ('u' + Date.now() + i), name: String(p.name).slice(0, 60) }));
+    await save();
+    return json({ success: true, persons: b.persons });
+  }
+  if (op === 'save-person-actual') {
+    const it = b.items.find((x) => x.id === body.id);
+    if (!it) return json({ success: false, error: 'ไม่พบหัวข้อ' }, 404);
+    it.actuals = it.actuals || {};
+    if (body.actual === null || body.actual === '') delete it.actuals[body.personId];
+    else it.actuals[body.personId] = Number(body.actual);
     await save();
     return json({ success: true });
   }
   if (op === 'del-branch') {
     await env.BFR_KV.delete('kpi:branch:' + b.code);
     await env.BFR_KV.put('kpi:branches', JSON.stringify(list.filter((x) => x.code !== b.code)));
+    return json({ success: true });
+  }
+  if (op === 'save-preset') {
+    const ps = await getPresets(env);
+    const p = ps.find((x) => x.id === body.preset.id);
+    if (!p) return json({ success: false, error: 'ไม่พบหัวข้อตั้งต้น' }, 404);
+    ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'eval_note'].forEach((k) => {
+      if (body.preset[k] !== undefined) p[k] = body.preset[k];
+    });
+    await env.BFR_KV.put('kpi:presets', JSON.stringify(ps));
+    return json({ success: true });
+  }
+  if (op === 'add-preset') {
+    const ps = await getPresets(env);
+    const n = body.preset || {};
+    ps.push({ id: 'c' + Date.now(), section: n.section || 'งานเพิ่มเติม', code: n.code || 'X', name: n.name || 'หัวข้อใหม่',
+      unit: n.unit || 'ร้อยละ', full: Number(n.full ?? 1), target: Number(n.target ?? 0),
+      b1: Number(n.b1 ?? 0), b2: Number(n.b2 ?? 0), b3: Number(n.b3 ?? 0), b4: Number(n.b4 ?? 0), b5: Number(n.b5 ?? 0),
+      eval_note: n.eval_note || '' });
+    await env.BFR_KV.put('kpi:presets', JSON.stringify(ps));
+    return json({ success: true });
+  }
+  if (op === 'del-preset') {
+    const ps = (await getPresets(env)).filter((x) => x.id !== body.id);
+    await env.BFR_KV.put('kpi:presets', JSON.stringify(ps));
     return json({ success: true });
   }
   if (op === 'save-snapshot') {
