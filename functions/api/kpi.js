@@ -152,8 +152,11 @@ export async function onRequestPost(context) {
     if (!it) return json({ success: false, error: 'ไม่พบหัวข้อ' }, 404);
     ['section', 'code', 'name', 'unit', 'full', 'target', 'b1', 'b2', 'b3', 'b4', 'b5', 'actual', 'actuals', 'm',
      'owner', 'action', 'baseline', 'eval_note', 'eval_date'].forEach((k) => {
-      if (body.item[k] !== undefined) it[k] = body.item[k];
+      if (body.item[k] === undefined || k === 'm') return;
+      it[k] = body.item[k];
     });
+    // m (รายเดือน) รวมทีละคีย์ ไม่เขียนทับทั้งก้อน (กันข้อมูลรายคนหาย)
+    if (body.item.m && typeof body.item.m === 'object') it.m = { ...((it.m) || {}), ...body.item.m };
     await save();
     return json({ success: true, score: scoreOf(it) });
   }
