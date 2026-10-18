@@ -75,15 +75,29 @@ function scoreOf(it) {
     const c = it.code === '4.1' ? compo41(b, arr) : compo42(b, arr);
     if (c !== null) return c;
   }
-  if (it.actual === null || it.actual === undefined || it.actual === '') return null;
-  const a = Number(it.actual), full = Number(it.full);
+  return jscoreINode(Number(it.full), b, it.actual);
+}
+function jscoreINode(full, b, a) {
+  if (a === null || a === undefined || a === '') return null;
+  full = Number(full);
+  const R = (v) => Math.round(v * 100) / 100;
   const lo = b[0] > b[4];
-  const thr = [b[4], b[3], b[2], b[1], b[0]];
-  const pct = [1, 0.8, 0.6, 0.4, 0.2];
-  for (let i = 0; i < 5; i++) {
-    if (lo ? a <= thr[i] : a >= thr[i]) return Math.round(full * pct[i] * 100) / 100;
+  if (!lo) {
+    const t = b;
+    if (a >= t[4]) return full;
+    if (a < t[0]) return R(full / 5);
+    for (let i = 3; i >= 0; i--) {
+      if (a >= t[i]) return R(((i + 1 + (a - t[i]) / (t[i + 1] - t[i])) / 5) * full);
+    }
+    return R(full / 5);
   }
-  return 0.1;
+  const t = [b[4], b[3], b[2], b[1], b[0]];
+  if (a <= t[0]) return full;
+  if (a > t[4]) return R(full / 5);
+  for (let k = 1; k <= 4; k++) {
+    if (a <= t[k]) return R((((5 - k) + (t[k] - a) / (t[k] - t[k - 1])) / 5) * full);
+  }
+  return R(full / 5);
 }
 
 export async function onRequestGet(context) {
