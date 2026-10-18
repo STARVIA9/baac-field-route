@@ -149,7 +149,8 @@ export async function onRequestPost(context) {
   }
   if (op === 'save-persons') {
     const ps = Array.isArray(body.persons) ? body.persons : [];
-    b.persons = ps.filter((p) => p && p.name).map((p, i) => ({ id: p.id || ('u' + Date.now() + i), name: String(p.name).slice(0, 60) }));
+    b.persons = ps.filter((p) => p && p.name).map((p, i) => ({ id: p.id || ('u' + Date.now() + i), name: String(p.name).slice(0, 60),
+      ...(p.crit && typeof p.crit === 'object' ? { crit: p.crit } : {}) }));
     await save();
     return json({ success: true, persons: b.persons });
   }
