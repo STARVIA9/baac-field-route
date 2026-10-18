@@ -2708,6 +2708,8 @@ const App = {
     if (typeof Utils !== 'undefined' && Utils.initKeyboardGuard) Utils.initKeyboardGuard();
     // แจ้งเตือนถ้าเพิ่งกดปุ่มอัปเดตแล้ว reload เสร็จ
     this._notifyUpdateCompleted();
+    // เฟส 2-3: รายชื่ออยู่ใน IndexedDB — รอโหลดก่อน (ไม่งั้นจอแรกเห็น 0 รายแล้ว import ซ้ำ)
+    try { if (typeof Storage !== 'undefined' && Storage.ready) await Storage.ready; } catch {}
     try {
       if (Auth.isLoggedIn()) {
         Auth.showApp();

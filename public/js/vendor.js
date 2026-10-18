@@ -646,8 +646,70 @@ const Storage = {
   KEY_SAVED_ROUTES: 'bfr_saved_routes',
   KEY_OVERLAY_TIME: 'bfr_overlay_time',
 
+  // ===== เฟส 2-3: รายชื่อเก็บใน IndexedDB (localStorage ~5MB ใส่ 9,132 ราย ~6.9MB ไม่ลง) =====
+  // API ภายนอกเหมือนเดิมทุกอย่าง (getCustomers ยัง sync) — ข้างในอ่านจาก _mem
+  // ที่โหลดจาก IndexedDB รอบเดียวตอนเปิดแอป (App.init รอ Storage.ready ก่อนวาดจอ)
+  _mem: null,   // รายชื่อในหน่วยความจำ (null = ยังโหลดไม่เสร็จ)
+  _idb: null,   // Promise<DB> เปิดค้างไว้
+
+  _idbOpen() {
+    if (this._idb) return this._idb;
+    this._idb = new Promise((resolve, reject) => {
+      try {
+        const req = indexedDB.open('bfr', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      } catch (e) { reject(e); }
+    });
+    return this._idb;
+  },
+
+  _idbGet(key) {
+    return this._idbOpen().then(db => new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction('kv', 'readonly');
+        const rq = tx.objectStore('kv').get(key);
+        rq.onsuccess = () => resolve(rq.result);
+        rq.onerror = () => reject(rq.error);
+      } catch (e) { reject(e); }
+    }));
+  },
+
+  _idbPut(key, val) {
+    return this._idbOpen().then(db => new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(val, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      } catch (e) { reject(e); }
+    }));
+  },
+
+  // โหลดรายชื่อเข้า _mem ครั้งเดียว + ย้ายของเก่าจาก localStorage (ครั้งเดียวแล้วลบ)
+  _loadMem() {
+    return this._idbGet('customers').then(seed => {
+      if (Array.isArray(seed)) { this._mem = seed; return seed; }
+      let old = null;
+      try { old = JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || 'null'); } catch {}
+      this._mem = Array.isArray(old) ? old : [];
+      if (this._mem.length) {
+        this._idbPut('customers', this._mem).then(() => {
+          try { localStorage.removeItem(this.KEY_CUSTOMERS); } catch {}
+        }).catch(() => {});
+      }
+      return this._mem;
+    }).catch(() => {
+      try { this._mem = JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || '[]'); }
+      catch { this._mem = []; }
+      return this._mem;
+    });
+  },
+
   // ===== Local persistence (always first — fast, offline) =====
   getCustomers() {
+    if (this._mem) return this._mem.slice();   // คืนก๊อปปี้ตื้น — โค้ดเดิมเคยได้ก๊อปปี้สดจาก JSON.parse
     try { return JSON.parse(localStorage.getItem(this.KEY_CUSTOMERS) || '[]'); }
     catch { return []; }
   },
@@ -694,29 +756,15 @@ const Storage = {
   },
 
   saveCustomers(list) {
-    try {
-      localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list));
-    } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-        console.warn('[Storage] localStorage quota exceeded — pruning photos');
-        // Try to free space by stripping base64 photos from seed customers
-        const pruned = list.map(c => {
-          if (c.photo && c.photo.length > 1000 && c.createdBy === 'AutoImport:StaticDB') {
-            return { ...c, photo: null };
-          }
-          return c;
-        });
-        try {
-          localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(pruned));
-          Utils.toast('⚠️ พื้นที่เต็ม — ลบรูปเก่าออกแล้ว', 'error');
-        } catch (e2) {
-          console.error('[Storage] Still cannot save after pruning:', e2);
-          Utils.toast('❌ พื้ที่จัดเก็บเต็ม — ข้อมูลอาจไม่บันทึก', 'error');
-        }
-      } else {
-        throw e;
+    this._mem = list;
+    // เฟส 2-3: เขียนลง IndexedDB (จุ ~50MB+) — localStorage เป็นแค่ทางถอยตอน IDB ใช้ไม่ได้
+    this._idbPut('customers', list).catch(() => {
+      try { localStorage.setItem(this.KEY_CUSTOMERS, JSON.stringify(list)); }
+      catch (e) {
+        console.error('[Storage] save failed (IDB+localStorage):', e);
+        Utils.toast('❌ พื้นที่จัดเก็บเต็ม — ข้อมูลอาจไม่บันทึก', 'error');
       }
-    }
+    });
   },
 
   // ===== Server-first architecture: save → push to KV → confirm =====
@@ -1574,6 +1622,10 @@ function mergeVisitsByTimestamp(local, remote) {
 }
 
 window.Storage = Storage;
+
+// เฟส 2-3: เริ่มโหลดรายชื่อจาก IndexedDB ทันทีที่สคริปต์โหลด (App.init รอ Storage.ready ก่อนวาดจอ)
+try { Storage.ready = Storage._loadMem(); }
+catch { Storage.ready = Promise.resolve([]); }
 // ===== Fuel: vehicle data + price cache =====
 // Phase 6: BAAC debt follow-up — calculate fuel cost per route/visit report
 // Pricing model: keep simple, default values + manual update via Settings
