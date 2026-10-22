@@ -218,6 +218,11 @@ export async function onRequestPost(context) {
     await save();
     return json({ success: true });
   }
+  if (op === 'save-team') {
+    b.team = String(body.name || '').slice(0, 60);
+    await save();
+    return json({ success: true, team: b.team });
+  }
   if (op === 'del-branch') {
     await env.BFR_KV.delete('kpi:branch:' + b.code);
     await env.BFR_KV.put('kpi:branches', JSON.stringify(list.filter((x) => x.code !== b.code)));
