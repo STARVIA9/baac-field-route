@@ -2931,6 +2931,45 @@ const App = {
     }
   },
 
+  // Backfill เครื่องเก่าด้วยข้อมูลสดจากฐานกลาง (22 ต.ค.69)
+  // ที่มา: เข้าแอปด้วย user เดิมบนเครื่องที่เคยโหลดไว้ → afterLogin ข้าม import (ของไม่ว่าง)
+  // เติมแค่ overlay → หมุดที่ปักจากเครื่องอื่น (อยู่ใน D1 แต่ไม่อยู่ใน overlay) ไม่เข้าเครื่องนี้เลย
+  // CustomerDB.load() ดึง /api/customers สดทุกครั้งที่เปิดแอปอยู่แล้ว — เติมลง Storage ต่อโดยไม่ยิงเน็ตเพิ่ม
+  // กฎ: เติมเฉพาะ 4 ช่องที่ server เป็นเจ้าของ (branch/zone/lat/lng) ห้ามแตะชื่อ/เบอร์ฝีมือคนแก้
+  _backfillFromCentralDB() {
+    try {
+      if (typeof CustomerDB === 'undefined' || !CustomerDB._loaded || !CustomerDB._byCif) return 0;
+      if (typeof Storage === 'undefined' || !Storage.getCustomers) return 0;
+      const list = Storage.getCustomers();
+      if (!list.length) return 0;
+      const byCif = new Map(list.map(c => [String(c.cif || '').trim(), c]));
+      let n = 0;
+      CustomerDB._byCif.forEach((r, key) => {
+        if (!r) return;
+        const old = byCif.get(String(key || '').trim());
+        if (!old) return;
+        const nLat = (r.lat ?? null), nLng = (r.lng ?? null);
+        if ((old.branch || '') !== (r.branch || '') || (old.zone || '') !== (r.zone || '') ||
+            (old.lat ?? null) !== nLat || (old.lng ?? null) !== nLng) {
+          old.branch = r.branch || '';
+          old.zone = r.zone || '';
+          old.lat = nLat;
+          old.lng = nLng;
+          n++;
+        }
+      });
+      if (n > 0) {
+        Storage.saveCustomers(list);
+        if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
+        if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📍 อัพเดทพิกัดจากฐานกลาง ${n} รายการ`);
+      }
+      return n;
+    } catch (e) {
+      console.warn('[backfill] failed:', e.message);
+      return 0;
+    }
+  },
+
   // After login — load data
   async afterLogin() {
     // เปลี่ยนคนใช้เครื่องเดิม → ล้างข้อมูลคนเก่า โหลดของคนใหม่ (17 ต.ค.69)
@@ -2980,7 +3019,9 @@ const App = {
     this.renderTodayRoute();
 
     // Load customer database (async, non-blocking)
-    CustomerDB.load();
+    // 22 ต.ค.69: เครื่องเก่าดึงพิกัดใหม่ตามหลัง login (หมุดปักเครื่องอื่นไม่เข้าเครื่องนี้)
+    // CustomerDB โหลดสดจาก /api/customers ทุกครั้งที่เปิดแอปอยู่แล้ว — ไม่เสียโควต้าเพิ่ม
+    CustomerDB.load().then(() => { try { this._backfillFromCentralDB(); } catch {} }).catch(() => {});
     // Load debt database (ข้อมูลหนี้ Customer Indicator) — async, non-blocking
     if (typeof DebtDB !== 'undefined') {
       DebtDB.load().then(() => {
@@ -5351,8 +5392,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // (ปุ่มรีเฟรช/อัพเดทในเมนูถูกถอดออก 17 ต.ค.69 — ใช้ auto-update + F5 แทน)
-  // (ฟังก์ชัน reloadStaticDB/hardRefresh ยังอยู่ให้ flow อื่นเรียกถ้าต้องการ)
+  // (ปุ่มรีเฟรชในเมนูถูกถอดออก 17 ต.ค.69 — ใช้ auto-update + F5 แทน)
+
+  // ===== Update DB button — reload customer data from central DB (เอากลับมา 22 ต.ค.69) =====
+  // ที่มา: หมุดที่ปักจากเครื่องอื่นไม่เข้าเครื่องเก่า (afterLogin เติมแค่ overlay) — กดปุ่มนี้ดึงใหม่ทั้งก้อน+เติมของเก่า
+  const updateBtn = document.getElementById('update-db-btn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', async () => {
+      updateBtn.classList.add('spinning');
+      updateBtn.disabled = true;
+      if (typeof Utils !== 'undefined') Utils.toast('⏳ กำลังอัพข้อมูล... (ลูกค้า+พิกัด+หนี้)');
+      try {
+        if (typeof Storage === 'undefined' || !Storage.reloadStaticDB) {
+          throw new Error('ฟังก์ชันอัพเดทยังไม่พร้อม');
+        }
+        const result = await Storage.reloadStaticDB();
+        if (typeof Utils !== 'undefined') {
+          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย` + (result.backfilled > 0 ? ` · เติมของเก่า ${result.backfilled} ราย` : ''));
+        }
+        // Re-render everything
+        if (typeof Customers !== 'undefined') Customers.renderAll();
+        if (typeof Visit !== 'undefined') Visit.render();
+        if (typeof App !== 'undefined') App.updateRouteUI();
+      } catch (err) {
+        if (typeof Utils !== 'undefined') {
+          Utils.toast(`❌ อัพเดทล้มเหลว: ${err.message}`, 'error');
+        }
+        console.error('[UpdateDB]', err);
+      } finally {
+        updateBtn.classList.remove('spinning');
+        updateBtn.disabled = false;
+      }
+    });
+  }
 
   // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
   document.addEventListener('keydown', (e) => {
