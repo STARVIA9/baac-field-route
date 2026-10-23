@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>เว็บตัวอย่างระบบแผนที่ติดตามลูกค้า (ข้อมูลสมมุติ) | ธ.ก.ส.</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Sarabun','Noto Sans Thai','Leelawadee',system-ui,sans-serif; background: #f2f5f2; color: #111; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; }
+  .demo-banner { background: #7c2d12; color: #fff; text-align: center; font-size: 17px; font-weight: 700; padding: 10px 12px; }
+  .demo-banner small { display: block; font-weight: 400; font-size: 14px; opacity: .95; }
+  header.top { background: #0B5C2F; color: #fff; padding: 16px; }
+  header.top h1 { font-size: 24px; margin: 0 0 4px; }
+  header.top p { margin: 0; font-size: 16px; opacity: .95; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 14px 12px 60px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1.2fr .8fr; } }
+  .card { background: #fff; border: 2px solid #d8e2d8; border-radius: 14px; padding: 14px 16px; }
+  .card h2 { font-size: 20px; margin: 0 0 8px; padding-left: 10px; border-left: 6px solid #0B5C2F; }
+  #map { width: 100%; height: 420px; border-radius: 12px; border: 2px solid #0B5C2F; }
+  @media (min-width: 900px) { #map { height: 520px; } }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  button { font-family: inherit; font-size: 17px; font-weight: 700; border-radius: 12px; border: 2px solid #0B5C2F; padding: 12px 16px; min-height: 52px; cursor: pointer; }
+  .btn-primary { background: #0B5C2F; color: #fff; }
+  .btn-accent { background: #B45309; border-color: #B45309; color: #fff; }
+  .btn-ghost { background: #fff; color: #0B5C2F; }
+  button:active { transform: scale(.98); }
+  .search { width: 100%; font-family: inherit; font-size: 17px; padding: 12px; border-radius: 12px; border: 2px solid #999; margin: 8px 0; }
+  .cust { display: flex; gap: 10px; align-items: flex-start; border: 2px solid #e2e8e2; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .cust.sel { border-color: #0B5C2F; background: #f0faf0; }
+  .cust input[type=checkbox] { width: 26px; height: 26px; margin-top: 4px; flex-shrink: 0; }
+  .cust .nm { font-size: 18px; font-weight: 700; }
+  .cust .meta { font-size: 15px; color: #333; }
+  .badge { display: inline-block; font-size: 14px; font-weight: 700; border-radius: 20px; padding: 2px 10px; margin-top: 4px; }
+  .b-green { background: #dcfce7; color: #166534; border: 1px solid #16a34a; }
+  .b-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #ca8a04; }
+  .b-red { background: #fee2e2; color: #991b1b; border: 1px solid #dc2626; }
+  .b-grey { background: #f1f5f9; color: #475569; border: 1px solid #94a3b8; }
+  .result { background: #fffbe8; border: 2px solid #e3cf7a; border-radius: 14px; padding: 12px 16px; margin-top: 12px; }
+  .result ol { margin: 8px 0; padding-left: 22px; font-size: 17px; }
+  .hero-num { font-size: 30px; font-weight: 800; color: #0B5C2F; }
+  .note { font-size: 15px; color: #444; }
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .step { flex: 1; background: #fff; border: 2px solid #d8e2d8; border-radius: 12px; padding: 8px; text-align: center; font-size: 15px; font-weight: 700; white-space: nowrap; }
+  .step.done { border-color: #0B5C2F; background: #f0faf0; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 2000; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; max-width: 480px; width: 100%; padding: 18px; max-height: 85vh; overflow-y: auto; }
+  .modal h3 { font-size: 22px; margin: 0 0 8px; }
+  .modal table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  .modal td { padding: 6px 4px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .modal td:first-child { color: #555; width: 40%; }
+  .close-x { float: right; font-size: 20px; border: 2px solid #999; border-radius: 10px; min-height: 44px; padding: 4px 12px; background: #fff; color: #111; }
+  footer { text-align: center; color: #666; font-size: 14px; margin-top: 24px; }
+  .num-pin { background: #0B5C2F; color: #fff; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="demo-banner">เว็บตัวอย่างสำหรับทดลองใช้งาน — ข้อมูลสมมุติทั้งหมด ไม่ใช่ข้อมูลจริงของลูกค้า<small>จัดทำเพื่อประกอบการพิจารณาของคณะกรรมการเท่านั้น ห้ามใช้กับข้อมูลจริง</small></div>
+<header class="top">
+  <h1>ระบบแผนที่ติดตามลูกค้า (เว็บตัวอย่าง)</h1>
+  <p>เลือกพนักงานจำลอง → แตะชื่อลูกค้าสมมุติเพื่อดูรายละเอียด → กดคำนวณเส้นทางทดลอง</p>
+</header>
+<div class="wrap">
+  <div class="steps">
+    <div class="step" id="s1">1. เลือกลูกค้า</div>
+    <div class="step" id="s2">2. คำนวณเส้นทาง</div>
+    <div class="step" id="s3">3. ดูผลลำดับเยี่ยม</div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <h2>แผนที่ลูกค้าสมมุติ</h2>
+      <div id="map"></div>
+      <div class="toolbar">
+        <button class="btn-accent" id="btn-auto">จัดลำดับให้สั้นที่สุด (แนะนำ)</button>
+        <button class="btn-primary" id="btn-order">คำนวณตามลำดับที่เลือก</button>
+        <button class="btn-ghost" id="btn-clear">ล้างเส้นทาง</button>
+      </div>
+      <div id="route-out"></div>
+      <p class="note">วิธีคำนวณในเว็บตัวอย่าง: ระยะทางเส้นตรงคูณ 1.3 เพื่อประมาณการ ระบบงานจริงใช้เส้นทางถนนจริง ระยะทางในหน้านี้จึงเป็นตัวเลขสมมุติเพื่อสาธิตขั้นตอนเท่านั้น</p>
+    </div>
+    <div class="card">
+      <h2>รายชื่อลูกค้าสมมุติ (<span id="count">0</span> ราย)</h2>
+      <input class="search" id="q" type="search" placeholder="ค้นหาชื่อสมมุติ หรือรหัสสมมุติ" aria-label="ค้นหาลูกค้า">
+      <div class="toolbar">
+        <button class="btn-ghost" id="btn-all">เลือกทั้งหมด</button>
+        <button class="btn-ghost" id="btn-none">ล้างที่เลือก</button>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>สิ่งที่คณะกรรมการทดลองได้</h2>
+    <div style="font-size:17px">
+      1. แตะหมุดบนแผนที่เพื่อดูรายละเอียดลูกค้าสมมุติ (ชื่อ รหัส หนี้จำลอง สถานะ)<br>
+      2. ติ๊กเลือกลูกค้า 3–5 ราย แล้วกดปุ่มสีส้มเพื่อเปรียบเทียบกับปุ่มสีเขียว ว่าลำดับที่ระบบจัดให้ประหยัดกว่าอย่างไร<br>
+      3. พิมพ์ค้นหาในช่องค้นหาเพื่อกรองรายชื่อ<br>
+      4. เปิดบนโทรศัพท์มือถือเพื่อดูการแสดงผลจอเล็ก
+    </div>
+  </div>
+  <footer>เว็บตัวอย่างเพื่อการสาธิต ข้อมูลทั้งหมดสมมุติขึ้น • ปรับปรุง 23 ตุลาคม 2569</footer>
+</div>
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <button class="close-x" id="modal-x">ปิด ✕</button>
+    <h3 id="m-name"></h3>
+    <div id="m-badge"></div>
+    <table id="m-table"></table>
+    <div class="toolbar">
+      <button class="btn-primary" id="m-add">เพิ่มเข้าเส้นทาง</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+var OFFICE = { lat: 13.7765, lng: 101.8912, name: 'สำนักงานสาขา (จุดเริ่มต้นสมมุติ)' };
+var CUSTOMERS = [
+  { id: 'D0001', name: 'ลูกค้าสมมุติ หมายเลข 1', zone: 'เขต 1', lat: 13.7865, lng: 101.9012, debt: 120000, due: '10/11/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0002', name: 'ลูกค้าสมมุติ หมายเลข 2', zone: 'เขต 1', lat: 13.7712, lng: 101.9055, debt: 85000, due: '15/11/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0003', name: 'ลูกค้าสมมุติ หมายเลข 3', zone: 'เขต 2', lat: 13.7650, lng: 101.8830, debt: 240000, due: '05/11/2569', status: 'ถึงกำหนดชำระ', cls: 'b-yellow' },
+  { id: 'D0004', name: 'ลูกค้าสมมุติ หมายเลข 4', zone: 'เขต 2', lat: 13.7920, lng: 101.8845, debt: 56000, due: '20/12/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0005', name: 'ลูกค้าสมมุติ หมายเลข 5', zone: 'เขต 3', lat: 13.7580, lng: 101.8980, debt: 310000, due: '28/10/2569', status: 'ค้างชำระ', cls: 'b-red' },
+  { id: 'D0006', name: 'ลูกค้าสมมุติ หมายเลข 6', zone: 'เขต 3', lat: 13.7830, lng: 101.8720, debt: 95000, due: '12/12/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0007', name: 'ลูกค้าสมมุติ หมายเลข 7', zone: 'เขต 4', lat: 13.7690, lng: 101.8700, debt: 178000, due: '08/11/2569', status: 'ถึงกำหนดชำระ', cls: 'b-yellow' },
+  { id: 'D0008', name: 'ลูกค้าสมมุติ หมายเลข 8', zone: 'เขต 4', lat: 13.7960, lng: 101.9120, debt: 64000, due: '25/12/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0009', name: 'ลูกค้าสมมุติ หมายเลข 9', zone: 'เขต 5', lat: 13.7520, lng: 101.9120, debt: 425000, due: '15/10/2569', status: 'ค้างชำระ', cls: 'b-red' },
+  { id: 'D0010', name: 'ลูกค้าสมมุติ หมายเลข 10', zone: 'เขต 5', lat: 13.7900, lng: 101.8950, debt: 73000, due: '30/11/2569', status: 'ปกติ', cls: 'b-green' },
+  { id: 'D0011', name: 'ลูกค้าสมมุติ หมายเลข 11', zone: 'เขต 1', lat: 13.7620, lng: 101.9180, debt: 142000, due: '18/11/2569', status: 'ถึงกำหนดชำระ', cls: 'b-yellow' },
+  { id: 'D0012', name: 'ลูกค้าสมมุติ หมายเลข 12', zone: 'เขต 2', lat: 13.8000, lng: 101.8780, debt: 38000, due: '05/01/2570', status: 'ปกติ', cls: 'b-green' }
+];
+var selected = [];
+var routeLine = null;
+var numLayer = null;
+function fmt(n){ return Number(n).toLocaleString('th-TH'); }
+function havKm(a,b){
+  var R=6371, dLa=(b.lat-a.lat)*Math.PI/180, dLo=(b.lng-a.lng)*Math.PI/180;
+  var s=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function estKm(a,b){ return havKm(a,b)*1.3; }
+function totalKm(order){
+  var pts=[OFFICE].concat(order.map(function(id){ return byId(id); }));
+  var t=0; for(var i=0;i<pts.length-1;i++){ t+=estKm(pts[i],pts[i+1]); } return t;
+}
+function byId(id){ for(var i=0;i<CUSTOMERS.length;i++){ if(CUSTOMERS[i].id===id) return CUSTOMERS[i]; } return null; }
+function nearestOrder(ids){
+  var rem=ids.slice(), cur={lat:OFFICE.lat,lng:OFFICE.lng}, out=[];
+  while(rem.length){
+    var bi=0, bd=1e12;
+    for(var i=0;i<rem.length;i++){ var d=estKm(cur,byId(rem[i])); if(d<bd){bd=d;bi=i;} }
+    cur=byId(rem[bi]); out.push(rem.splice(bi,1)[0]);
+  }
+  for(var a=0;a<out.length;a++){ for(var b=a+1;b<out.length;b++){
+    var before=totalKm(out);
+    var tmp=out.slice(); var t2=tmp[a]; tmp[a]=tmp[b]; tmp[b]=t2;
+    if(totalKm(tmp)<before-0.001){ out=tmp; }
+  }}
+  return out;
+}
+var map=L.map('map').setView([OFFICE.lat,OFFICE.lng],13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+var officeMk=L.marker([OFFICE.lat,OFFICE.lng]).addTo(map).bindPopup('<b>'+OFFICE.name+'</b><br>จุดเริ่มต้นการเดินทาง (สมมุติ)');
+var markers={};
+CUSTOMERS.forEach(function(c){
+  var m=L.circleMarker([c.lat,c.lng],{radius:10,color:'#fff',weight:3,fillColor:'#B45309',fillOpacity:.95}).addTo(map);
+  m.bindTooltip(c.name,{direction:'top'});
+  m.on('click',function(){ openModal(c.id); });
+  markers[c.id]=m;
+});
+function renderList(){
+  var q=(document.getElementById('q').value||'').trim();
+  var box=document.getElementById('list'); box.innerHTML='';
+  var shown=0;
+  CUSTOMERS.forEach(function(c){
+    if(q && c.name.indexOf(q)<0 && c.id.indexOf(q)<0 && c.zone.indexOf(q)<0) return;
+    shown++;
+    var d=document.createElement('div'); d.className='cust'+(selected.indexOf(c.id)>=0?' sel':''); d.setAttribute('data-id',c.id);
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=selected.indexOf(c.id)>=0; cb.setAttribute('aria-label','เลือก'+c.name);
+    cb.onchange=function(){ toggle(c.id); };
+    var tx=document.createElement('div');
+    var b='<span class="badge '+c.cls+'">'+c.status+'</span>';
+    tx.innerHTML='<div class="nm">'+c.name+'</div><div class="meta">'+c.id+' • '+c.zone+' • หนี้จำลอง '+fmt(c.debt)+' บาท<br>ครบกำหนด '+c.due+'</div>'+b;
+    tx.style.flex='1'; tx.style.cursor='pointer';
+    tx.onclick=function(){ openModal(c.id); };
+    d.appendChild(cb); d.appendChild(tx); box.appendChild(d);
+  });
+  document.getElementById('count').textContent=shown;
+  paintSteps();
+}
+function toggle(id){
+  var i=selected.indexOf(id);
+  if(i>=0) selected.splice(i,1); else selected.push(id);
+  var row=document.querySelector('.cust[data-id="'+id+'"]');
+  if(row){
+    if(selected.indexOf(id)>=0) row.classList.add('sel'); else row.classList.remove('sel');
+    var cb=row.querySelector('input[type=checkbox]'); if(cb) cb.checked=(selected.indexOf(id)>=0);
+  }
+  paintSteps();
+}
+function drawRoute(order, auto){
+  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+  if(numLayer){ map.removeLayer(numLayer); numLayer=null; }
+  var pts=[[OFFICE.lat,OFFICE.lng]];
+  order.forEach(function(id){ var c=byId(id); pts.push([c.lat,c.lng]); });
+  routeLine=L.polyline(pts,{color:'#0B5C2F',weight:5}).addTo(map);
+  map.fitBounds(routeLine.getBounds().pad(0.2));
+  numLayer=L.layerGroup();
+  order.forEach(function(id,idx){
+    var c=byId(id);
+    var ic=L.divIcon({className:'',html:'<div class="num-pin">'+(idx+1)+'</div>',iconSize:[34,34],iconAnchor:[17,17]});
+    L.marker([c.lat,c.lng],{icon:ic}).addTo(numLayer);
+  });
+  numLayer.addTo(map);
+  var km=totalKm(order);
+  var mins=Math.round(km/40*60)+order.length*10;
+  var html='<div class="result"><div class="hero-num">'+km.toFixed(1)+' กม. <span style="font-size:17px;font-weight:400">(ประมาณการ)</span></div>';
+  html+='<div>ลำดับเยี่ยม '+order.length+' ราย • เวลาโดยประมาณ '+Math.floor(mins/60)+' ชม. '+mins%60+' นาที (รวมพบรายละ 10 นาที)</div>';
+  html+= auto?'<div class="note">ระบบจัดลำดับให้สั้นที่สุดแล้ว (วิธีเพื่อนบ้านใกล้สุด + ปรับ 2-opt)</div>':'<div class="note">เรียงตามลำดับที่ท่านเลือก ลองกดปุ่มสีส้มเพื่อเปรียบเทียบลำดับที่สั้นกว่า</div>';
+  html+='<ol>';
+  order.forEach(function(id,idx){ var c=byId(id); html+='<li><b>'+c.name+'</b> ('+c.zone+') — ห่างจากจุดก่อน '+estKm(idx===0?OFFICE:byId(order[idx-1]),c).toFixed(1)+' กม.</li>'; });
+  html+='</ol></div>';
+  document.getElementById('route-out').innerHTML=html;
+  paintSteps();
+  document.getElementById('route-out').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function paintSteps(){
+  document.getElementById('s1').className='step'+(selected.length>0?' done':'');
+  var has=document.getElementById('route-out').innerHTML.length>0;
+  document.getElementById('s2').className='step'+(has?' done':'');
+  document.getElementById('s3').className='step'+(has?' done':'');
+}
+var modalId=null;
+function openModal(id){
+  var c=byId(id); if(!c) return; modalId=id;
+  document.getElementById('m-name').textContent=c.name;
+  document.getElementById('m-badge').innerHTML='<span class="badge '+c.cls+'">'+c.status+'</span> <span class="note">'+c.zone+'</span>';
+  document.getElementById('m-table').innerHTML=
+    '<tr><td>รหัสสมมุติ</td><td><b>'+c.id+'</b></td></tr>'+
+    '<tr><td>เขตรับผิดชอบ</td><td>'+c.zone+'</td></tr>'+
+    '<tr><td>ยอดหนี้จำลอง</td><td><b>'+fmt(c.debt)+' บาท</b></td></tr>'+
+    '<tr><td>ครบกำหนดจำลอง</td><td>'+c.due+'</td></tr>'+
+    '<tr><td>พิกัดสมมุติ</td><td>'+c.lat.toFixed(4)+', '+c.lng.toFixed(4)+'</td></tr>'+
+    '<tr><td>หมายเหตุ</td><td class="note">ข้อมูลสมมุติเพื่อสาธิต ไม่ใช่ข้อมูลจริงของลูกค้า</td></tr>';
+  document.getElementById('m-add').textContent=(selected.indexOf(id)>=0?'นำออกจากเส้นทาง':'เพิ่มเข้าเส้นทาง');
+  document.getElementById('modal-bg').classList.add('open');
+}
+document.getElementById('modal-x').onclick=function(){ document.getElementById('modal-bg').classList.remove('open'); };
+document.getElementById('modal-bg').onclick=function(e){ if(e.target.id==='modal-bg') e.target.classList.remove('open'); };
+document.getElementById('m-add').onclick=function(){ if(modalId){ toggle(modalId); openModal(modalId); document.getElementById('modal-bg').classList.remove('open'); } };
+document.getElementById('q').oninput=renderList;
+document.getElementById('btn-all').onclick=function(){ selected=CUSTOMERS.map(function(c){return c.id;}); renderList(); };
+document.getElementById('btn-none').onclick=function(){ selected=[]; renderList(); };
+document.getElementById('btn-order').onclick=function(){
+  if(selected.length===0){ alert('กรุณาติ๊กเลือกลูกค้าอย่างน้อย 1 รายก่อนคำนวณ'); return; }
+  drawRoute(selected.slice(),false);
+};
+document.getElementById('btn-auto').onclick=function(){
+  if(selected.length===0){ alert('กรุณาติ๊กเลือกลูกค้าอย่างน้อย 1 รายก่อนคำนวณ'); return; }
+  drawRoute(nearestOrder(selected),true);
+};
+document.getElementById('btn-clear').onclick=function(){
+  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+  if(numLayer){ map.removeLayer(numLayer); numLayer=null; }
+  document.getElementById('route-out').innerHTML=''; paintSteps();
+  map.setView([OFFICE.lat,OFFICE.lng],13);
+};
+renderList();
+})();
+</script>
+</body>
+</html>
