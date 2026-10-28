@@ -37,8 +37,16 @@ const Route = {
     }
     const btnClear = document.getElementById('btn-clear-route');
     if (btnClear) btnClear.addEventListener('click', () => this.clear());
+    const btnAutoPlan = document.getElementById('btn-auto-plan');
+    if (btnAutoPlan) btnAutoPlan.addEventListener('click', () => this.autoPlanFromFilters());
     const btnOptimize = document.getElementById('btn-optimize-route');
     if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true));
+    // ออกจากโหมดโฟกัสเส้นทาง (โชว์เลขกลุ่มพิกัดทั้งหมดเหมือนเดิม)
+    const btnShowAll = document.getElementById('btn-route-show-all');
+    if (btnShowAll) btnShowAll.addEventListener('click', () => {
+      if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
+      Utils.toast('🔍 โชว์หมุดทั้งหมดแล้ว');
+    });
   },
 
   // ===== Search customers by CIF, name, phone, address =====
@@ -119,6 +127,9 @@ const Route = {
     App.updateRouteUI();
     const resultEl = document.getElementById('route-result');
     if (resultEl) resultEl.classList.add('hidden');
+    this.currentResult = null;
+    // ออกจากโหมดโฟกัสเส้นทางด้วย (โชว์หมุด+เลขกลุ่มทั้งหมดเหมือนเดิม)
+    if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
     Utils.toast('ล้างรายการแล้ว');
   },
 
@@ -571,6 +582,43 @@ const Route = {
     Storage.saveRoute(routeIds);
     App.updateRouteUI();
     Utils.toast(`📋 โหลดเส้นทางจากประวัติแล้ว`);
+  },
+
+  // ===== จัดแผนอัตโนมัติจากตัวกรองซ้าย (28 ต.ค.69 — พ่อสั่ง) =====
+  // เอาตัวกรองตอนนี้ → จับเฉพาะคนมีพิกัด → เอา N รายแรกยอดมากสุด → ใส่เส้นทาง + จัดลำดับสั้นสุดให้เลย
+  autoPlanFromFilters() {
+    try {
+      const n = parseInt(document.getElementById('auto-plan-count')?.value || '10', 10) || 10;
+      let list = Storage.getActiveCustomers();
+      // ใช้ตัวกรองแผนที่ตัวเดียวกับหมุด (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
+      if (typeof Customers !== 'undefined' && Customers._passesMapFilters) {
+        list = list.filter(c => Customers._passesMapFilters(c));
+      }
+      const withGps = list.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      if (withGps.length === 0) {
+        Utils.toast('ตัวกรองนี้ยังไม่มีคนมีพิกัด — ลองล้างตัวกรองดูค่ะ', 'error');
+        return;
+      }
+      // เรียงยอดหนี้มาก→น้อย (มี DebtDB) ไม่งั้นตามชื่อ
+      if (typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+        withGps.sort((a, b) => {
+          const da = DebtDB.getByCif(a.cif), db = DebtDB.getByCif(b.cif);
+          return ((db && db.total_debt) || 0) - ((da && da.total_debt) || 0);
+        });
+      }
+      const picked = withGps.slice(0, Math.min(n, this.MAX_SELECT)).map(c => c.id);
+      Storage.saveRoute(picked);
+      App.updateRouteUI();
+      // เปิดแผงวางแผนให้เห็นรายชื่อที่เลือก
+      if (typeof App !== 'undefined' && App.switchSheetTab) { try { App.switchSheetTab('plan'); } catch (e) {} }
+      const sheet = document.getElementById('bottom-sheet');
+      if (sheet) sheet.classList.add('open');
+      Utils.toast(`✅ หยิบ ${picked.length} รายจาก ${withGps.length} หมุดแล้ว — กำลังจัดลำดับให้สั้นสุด…`);
+      // จัดลำดับสั้นสุด + คำนวณเส้นทางถนนจริงทันที
+      if (typeof App !== 'undefined' && App.calculateRoute) App.calculateRoute(true);
+    } catch (e) {
+      if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('จัดแผนไม่ได้ ลองอีกทีค่ะ', 'error');
+    }
   },
 
   escapeHTML(str) {

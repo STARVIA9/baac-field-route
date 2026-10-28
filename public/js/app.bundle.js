@@ -138,8 +138,20 @@ const Customers = {
   // Clustered so zoomed-out mobile doesn't render/overlap 178 dots.
   // Smart rebuild: skips full teardown if data hasn't changed.
   _lastMarkerHash: null,
+  // โหมดโฟกัสเส้นทาง (27 ต.ค.69 — พ่อสั่ง): กดวางแผน/จัดลำดับแล้วซ่อนเลขกลุ่ม
+  // พิกัดอื่น ให้เห็นแค่เลขลำดับ 1,2,3 ชัดๆ · ออกด้วย exitRouteFocus()
+  _routeFocus: null,
   renderMarkers(routeOrder, opts = {}) {
     if (!this.map) return;
+
+    // เข้าโฟกัสเมื่อมีลำดับเส้นทาง; คงโฟกัสไว้ตอน re-render ทั่วไป (ฟิลเตอร์/polling)
+    if (routeOrder && routeOrder.length) {
+      this._routeFocus = [...routeOrder];
+    } else if (!routeOrder && this._routeFocus && !opts.exitFocus) {
+      routeOrder = this._routeFocus;
+    }
+    if (opts.exitFocus) this._routeFocus = null;
+    const isFocus = !!(routeOrder && routeOrder.length);
 
     // Compute hash of current state to skip unnecessary rebuilds
     const customers = Storage.getActiveCustomers();
@@ -199,7 +211,8 @@ const Customers = {
     }
 
     // Cluster layer (only if leaflet.markercluster loaded); circleMarkers go here on canvas.
-    const clusterable = typeof L.markerClusterGroup === 'function';
+    // โหมดโฟกัสเส้นทาง: ปิด clustering ไปเลย — ไม่ให้เลขกลุ่มพิกัดบังเลขลำดับ 1,2,3
+    const clusterable = typeof L.markerClusterGroup === 'function' && !isFocus;
     const cluster = clusterable
       ? L.markerClusterGroup({
           maxClusterRadius: 45,          // merge points within ~45px
@@ -242,13 +255,22 @@ const Customers = {
       }
 
       const isUnclassified = riskClass === 'unclassified';
-      const marker = L.circleMarker([mLat, mLng], {
-        radius: inRoute ? 12 : (isUnclassified ? 10 : 8),
+      // โหมดโฟกัส: หมุดในเส้นทางใหญ่เด่น หมุดอื่นจาง+เล็ก (ไม่แย่งสายตาเลข 1,2,3)
+      const marker = L.circleMarker([mLat, mLng], (isFocus && !inRoute) ? {
+        radius: 4,
         fillColor: fill,
         color: stroke,
-        weight: inRoute ? 3 : (isUnclassified ? 3 : 1.5),
-        opacity: isUnclassified ? 1 : 0.9,
-        fillOpacity: isUnclassified ? 0.95 : 0.85,
+        weight: 1,
+        opacity: 0.3,
+        fillOpacity: 0.25,
+        pane: 'markerPane',
+      } : {
+        radius: inRoute ? 14 : (isUnclassified ? 10 : 8),
+        fillColor: fill,
+        color: stroke,
+        weight: inRoute ? 4 : (isUnclassified ? 3 : 1.5),
+        opacity: 1,
+        fillOpacity: inRoute ? 1 : (isUnclassified ? 0.95 : 0.85),
         pane: 'markerPane',
       });
 
@@ -269,20 +291,19 @@ const Customers = {
     }
 
     // ===== Route number overlays (max 10 — negligible DOM) =====
-    // Show a little white pill with the order number for customers in
-    // today's planned route.  Only ~10 elements instead of 3800.
+    // โหมดโฟกัส: ป้ายเลขใหญ่ขึ้น + วางบนชั้นบนสุด (tooltipPane) กันเลขกลุ่มบัง
     const inRouteCusts = customers.filter(c => orderMap[c.id] != null);
     if (inRouteCusts.length > 0) {
       this._routeNumLayer = L.layerGroup(inRouteCusts.map(c => {
         return L.marker([c.lat, c.lng], {
           icon: L.divIcon({
             className: '',
-            html: `<div class="marker-route-num">${orderMap[c.id]}</div>`,
-            iconSize: [22, 22],
-            iconAnchor: [11, -12],  // float above the circleMarker
+            html: `<div class="marker-route-num${isFocus ? ' focus' : ''}">${orderMap[c.id]}</div>`,
+            iconSize: isFocus ? [32, 32] : [22, 22],
+            iconAnchor: isFocus ? [16, -16] : [11, -12],  // float above the circleMarker
           }),
           interactive: false,  // don't steal clicks
-          pane: 'overlayPane',
+          pane: 'tooltipPane',  // เหนือหมุด (markerPane) + กลุ่มเสมอ
         });
       })).addTo(this.map);
     }
@@ -299,6 +320,13 @@ const Customers = {
         this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
       }
     }
+  },
+
+  // ===== ออกจากโหมดโฟกัสเส้นทาง (โชว์หมุด+เลขกลุ่มทั้งหมดเหมือนเดิม) =====
+  exitRouteFocus() {
+    this._routeFocus = null;
+    this._lastMarkerHash = null;
+    this.renderMarkers(null, { force: true, exitFocus: true });
   },
 
   // ===== Debt filter bar: เติมเดือน + ผูก event + re-render =====
@@ -1409,8 +1437,16 @@ const Route = {
     }
     const btnClear = document.getElementById('btn-clear-route');
     if (btnClear) btnClear.addEventListener('click', () => this.clear());
+    const btnAutoPlan = document.getElementById('btn-auto-plan');
+    if (btnAutoPlan) btnAutoPlan.addEventListener('click', () => this.autoPlanFromFilters());
     const btnOptimize = document.getElementById('btn-optimize-route');
     if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true));
+    // ออกจากโหมดโฟกัสเส้นทาง (โชว์เลขกลุ่มพิกัดทั้งหมดเหมือนเดิม)
+    const btnShowAll = document.getElementById('btn-route-show-all');
+    if (btnShowAll) btnShowAll.addEventListener('click', () => {
+      if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
+      Utils.toast('🔍 โชว์หมุดทั้งหมดแล้ว');
+    });
   },
 
   // ===== Search customers by CIF, name, phone, address =====
@@ -1491,6 +1527,9 @@ const Route = {
     App.updateRouteUI();
     const resultEl = document.getElementById('route-result');
     if (resultEl) resultEl.classList.add('hidden');
+    this.currentResult = null;
+    // ออกจากโหมดโฟกัสเส้นทางด้วย (โชว์หมุด+เลขกลุ่มทั้งหมดเหมือนเดิม)
+    if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
     Utils.toast('ล้างรายการแล้ว');
   },
 
@@ -1943,6 +1982,43 @@ const Route = {
     Storage.saveRoute(routeIds);
     App.updateRouteUI();
     Utils.toast(`📋 โหลดเส้นทางจากประวัติแล้ว`);
+  },
+
+  // ===== จัดแผนอัตโนมัติจากตัวกรองซ้าย (28 ต.ค.69 — พ่อสั่ง) =====
+  // เอาตัวกรองตอนนี้ → จับเฉพาะคนมีพิกัด → เอา N รายแรกยอดมากสุด → ใส่เส้นทาง + จัดลำดับสั้นสุดให้เลย
+  autoPlanFromFilters() {
+    try {
+      const n = parseInt(document.getElementById('auto-plan-count')?.value || '10', 10) || 10;
+      let list = Storage.getActiveCustomers();
+      // ใช้ตัวกรองแผนที่ตัวเดียวกับหมุด (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
+      if (typeof Customers !== 'undefined' && Customers._passesMapFilters) {
+        list = list.filter(c => Customers._passesMapFilters(c));
+      }
+      const withGps = list.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      if (withGps.length === 0) {
+        Utils.toast('ตัวกรองนี้ยังไม่มีคนมีพิกัด — ลองล้างตัวกรองดูค่ะ', 'error');
+        return;
+      }
+      // เรียงยอดหนี้มาก→น้อย (มี DebtDB) ไม่งั้นตามชื่อ
+      if (typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+        withGps.sort((a, b) => {
+          const da = DebtDB.getByCif(a.cif), db = DebtDB.getByCif(b.cif);
+          return ((db && db.total_debt) || 0) - ((da && da.total_debt) || 0);
+        });
+      }
+      const picked = withGps.slice(0, Math.min(n, this.MAX_SELECT)).map(c => c.id);
+      Storage.saveRoute(picked);
+      App.updateRouteUI();
+      // เปิดแผงวางแผนให้เห็นรายชื่อที่เลือก
+      if (typeof App !== 'undefined' && App.switchSheetTab) { try { App.switchSheetTab('plan'); } catch (e) {} }
+      const sheet = document.getElementById('bottom-sheet');
+      if (sheet) sheet.classList.add('open');
+      Utils.toast(`✅ หยิบ ${picked.length} รายจาก ${withGps.length} หมุดแล้ว — กำลังจัดลำดับให้สั้นสุด…`);
+      // จัดลำดับสั้นสุด + คำนวณเส้นทางถนนจริงทันที
+      if (typeof App !== 'undefined' && App.calculateRoute) App.calculateRoute(true);
+    } catch (e) {
+      if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('จัดแผนไม่ได้ ลองอีกทีค่ะ', 'error');
+    }
   },
 
   escapeHTML(str) {

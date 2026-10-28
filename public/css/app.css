@@ -1631,6 +1631,16 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
   border: 2px solid white;
 }
+/* โหมดโฟกัสเส้นทาง (27 ต.ค.69): ป้ายเลขลำดับใหญ่เด่น — ไม่ให้เลขกลุ่มพิกัดบัง */
+.marker-route-num.focus {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  font-size: 16px;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
 
 /* ===== Marker Cluster (zoomed-out grouping) — styled numeric badges ===== */
 .marker-cluster-icon {
@@ -4056,6 +4066,40 @@ body.debt-zoom .popup-actions button { font-size: 15px; padding: 8px 10px; }
   align-self: center;
 }
 .mdf-reset:hover { background: #fdecea; }
+/* ปุ่มโกลเด้นรูท v2 (28 ต.ค.69 — ทองเรียบพรีเมียม เต็มแถว ตัวขาว) */
+.mdf-plan-row { margin-top: 2px; align-items: center; }
+.mdf-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #3c463c;
+  padding-left: 4px;
+}
+.mdf-plan {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #e3ac20 0%, #c6930a 55%, #a87808 100%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0 16px;
+  letter-spacing: .2px;
+  text-shadow: 0 1px 2px rgba(90,60,0,.45);
+  box-shadow: 0 3px 12px rgba(184,134,11,.45), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.mdf-plan:hover { background: linear-gradient(180deg, #d6a11c 0%, #b8860b 55%, #9c6f07 100%); }
+.mdf-plan:active { transform: scale(.99); }
+/* ประกายวิ่งตอนแตะ (10/10 — รู้สึกเหมือนเหรียญทอง) */
+.mdf-plan { position: relative; overflow: hidden; }
+.mdf-plan::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 46px; left: -70px;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,.5), transparent);
+  transform: skewX(-20deg);
+}
+.mdf-plan:hover::after, .mdf-plan:active::after { left: 130%; transition: left .6s ease; }
 
 /* ===== GPS gauge ใต้ช่องค้นหา (โชว์ตลอดแม้ตอนพับ) ===== */
 .mdf-gps-gauge {
