@@ -1,10 +1,10 @@
 {
-  "updated": "21/10/2569",
+  "updated": "28/10/2569",
   "fuels": {
     "pickup": {
       "name": "ดีเซล B20",
-      "price": 37.19,
-      "price_tomorrow": 37.19,
+      "price": 33.5,
+      "price_tomorrow": 33.5,
       "diff": 0.0
     },
     "car": {
