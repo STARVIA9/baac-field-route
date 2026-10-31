@@ -26,6 +26,38 @@ const TodayUI = {
     return this.todayStr(new Date(d.getFullYear(), d.getMonth() + 1, 0));
   },
 
+  // ===== ปีบัญชี เม.ย. - มี.ค. (ใช้กับตัวกรอง "ถึงกำหนดเดือน") =====
+  accountingRange(base) {
+    const d = base ? new Date(base + 'T00:00:00') : new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const startYear = m >= 4 ? y : y - 1;   // เม.ย. เริ่มปีบัญชีใหม่
+    return { startYear, endYear: startYear + 1 };
+  },
+
+  // 12 เดือนของปีบัญชีปัจจุบัน: 04/2026 ... 03/2027
+  accountingMonths(base) {
+    const { startYear } = this.accountingRange(base);
+    const names = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const out = [];
+    for (let i = 0; i < 12; i++) {
+      const mm = ((3 + i) % 12) + 1;       // 4,5,...,12,1,2,3
+      const yy = mm >= 4 ? startYear : startYear + 1;
+      const be = (yy + 543) % 100;
+      out.push({
+        value: String(mm).padStart(2, '0') + '/' + yy,
+        label: names[mm - 1] + ' ' + be,
+      });
+    }
+    return out;
+  },
+
+  currentAccountingMonth(base) {
+    const d = base ? new Date(base + 'T00:00:00') : new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return p(d.getMonth() + 1) + '/' + d.getFullYear();
+  },
+
   // นับพิกัดแบบ pure (รับ array ลูกค้า) — เทสง่าย ไม่แตะ Storage ตรงนี้
   coverageStats(customers) {
     const list = Array.isArray(customers) ? customers : [];
@@ -56,6 +88,7 @@ const TodayUI = {
     return {
       status: v('gps-status') || 'missing',
       urgency: v('gps-urgency') || 'all',
+      dueMonth: v('gps-due-month'),
       zone: v('gps-zone'),
       branch: v('gps-branch'),
       q: (v('gps-search') || '').trim().toLowerCase(),
@@ -72,17 +105,96 @@ const TodayUI = {
       const isAdmin = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
       dst.classList.toggle('hidden', !isAdmin);
     }
+    this._populateBranchOptions();
+    this._populateDueMonthOptions();
+    this._populateZoneOptions();
     if (!this._gpsWired) {
       this._gpsWired = true;
       ['gps-status', 'gps-urgency', 'gps-zone', 'gps-branch'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => this._debouncedRefresh());
       });
+      // เลือกเดือนถึงกำหนด → สลับโหมดเป็น "ถึงกำหนดเดือน" อัตโนมัติ
+      const dueSel = document.getElementById('gps-due-month');
+      if (dueSel) dueSel.addEventListener('change', () => {
+        const u = document.getElementById('gps-urgency');
+        if (u) u.value = 'due';
+        this._debouncedRefresh();
+      });
+      // เปลี่ยนสาขา → เขตที่เลือกได้ต้องเหลือเฉพาะเขตของสาขานั้น
+      const brSel = document.getElementById('gps-branch');
+      if (brSel) brSel.addEventListener('change', () => this._populateZoneOptions());
       const search = document.getElementById('gps-search');
       if (search) search.addEventListener('input', () => this._debouncedRefresh());
       const golden = document.getElementById('today-golden-btn');
       if (golden) golden.addEventListener('click', () => this.openGoldenRoute());
     }
+  },
+
+  // รายชื่อสาขาที่มีจริงในเครื่อง + ชื่อจากทะเบียน (map filter / admin branches)
+  _populateBranchOptions() {
+    if (typeof document === 'undefined') return;
+    const sel = document.getElementById('gps-branch');
+    if (!sel) return;
+    const prev = sel.value;
+    const labels = new Map();
+    const mapSel = document.getElementById('map-branch-filter');
+    if (mapSel) {
+      [...mapSel.options].forEach((o) => { if (o.value) labels.set(String(o.value), o.textContent.trim()); });
+    }
+    if (Array.isArray(window._adminBranches)) {
+      window._adminBranches.forEach((b) => { if (b && b.code) labels.set(String(b.code), b.name || String(b.code)); });
+    }
+    const all = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
+    const codes = new Set();
+    for (const c of all) {
+      const code = String(c.branch || '').trim();
+      if (code) codes.add(code);
+    }
+    labels.forEach((_, code) => codes.add(code));
+    const list = [...codes].sort();
+    sel.innerHTML = '<option value="">ทุกสาขา</option>' +
+      list.map((code) => '<option value="' + this.esc(code) + '">' + this.esc(labels.get(code) || code) + '</option>').join('');
+    sel.value = prev && list.includes(prev) ? prev : '';
+  },
+
+  // เดือน 12 เดือนของปีบัญชีปัจจุบัน (เม.ย. - มี.ค.) — ตั้งค่าเริ่มต้นเป็นเดือนนี้
+  _populateDueMonthOptions() {
+    const sel = typeof document !== 'undefined' ? document.getElementById('gps-due-month') : null;
+    if (!sel) return;
+    const had = sel.dataset.filled === '1';
+    const prev = sel.value;
+    const months = this.accountingMonths();
+    sel.innerHTML = '<option value="">ทุกเดือนในปีบัญชี</option>' +
+      months.map((m) => '<option value="' + this.esc(m.value) + '">' + this.esc(m.label) + '</option>').join('');
+    if (had && (prev === '' || months.some((m) => m.value === prev))) {
+      sel.value = prev;
+    } else {
+      // เปิดครั้งแรก: ตั้งเดือนปัจจุบันของปีบัญชีนี้
+      const cur = this.currentAccountingMonth();
+      sel.value = months.some((m) => m.value === cur) ? cur : '';
+    }
+    sel.dataset.filled = '1';
+  },
+
+  // เขตที่เลือกได้ = เขตที่มีจริงในลูกค้าของสาขาที่เลือก (ไม่ hardcode 1-5)
+  _populateZoneOptions() {
+    if (typeof document === 'undefined') return;
+    const sel = document.getElementById('gps-zone');
+    if (!sel) return;
+    const branch = (document.getElementById('gps-branch') || {}).value || '';
+    const all = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
+    const zones = new Set();
+    for (const c of all) {
+      if (branch && String(c.branch || '') !== String(branch)) continue;
+      const z = c.zone == null ? '' : String(c.zone).trim();
+      if (z) zones.add(z);
+    }
+    const prev = sel.value;
+    const list = [...zones].sort((a, b) => (parseInt(a, 10) || 99) - (parseInt(b, 10) || 99) || a.localeCompare(b, 'th'));
+    sel.innerHTML = '<option value="">ทุกเขต</option>' +
+      list.map((z) => '<option value="' + this.esc(z) + '">เขต ' + this.esc(z) + '</option>').join('');
+    sel.value = prev && list.includes(prev) ? prev : '';
   },
 
   _debouncedRefresh() {
@@ -97,10 +209,16 @@ const TodayUI = {
     parts.push(f.status === 'has' ? 'มีพิกัดแล้ว' : f.status === 'all' ? 'ทั้งหมด' : 'ยังไม่มีพิกัด');
     if (f.urgency === 'npl') parts.push('NPL');
     else if (f.urgency === 'm15') parts.push('15 เดือน');
-    else if (f.urgency === 'due') parts.push('ถึงกำหนดเดือนนี้');
+    else if (f.urgency === 'due') parts.push('ถึงกำหนด ' + this._dueMonthLabel(f.dueMonth));
     if (f.zone) parts.push('เขต ' + f.zone);
     if (f.q) parts.push('ค้นหา');
     el.textContent = parts.join(' · ') + (typeof count === 'number' ? ' · ' + count + ' ราย' : '');
+  },
+
+  _dueMonthLabel(value) {
+    if (!value) return 'ทุกเดือน';
+    const hit = this.accountingMonths().find((m) => m.value === value);
+    return hit ? hit.label : value;
   },
 
   _info(c) {
@@ -128,7 +246,15 @@ const TodayUI = {
       const info = this._info(c);
       if (f.urgency === 'npl' && !(info.maxTier >= 3)) return false;
       if (f.urgency === 'm15' && !info.has15) return false;
-      if (f.urgency === 'due' && info.due !== this.currentMonthKey()) return false;
+      if (f.urgency === 'due') {
+        if (f.dueMonth) {
+          if (info.due !== f.dueMonth) return false;
+        } else {
+          // "ทุกเดือนในปีบัญชี" = เฉพาะเดือน เม.ย. - มี.ค. ของปีบัญชีนี้
+          const months = this.accountingMonths().map((m) => m.value);
+          if (!info.due || !months.includes(info.due)) return false;
+        }
+      }
     }
     return true;
   },
@@ -251,7 +377,6 @@ const TodayUI = {
   },
 
   refresh() {
-    try { this.ensureGpsOptions(); } catch (e) { console.warn('[today] options:', e); }
     try { this.refreshCollect(); } catch (e) { console.warn('[today] collect:', e); }
     try { this.refreshPromise(); } catch (e) { console.warn('[today] promise:', e); }
     try { if (typeof App !== 'undefined' && App.renderTodayRoute) App.renderTodayRoute(); } catch (e) {}

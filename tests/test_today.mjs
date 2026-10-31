@@ -47,6 +47,14 @@ ok('สาขาไม่ตรงตก', !Customers.matchDebt(F({ branch: 'KBB
 const di = Customers.debtInfo({ cif: 'x', branch: 'WTC' });
 ok('debtInfo ไม่มีข้อมูลหลังบ้านไม่พัง', di.due === '' && di.maxTier === 0 && di.zone === null && di.branch === 'WTC');
 
+// ---- ปีบัญชี เม.ย.-มี.ค. ----
+const am = TodayUI.accountingMonths('2026-11-01');
+ok('ปีบัญชี 12 เดือน เริ่ม เม.ย. 69', am.length === 12 && am[0].value === '04/2026' && am[0].label === 'เม.ย. 69');
+ok('สิ้นปีบัญชี มี.ค. 70', am[11].value === '03/2027' && am[11].label === 'มี.ค. 70');
+ok('currentAccountingMonth = 11/2026', TodayUI.currentAccountingMonth('2026-11-01') === '11/2026');
+ok('ก่อน เม.ย. ยังเป็นปีบัญชีเก่า', TodayUI.accountingRange('2027-02-15').startYear === 2026);
+ok('เม.ย. เริ่มปีบัญชีใหม่', TodayUI.accountingRange('2027-04-01').startYear === 2027);
+
 // ---- คิวเก็บพิกัด: กรอง + เรียงด่วน (pure) ----
 const M = TodayUI.currentMonthKey();
 globalThis.Customers = { debtInfo: (c) => c._info || { due: '', maxTier: 0, has15: false, reserves: [], zone: c.zone || null, branch: c.branch || '' } };
@@ -67,6 +75,11 @@ ok('กรองเขต', TodayUI._matchGps({ id: 'x', zone: '3', lat: null, l
 ok('กรอง NPL', TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { maxTier: 4 } }, { ...F0, urgency: 'npl' })
   && !TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { maxTier: 2 } }, { ...F0, urgency: 'npl' }));
 ok('ค้นชื่อ/CIF', TodayUI._matchGps({ id: 'x', name: 'สมชาย', cif: '1001', lat: null, lng: null }, { ...F0, q: '1001' }));
+ok('ถึงกำหนดเดือนที่เลือก', TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '11/2026' } }, { ...F0, urgency: 'due', dueMonth: '11/2026' }));
+ok('ถึงกำหนดคนละเดือนตก', !TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '12/2026' } }, { ...F0, urgency: 'due', dueMonth: '11/2026' }));
+ok('ทุกเดือนในปีบัญชี = เม.ย.69-มี.ค.70',
+  TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '01/2027' } }, { ...F0, urgency: 'due', dueMonth: '' })
+  && !TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '03/2025' } }, { ...F0, urgency: 'due', dueMonth: '' }));
 ok('coverageCounts นับถูก', (() => { const c = TodayUI.coverageCounts([{ lat: 1, lng: 1 }, { lat: null, lng: null }, {}]); return c.total === 3 && c.with === 1 && c.missing === 2; })());
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

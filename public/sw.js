@@ -2,8 +2,8 @@
 // Strategy: NETWORK-FIRST for HTML/JS/CSS (always fresh), CACHE-FIRST for tiles/images
 // Enhanced: Full offline support for field work
 
-const CACHE_NAME = "bfr-v20261101c";
-const STATIC_CACHE = "bfr-static-v20261101c";
+const CACHE_NAME = "bfr-v20261101d";
+const STATIC_CACHE = "bfr-static-v20261101d";
 const TILE_CACHE = "bfr-tiles-v20260828a";
 
 const ASSETS = [
