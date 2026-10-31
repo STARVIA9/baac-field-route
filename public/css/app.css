@@ -5361,3 +5361,97 @@ details.adv-settings > summary { min-height: 52px; display: flex; align-items: c
 .today-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 .today-filters .mdf-select { width: 100%; min-height: 44px; }
 .chase-count { font-size: 13px; font-weight: 700; margin: 4px 0 8px; }
+
+/* ===== Today tab — การ์ด/ปุ่ม/หัวข้อ สไตล์เดียวกับปฏิทิน (31 ต.ค.69) ===== */
+#sheet-today .cal-section-title { font-size: 16px; font-weight: 700; color: var(--md-on-surface); margin: 20px 0 8px; }
+#sheet-today .cal-entry {
+  background: #fff;
+  border: 1px solid var(--md-outline-variant, #e6ebe4);
+  border-left: 4px solid var(--md-outline, #c9d3c9);
+  border-radius: 16px;
+  padding: 13px 15px;
+  margin: 10px 0;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, .08);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+#sheet-today .cal-entry:hover { box-shadow: 0 4px 14px rgba(60, 64, 67, .14); transform: translateY(-1px); }
+#sheet-today .cal-entry-due, #sheet-today .cal-entry-overdue { border-left-color: var(--md-error, #b3261e); }
+#sheet-today .cal-entry-upcoming { border-left-color: var(--md-tertiary, #7d5700); }
+#sheet-today .cal-entry-paid { border-left-color: var(--md-primary, #0a8f3c); }
+#sheet-today .cal-entry-name { font-size: 16px; font-weight: 600; color: var(--md-on-surface); }
+#sheet-today .cal-cif { font-size: 14px; font-weight: 400; color: var(--md-on-surface-variant, #5b5b52); }
+#sheet-today .cal-entry-meta { font-size: 14px; color: var(--md-on-surface-variant, #5b5b52); margin-top: 3px; }
+#sheet-today .cal-entry-note { font-size: 14px; color: var(--md-on-surface-variant, #5b5b52); margin-top: 7px; padding: 8px 10px; background: #f4f7f2; border-radius: 10px; }
+#sheet-today .cal-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+#sheet-today .cal-btn { padding: 9px 16px; border-radius: 999px; border: 1px solid var(--md-outline-variant, #e0e0e0); background: #fff; color: var(--md-primary, #0a8f3c); font-size: 14px; font-weight: 600; cursor: pointer; }
+#sheet-today .cal-btn:hover { background: var(--md-primary-container, #d7f5e0); border-color: transparent; color: var(--md-on-primary-container, #00391a); }
+#sheet-today .cal-btn-paid { background: linear-gradient(135deg, var(--md-primary, #0a8f3c) 0%, #2fbf60 100%); border-color: transparent; color: #fff; box-shadow: 0 2px 8px rgba(10,143,60,.28); }
+#sheet-today .cal-btn-paid:hover { background: var(--md-primary, #0a8f3c); color: #fff; opacity: .92; }
+
+/* ตัวกรองละเอียด — การ์ดพับได้ ขาวสะอาด ไม่เป็นกล่องเทา */
+.today-filter-card {
+  background: #fff;
+  border: 1px solid var(--md-outline-variant, #e0e0e0);
+  border-radius: 14px;
+  padding: 10px 12px 12px;
+  margin: 8px 0 12px;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, .07);
+}
+.today-filter-card > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--md-on-surface, #1f1f1f);
+}
+.today-filter-card > summary::-webkit-details-marker { display: none; }
+.today-filter-card > summary::after {
+  content: '▾';
+  margin-left: auto;
+  transition: transform .2s ease;
+  color: var(--md-on-surface-variant, #5b5b52);
+}
+.today-filter-card[open] > summary::after { transform: rotate(180deg); }
+.today-filter-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md-primary, #0a8f3c);
+  background: #e8f5ec;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.today-filter-card .today-filters { margin-top: 10px; }
+.today-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
+.today-filters .mdf-select { width: 100%; min-height: 42px; font-size: 13px; border-radius: 10px; background-color: #fbfdf9; }
+.today-filters .mdf-select:focus { border-color: var(--baac-green, #0a8f3c); box-shadow: 0 0 0 3px rgba(10,143,60,.12); }
+
+/* กล่องคิวเก็บพิกัด — ขาว + ขอบเขียวอ่อน ไม่เป็นกล่องเทา */
+.gps-collect-card { background: #fff; border: 1px solid #dcebdd; border-radius: 14px; padding: 12px; box-shadow: 0 1px 3px rgba(60, 64, 67, .06); }
+.gps-collect-card h3 { color: var(--md-on-surface, #1f1f1f); }
+.gps-progress { background: #eaf2ea; }
+
+/* คิวเก็บพิกัด: ชื่อลูกค้าเด่น ปุ่มกะทัดรัด ไม่เป็นแถบยาวเต็มจอ */
+#gps-collect .gps-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+}
+#gps-collect .gps-row-info { min-width: 0; }
+#gps-collect .gps-row-name { font-size: 14px; line-height: 1.35; }
+#gps-collect .gps-row-addr { font-size: 12.5px; }
+#gps-collect .gps-row-btn {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  white-space: nowrap;
+}

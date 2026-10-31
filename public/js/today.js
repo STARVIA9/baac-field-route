@@ -129,6 +129,20 @@ const TodayUI = {
     return { month: v('today-month'), tier: v('today-tier'), omsom: '', m15: v('today-m15'), reserve: v('today-reserve'), zone: v('today-zone'), branch: v('today-branch') };
   },
 
+  // ป้ายสรุปตัวกรองที่เปิดใช้ — โชว์บนหัวการ์ดพับได้
+  _updateFilterBadge(f) {
+    const el = typeof document !== 'undefined' ? document.getElementById('today-filter-count') : null;
+    if (!el) return;
+    const labels = [];
+    if (f.month) labels.push('เดือน');
+    if (f.tier) labels.push('ชั้น');
+    if (f.m15) labels.push('15 เดือน');
+    if (f.reserve) labels.push('สำรอง');
+    if (f.zone) labels.push('เขต');
+    if (f.branch) labels.push('สาขา');
+    el.textContent = labels.length ? labels.join(' · ') : 'ทั้งหมด';
+  },
+
   applyPreset(name) {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
     ['today-month', 'today-tier', 'today-m15', 'today-reserve', 'today-zone', 'today-branch'].forEach((id) => set(id, ''));
@@ -178,11 +192,12 @@ const TodayUI = {
     const box = typeof document !== 'undefined' ? document.getElementById('today-chase-list') : null;
     if (!box || typeof Customers === 'undefined' || !Customers.matchDebt) return;
     this.ensureChaseOptions();
+    const f = this.readChaseFilter();
+    this._updateFilterBadge(f);
     if (typeof DebtDB === 'undefined' || !DebtDB._loaded) {
       box.innerHTML = '<p class="empty-state">⏳ กำลังโหลดข้อมูลหนี้...</p>';
       return;
     }
-    const f = this.readChaseFilter();
     const customers = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
     let route = [];
     try { route = (typeof Storage !== 'undefined' && Storage.getRoute) ? Storage.getRoute() : []; } catch (e) {}
