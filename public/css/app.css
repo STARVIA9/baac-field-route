@@ -5355,3 +5355,9 @@ details.adv-settings > summary { min-height: 52px; display: flex; align-items: c
 @media (prefers-reduced-motion: reduce) {
   .gps-progress-fill { transition: none; }
 }
+
+/* ===== หน้าแรก: ตามหนี้ตามประเภท (การ์ดสไตล์ปฏิทิน) ===== */
+.chase-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.today-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.today-filters .mdf-select { width: 100%; min-height: 44px; }
+.chase-count { font-size: 13px; font-weight: 700; margin: 4px 0 8px; }

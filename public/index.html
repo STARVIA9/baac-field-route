@@ -18,8 +18,8 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261031f" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261031h" as="script">
+  <link rel="preload" href="css/app.css?v=20261031i" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261031j" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -146,8 +146,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261031f">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261031f"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261031i">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261031i"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="js/icons.js?v=20261018d" defer></script>
@@ -467,15 +467,51 @@
         <div class="sheet-content active" id="sheet-today">
           <div class="today-header">
             <h2>🏠 งานวันนี้</h2>
-            <p class="today-desc">นัดชำระ + เส้นทางวันนี้ — แตะรายชื่อเพื่อบันทึกผลได้เลย</p>
+            <p class="today-desc">นัดชำระ + ตามหนี้ตามประเภท — แตะรายชื่อเพื่อบันทึกผลได้เลย</p>
           </div>
           <div id="gps-collect" class="hidden"></div>
           <h3 class="cal-section-title">🔔 นัดชำระวันนี้ + เลยกำหนด</h3>
           <div id="today-promise"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
-          <h3 class="cal-section-title">🧭 เส้นทางวันนี้</h3>
-          <div class="today-visits" id="today-visits">
-            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน/เข้าพบ</strong> เพื่อสร้างเส้นทาง</p>
+          <h3 class="cal-section-title">🔎 ตามหนี้ตามประเภท</h3>
+          <div class="chase-presets">
+            <button type="button" class="chip-btn chase-preset" data-preset="due">📅 ถึงกำหนดเดือนนี้</button>
+            <button type="button" class="chip-btn chase-preset" data-preset="m15">⏳ 15 เดือน</button>
+            <button type="button" class="chip-btn chase-preset" data-preset="rsv100">🛡️ สำรอง 100</button>
+            <button type="button" class="chip-btn chase-preset" data-preset="npl">🔴 NPL</button>
+            <button type="button" class="chip-btn chase-preset" data-preset="clear">✕ ล้าง</button>
           </div>
+          <div class="today-filters">
+            <select id="today-month" class="mdf-select"><option value="">🗓️ ทุกเดือน</option></select>
+            <select id="today-tier" class="mdf-select">
+              <option value="">ทุกชั้นหนี้</option>
+              <option value="1">ชั้น 1</option>
+              <option value="2">ชั้น 2</option>
+              <option value="npl">🔴 NPL (ชั้น 3-5)</option>
+            </select>
+            <select id="today-m15" class="mdf-select">
+              <option value="">หนี้ทั้งหมด</option>
+              <option value="Y">⏳ มี 15 เดือน</option>
+              <option value="none">✓ ไม่มี 15 เดือน</option>
+            </select>
+            <select id="today-reserve" class="mdf-select">
+              <option value="">🛡️ สำรองทั้งหมด</option>
+              <option value="1">🛡️ สำรอง 1%</option>
+              <option value="100">🛡️ สำรอง 100%</option>
+              <option value="none">✓ ไม่มีสำรอง</option>
+            </select>
+            <select id="today-zone" class="mdf-select">
+              <option value="">ทุกเขต</option>
+              <option value="1">เขต 1</option>
+              <option value="2">เขต 2</option>
+              <option value="3">เขต 3</option>
+              <option value="4">เขต 4</option>
+              <option value="5">เขต 5</option>
+            </select>
+            <select id="today-branch" class="mdf-select hidden">
+              <option value="">ทุกสาขา</option>
+            </select>
+          </div>
+          <div id="today-chase-list"><p class="empty-state">เลือกตัวกรองเพื่อดูรายชื่อ</p></div>
         </div>
 
         <!-- Customers pane (copied from old #tab-customers, keeps ID) -->
@@ -1031,14 +1067,9 @@
         </section>
 
         <section class="help-startmode">
-          <h4>🏠 เริ่มวันใหม่ — ป๊อบอัพ "วันนี้ทำอะไร?"</h4>
-          <p>หลังเข้าระบบ เว็บจะถามก่อน 1 ครั้ง เลือกแล้วพาไปหน้านั้นเลย:</p>
-          <ul class="help-list">
-            <li>📍 <b>ดูลูกค้า / เก็บพิกัด</b> → ไปแท็บลูกค้า</li>
-            <li>🧭 <b>ออกพื้นที่</b> → ไปแท็บวางแผน</li>
-            <li>📊 <b>ดูสรุป</b> → ไปแท็บสรุปหนี้</li>
-          </ul>
-          <small>💡 ติ๊ก "จำไว้ ไม่ถามอีก" ได้ · เปิดซ้ำทีหลังจากเมนู ⋮ → <b>🏠 เริ่มตรงนี้ (เลือกงาน)</b></small>
+          <h4>🏠 เริ่มวันใหม่ — หน้า "งานวันนี้"</h4>
+          <p>หลังเข้าระบบจะเจองานวันนี้ทันที ไม่ต้องเลือกอะไรก่อน: <b>นัดชำระวันนี้/เลยกำหนด</b> · <b>ตามหนี้ตามประเภท</b> (ถึงกำหนด/15 เดือน/สำรอง/NPL/เขต/สาขา) · <b>คิวเก็บพิกัด</b> (สาขาที่ยังไม่มีพิกัด)</p>
+          <small>💡 อยากข้ามไปหน้าไหนเร็วๆ กดเมนู ⋮ → <b>🏠 เริ่มตรงนี้ (เลือกงาน)</b></small>
         </section>
 
         <section class="help-quickstart">
@@ -1415,9 +1446,9 @@
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
   <script src="js/vendor.js?v=20261029a"></script>
-  <script src="js/app.bundle.js?v=20261031h"></script>
+  <script src="js/app.bundle.js?v=20261031j"></script>
   <script src="js/calendar.js?v=20261031b"></script>
-  <script src="js/today.js?v=20261031h"></script>
+  <script src="js/today.js?v=20261031i"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

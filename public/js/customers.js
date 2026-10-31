@@ -405,54 +405,64 @@ const Customers = {
     });
   },
 
+  // ===== ตัวกรองหนี้แบบ pure — ใช้ร่วมกันทั้งแผนที่และหน้า "งานวันนี้" =====
+  // f = {month, tier, omsom, m15, reserve, zone, branch} ('' = ไม่กรองข้อนั้น)
+  // info มาจาก debtInfo(): {due, maxTier, omsom, has15, reserves[], zone|null, branch}
+  matchDebt(f, info) {
+    f = f || {};
+    info = info || {};
+    if (f.month || f.tier || f.omsom || f.m15 || f.reserve) {
+      const isNpl = f.tier === 'npl';   // NPL (ชั้น 3-5) ดูทั้งหมด ไม่ต้องกรองเดือน
+      if (f.month && !isNpl && (info.due || '') !== f.month) return false;
+      if (f.tier) {
+        const t = info.maxTier || 0;
+        if (isNpl) {
+          if (!(t >= 3 && t <= 5)) return false;
+        } else if (t !== parseInt(f.tier, 10)) return false;
+      }
+      if (f.omsom) {
+        if (f.omsom === 'exclude' && info.omsom) return false;
+        if (f.omsom === 'only' && !info.omsom) return false;
+      }
+      if (f.m15) {
+        if (f.m15 === 'Y' && !info.has15) return false;
+        if (f.m15 === 'none' && info.has15) return false;
+      }
+      if (f.reserve) {
+        const rsv = info.reserves || [];
+        if (f.reserve === 'none') {
+          if (rsv.some((x) => String(x) !== '')) return false;
+        } else if (!rsv.some((x) => String(x) === f.reserve)) return false;
+      }
+    }
+    if (f.zone && (info.zone == null || String(info.zone) !== String(f.zone))) return false;
+    if (f.branch && String(info.branch || '') !== String(f.branch)) return false;
+    return true;
+  },
+
+  // ดึง info สำหรับ matchDebt (พฤติกรรมเดิม: ไม่มีทะเบียนกลาง = เขตไม่ผ่าน, สาขาตกไปใช้ของเครื่อง)
+  debtInfo(c) {
+    c = c || {};
+    const debt = (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) ? DebtDB.getByCif(c.cif) : null;
+    const dbrec = (c.cif && typeof CustomerDB !== 'undefined') ? CustomerDB.getByCif(c.cif) : null;
+    const ctrs = (debt && debt.contracts) || [];
+    return {
+      due: (debt && typeof DebtDB !== 'undefined' && DebtDB.dueMonthKey) ? (DebtDB.dueMonthKey(debt.earliest_due) || '') : '',
+      maxTier: debt ? (parseInt(debt.max_tier, 10) || 0) : 0,
+      omsom: !!(debt && debt.is_omsom),
+      has15: ctrs.some((x) => x.m15 === 'Y' || (x.m15_amt || 0) > 0),
+      reserves: ctrs.map((x) => x.reserve),
+      zone: dbrec ? String(dbrec.zone == null ? '' : dbrec.zone) : null,
+      branch: dbrec ? String(dbrec.branch || '') : String(c.branch || ''),
+    };
+  },
+
   // ===== ตัวกรองแผนที่ (ใช้ร่วมกันทั้งหมุด + เกจพิกัด) =====
   // คืน true = ลูกค้าผ่านตัวกรองปัจจุบัน (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
   _passesMapFilters(c, query) {
-    // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
-    if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode || this.reserveMode) {
-      const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
-      const isNpl = this.debtTier === 'npl';   // NPL (ชั้น 3-5) ดูทั้งหมด ไม่ต้องกรองเดือน
-      if (this.debtMonth && !isNpl) {
-        // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
-        const due = debt ? DebtDB.dueMonthKey(debt.earliest_due) : '';
-        if (due !== this.debtMonth) return false;
-      }
-      if (this.debtTier) {
-        const maxTier = debt ? (parseInt(debt.max_tier) || 0) : 0;
-        if (isNpl) {
-          if (!(maxTier >= 3 && maxTier <= 5)) return false;
-        } else if (maxTier !== parseInt(this.debtTier)) return false;
-      }
-      if (this.omsomMode) {
-        const isOmsom = debt ? debt.is_omsom : false;
-        if (this.omsomMode === 'exclude' && isOmsom) return false;
-        if (this.omsomMode === 'only' && !isOmsom) return false;
-      }
-      if (this.m15Mode) {
-        const has15 = debt && debt.contracts && debt.contracts.some(x=>x.m15==='Y' || (x.m15_amt||0)>0);
-        if (this.m15Mode === 'Y' && !has15) return false;
-        if (this.m15Mode === 'none' && has15) return false;
-      }
-      if (this.reserveMode) {
-        const ctrs = (debt && debt.contracts) || [];
-        if (this.reserveMode === 'none') {
-          if (ctrs.some(x=>String(x.reserve||'')!=='')) return false;
-        } else if (!ctrs.some(x=>String(x.reserve||'')===this.reserveMode)) return false;
-      }
-    }
-
-    // Zone filter (T3): ซ่อน marker นอกเขตที่เลือก
-    if (this._zoneFilter) {
-      const dbz = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
-      if (!dbz || String(dbz.zone) !== String(this._zoneFilter)) return false;
-    }
-
-    // Branch filter: ซ่อน marker นอกสาขาที่เลือก (admin เห็นรวมหลายสาขา)
-    if (this._branchFilter) {
-      const dbb = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
-      const cb = dbb ? String(dbb.branch || '') : String(c.branch || '');
-      if (cb !== String(this._branchFilter)) return false;
-    }
+    // === Debt/zone/branch filters — ตรรกะเดียวกับหน้า "งานวันนี้" (Customers.matchDebt) ===
+    const df = { month: this.debtMonth || '', tier: this.debtTier || '', omsom: this.omsomMode || '', m15: this.m15Mode || '', reserve: this.reserveMode || '', zone: this._zoneFilter || '', branch: this._branchFilter || '' };
+    if (!Customers.matchDebt(df, Customers.debtInfo(c))) return false;
 
     // คำค้นในช่องค้นหาแผนที่ (ชื่อ/ชื่อเล่น/CIF/เบอร์)
     const q = (query !== undefined ? query : (document.getElementById('map-search')?.value || '')).trim().toLowerCase();
@@ -1302,4 +1312,5 @@ const Customers = {
   },
 };
 
-window.Customers = Customers;
+if (typeof window !== 'undefined') window.Customers = Customers;
+if (typeof module !== 'undefined' && module.exports) module.exports = Customers;
