@@ -5198,7 +5198,7 @@ body.field-big .route-action-card { font-size: 17px; }
   line-height: 1.4;
   box-shadow: 0 4px 20px rgba(0, 0, 0, .18);
   cursor: pointer;
-  animation: promiseAlertIn .35s cubic-bezier(.2, .8, .2, 1) forwards;
+  animation: promiseAlertIn .35s cubic-bezier(.2, .8, .2, 1);
   transition: opacity .2s, transform .2s;
 }
 #promise-alert.hidden { display: none !important; }
@@ -5213,8 +5213,8 @@ body.field-big .route-action-card { font-size: 17px; }
 }
 #promise-alert .promise-alert-go:hover { background: var(--md-primary-container); color: var(--md-on-primary-container); }
 @keyframes promiseAlertIn {
-  from { opacity: 0; transform: translateY(-16px) scale(.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { transform: translateY(-16px) scale(.96); }
+  to   { transform: translateY(0) scale(1); }
 }
 @media (prefers-color-scheme: dark) {
   #promise-alert {
