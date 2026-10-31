@@ -2162,11 +2162,34 @@ const Visit = {
     // Update hidden select
     const select = document.getElementById('visit-status-select');
     if (select) select.value = status;
-    
+
     // Update button states
     document.querySelectorAll('.quick-status-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.status === status);
     });
+    this._updatePromiseVisibility(status);
+  },
+
+  // ช่องนัดชำระโผล่เฉพาะผล "รับปากจ่าย/นัดใหม่" — สถานะอื่นไม่ต้องใส่วันนัด
+  _updatePromiseVisibility(status) {
+    const sec = document.getElementById('visit-promise-section');
+    if (!sec) return;
+    sec.classList.toggle('hidden', !(status === 'interested' || status === 'reschedule'));
+  },
+
+  _renderPromiseStatus(existing) {
+    const el = document.getElementById('visit-promise-status');
+    if (!el) return;
+    if (existing && existing.promiseDate && typeof WorkCalendar !== 'undefined') {
+      const cls = WorkCalendar.classify(existing.promiseDate, existing.promiseStatus);
+      const hist = Array.isArray(existing.promiseHistory) && existing.promiseHistory.length
+        ? ' · เคยนัด/เลื่อน ' + existing.promiseHistory.length + ' ครั้ง' : '';
+      el.textContent = '📌 นัดเดิม: ' + WorkCalendar.fmtDate(existing.promiseDate) + ' — ' + WorkCalendar.statusLabel(cls) + hist;
+      el.classList.remove('hidden');
+    } else {
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
   },
 
   // Phase 5: Render GPS display in visit modal
@@ -2222,10 +2245,32 @@ const Visit = {
 
   async submit(form) {
     if (!this.currentCustomerId) return;
+    const status = document.getElementById('visit-status-select').value;
     const data = {
-      status: document.getElementById('visit-status-select').value,
+      status,
       note: form.elements.note.value,
     };
+    // นัดชำระ: บังคับใส่วันที่เมื่อผลเป็นรับปากจ่าย/นัดใหม่ กันนัดหลุดจากปฏิทิน
+    if (status === 'interested' || status === 'reschedule') {
+      const pDateEl = document.getElementById('visit-promise-date');
+      const pAmtEl = document.getElementById('visit-promise-amount');
+      const promiseDate = pDateEl ? pDateEl.value : '';
+      if (!promiseDate) {
+        Utils.toast('กรุณาใส่วันที่รับปากชำระ/วันนัดใหม่ก่อนบันทึก', 'error');
+        if (pDateEl) pDateEl.focus();
+        return;
+      }
+      const existing = Storage.getVisits()[this.currentCustomerId] || {};
+      const history = Array.isArray(existing.promiseHistory) ? [...existing.promiseHistory] : [];
+      if (existing.promiseDate && existing.promiseDate !== promiseDate) {
+        history.push({ date: existing.promiseDate, result: 'rescheduled', newDate: promiseDate, at: new Date().toISOString() });
+      }
+      data.promiseDate = promiseDate;
+      data.promiseAmount = pAmtEl && pAmtEl.value !== '' ? Number(pAmtEl.value) : '';
+      // วันนัดเดิม + ผลเดิมค้างอยู่ = คงสถานะชำระแล้วไว้; วันใหม่/นัดใหม่ = กลับเป็นรอติดตาม
+      data.promiseStatus = (existing.promiseDate === promiseDate && existing.promiseStatus === 'paid') ? 'paid' : 'pending';
+      data.promiseHistory = history;
+    }
     // Phase 5: GPS coordinates (if captured)
     const lat = form.elements.lat.value;
     const lng = form.elements.lng.value;
@@ -3649,13 +3694,14 @@ const App = {
     document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
     const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
     if (tab) tab.classList.add('active');
-    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', debtsummary: 'sheet-debtsummary' };
+    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', calendar: 'sheet-calendar', debtsummary: 'sheet-debtsummary' };
     const pane = document.getElementById(idMap[name] || 'sheet-route');
     if (pane) pane.classList.add('active');
     if (name !== 'route') this.setSheetState('half');
     // วาดเนื้อหาใหม่ทุกครั้งที่เปิดแท็บ — เดิมสลับแค่คลาส CSS ทำให้เปิดแท็บ "เข้าพบ"/"ลูกค้า"
     // แล้วเห็นหน้าว่างทั้งที่มีข้อมูล (ต้องเรียก render เองจากที่อื่นถึงจะขึ้น)
     if (name === 'visit' && typeof Visit !== 'undefined') Visit.render();
+    if (name === 'calendar' && typeof WorkCalendar !== 'undefined') WorkCalendar.render();
     if (name === 'customers' && typeof Customers !== 'undefined') Customers.renderList();
     // Render debt summary เมื่อเปิดแท็บสรุปหนี้
     if (name === 'debtsummary' && typeof DebtDB !== 'undefined' && DebtDB._loaded && window.DebtSummary) {
