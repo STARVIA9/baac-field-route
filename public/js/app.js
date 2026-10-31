@@ -1697,6 +1697,7 @@ const App = {
       if (el) el.innerHTML = '<p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>';
       if (btnCalculate) btnCalculate.disabled = true;
       if (btnOptimize) btnOptimize.disabled = true;
+      this.updateRouteDebtSummary(routeCustomers);
       return;
     }
 
@@ -1726,6 +1727,131 @@ const App = {
     if (btnCalculate) btnCalculate.disabled = false;
     if (btnOptimize) btnOptimize.disabled = false;
     this.renderTodayRoute();
+    this.updateRouteDebtSummary(routeCustomers);
+  },
+
+  // สรุปหนี้สำหรับแผน (ถ้าออกตามแผนจะได้ตามหนี้ประเภทไหน ต้นเงินคงเป็นหนี้เท่าไหร่ สำรองประเภทไหน ดอกเบี้ย 15 เดือน ผลงานเท่าไหร่)
+  updateRouteDebtSummary(routeCustomers) {
+    const el = document.getElementById('route-debt-summary');
+    if (!el) return;
+    if (!routeCustomers || routeCustomers.length === 0) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    // รอ DebtDB โหลด
+    if (!window.DebtDB || !DebtDB._loaded || !DebtDB._byCif) {
+      el.classList.remove('hidden');
+      el.innerHTML = '<div class="rds-note">กำลังโหลดข้อมูลหนี้...</div>';
+      if (window.DebtDB && !DebtDB._loaded) DebtDB.load().then(() => this.updateRouteDebtSummary(routeCustomers));
+      return;
+    }
+
+    const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
+
+    // รวบรวมข้อมูลหนี้จากลูกค้าที่เลือก
+    let totalDebt = 0;
+    let totalContracts = 0;
+    let maxTier = 0;
+    const subsidyTypes = {};   // หนี้ประเภทไหน (SP/EP/ปกติ)
+    const reserveTypes = {};   // สำรองประเภทไหน (%)
+    const tierCount = {};
+    let m15Total = 0;         // ดอกเบี้ย 15 เดือน
+    let m15Count = 0;
+    const marketCodes = {};   // โครงการ
+
+    for (const c of routeCustomers) {
+      const debt = DebtDB.getByCif(c.cif);
+      if (!debt) continue;
+      totalDebt += (+debt.total_debt || 0);
+      totalContracts += (+debt.num_contracts || 0);
+      const t = parseInt(debt.max_tier) || 0;
+      if (t > maxTier) maxTier = t;
+      if (t) tierCount[t] = (tierCount[t] || 0) + 1;
+
+      // รวบรวมจาก contracts
+      for (const ct of (debt.contracts || [])) {
+        const sub = (ct.sub || '').trim();
+        const subKey = sub || 'ปกติ (ไม่มีชดเชย)';
+        subsidyTypes[subKey] = (subsidyTypes[subKey] || 0) + (+ct.d || 0);
+
+        const res = (ct.reserve || '').trim();
+        if (res) reserveTypes[res] = (reserveTypes[res] || 0) + (+ct.d || 0);
+
+        if (ct.m15 === 'Y') { m15Count++; m15Total += (+ct.m15_amt || 0); }
+
+        const mc = (ct.mc || '').trim();
+        if (mc) marketCodes[mc] = (marketCodes[mc] || 0) + (+ct.d || 0);
+      }
+    }
+
+    const totalCif = routeCustomers.filter(c => DebtDB.getByCif(c.cif)).length;
+    const tierLabels = { 1: 'ชั้น 1', 2: 'ชั้น 2', 3: 'ชั้น 3', 4: 'ชั้น 4', 5: 'ชั้น 5' };
+
+    // ===== สร้าง HTML =====
+    let html = '<div class="rds-card">';
+    html += '<h3 class="rds-title">📊 สรุปหนี้ตามแผน (' + routeCustomers.length + ' ราย)</h3>';
+
+    // ภาพรวม
+    html += '<div class="rds-overview">';
+    html += '<div class="rds-stat"><span class="rds-num">' + fmt(totalDebt) + '</span><span class="rds-label">ต้นเงินคงเป็นหนี้ (บาท)</span></div>';
+    html += '<div class="rds-stat"><span class="rds-num">' + totalContracts.toLocaleString('th-TH') + '</span><span class="rds-label">สัญญา</span></div>';
+    html += '<div class="rds-stat"><span class="rds-num">' + totalCif.toLocaleString('th-TH') + '</span><span class="rds-label">ลูกค้าที่มีข้อมูลหนี้</span></div>';
+    if (maxTier) html += '<div class="rds-stat"><span class="rds-num" style="color:' + DebtDB.tierColor(maxTier) + '">ชั้น ' + maxTier + '</span><span class="rds-label">ชั้นหนี้สูงสุด</span></div>';
+    html += '</div>';
+
+    // หนี้ประเภทไหน (subsidy types)
+    const subKeys = Object.keys(subsidyTypes);
+    if (subKeys.length) {
+      html += '<div class="rds-block"><div class="rds-block-title">🏷️ หนี้ประเภทไหน (ตามโครงการ/ชดเชย)</div>';
+      for (const k of subKeys.sort()) {
+        const pct = totalDebt ? Math.round(subsidyTypes[k] / totalDebt * 100) : 0;
+        html += '<div class="rds-row"><span class="rds-label">' + this.escapeHTML(k) + '</span><span class="rds-val">' + fmt(subsidyTypes[k]) + ' บาท (' + pct + '%)</span></div>';
+      }
+      html += '</div>';
+    }
+
+    // สำรองประเภทไหน
+    const resKeys = Object.keys(reserveTypes);
+    if (resKeys.length) {
+      html += '<div class="rds-block"><div class="rds-block-title">🛡️ สำรองประเภทไหน (กันสำรอง)</div>';
+      for (const k of resKeys.sort()) {
+        const pct = totalDebt ? Math.round(reserveTypes[k] / totalDebt * 100) : 0;
+        html += '<div class="rds-row"><span class="rds-label">กันสำรอง ' + this.escapeHTML(k) + '%</span><span class="rds-val">' + fmt(reserveTypes[k]) + ' บาท (' + pct + '%)</span></div>';
+      }
+      html += '</div>';
+    }
+
+    // ชั้นหนี้
+    const tierKeys = Object.keys(tierCount);
+    if (tierKeys.length) {
+      html += '<div class="rds-block"><div class="rds-block-title">📊 ชั้นหนี้</div>';
+      for (const t of tierKeys.sort()) {
+        html += '<div class="rds-row"><span class="rds-label" style="color:' + DebtDB.tierColor(t) + '">' + (tierLabels[t] || ('ชั้น ' + t)) + '</span><span class="rds-val">' + tierCount[t] + ' ราย</span></div>';
+      }
+      html += '</div>';
+    }
+
+    // ดอกเบี้ย 15 เดือน
+    html += '<div class="rds-block"><div class="rds-block-title">⏰ ดอกเบี้ยค้าง 15 เดือน</div>';
+    if (m15Count > 0) {
+      html += '<div class="rds-row rds-warn"><span class="rds-label">🔴 มีนัดค้าง 15 เดือน</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
+    } else {
+      html += '<div class="rds-row rds-ok"><span class="rds-label">✅ ไม่มีนัดค้าง 15 เดือน</span><span class="rds-val">0 บาท</span></div>';
+    }
+    html += '</div>';
+
+    // ผลงาน (performance summary)
+    html += '<div class="rds-block rds-perf"><div class="rds-block-title">🎯 ผลงานที่จะได้ถ้าออกตามแผน</div>';
+    html += '<div class="rds-row"><span class="rds-label">💰 หนี้ที่จะได้ตาม (รวม)</span><span class="rds-val">' + fmt(totalDebt) + ' บาท</span></div>';
+    html += '<div class="rds-row"><span class="rds-label">📋 สัญญาที่จะติดตาม</span><span class="rds-val">' + totalContracts.toLocaleString('th-TH') + ' สัญญา</span></div>';
+    html += '<div class="rds-row"><span class="rds-label">👥 ลูกค้าที่จะเยี่ยม</span><span class="rds-val">' + routeCustomers.length + ' ราย</span></div>';
+    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">⚠️ ต้องเร่งติดตาม (15 เดือน)</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
+    html += '</div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+    el.classList.remove('hidden');
   },
 
   // Calculate route

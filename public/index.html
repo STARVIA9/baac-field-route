@@ -19,7 +19,7 @@
   
   <!-- Preload critical resources -->
   <link rel="preload" href="css/app.css?v=20261031f" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261031b" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=20261031c" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -525,6 +525,8 @@
             <div class="route-chips" id="route-chips">
               <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
             </div>
+            <!-- สรุปหนี้สำหรับแผน (หนี้ที่จะได้ตาม + ผลงาน) -->
+            <div class="route-debt-summary hidden" id="route-debt-summary"></div>
           </div>
           <div class="route-start">
             <label>📍 จุดเริ่มต้น</label>
@@ -1404,7 +1406,7 @@
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
   <script src="js/vendor.js?v=20261029a"></script>
-  <script src="js/app.bundle.js?v=20261031b"></script>
+  <script src="js/app.bundle.js?v=20261031c"></script>
   <script src="js/calendar.js?v=20261031b"></script>
 
   <script>

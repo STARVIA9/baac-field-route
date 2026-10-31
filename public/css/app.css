@@ -5295,3 +5295,34 @@ body.field-big .route-action-card { font-size: 17px; }
   #sheet-calendar .cal-title { font-size: 18px; min-width: 120px; }
   #sheet-calendar .cal-cell { border-radius: 10px; }
 }
+
+/* ===== สรุปหนี้สำหรับแผน (route debt summary) ===== */
+.route-debt-summary { margin: 12px 0; }
+.route-debt-summary.hidden { display: none !important; }
+.rds-card { background: var(--md-surface-container-low); border: 1px solid var(--md-outline-variant); border-radius: 16px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.rds-title { font-size: 16px; font-weight: 700; color: var(--md-on-surface); margin: 0 0 10px; }
+.rds-overview { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+.rds-stat { background: var(--md-surface-container); border-radius: 12px; padding: 10px 12px; text-align: center; }
+.rds-num { display: block; font-size: 18px; font-weight: 700; color: var(--md-primary); line-height: 1.2; }
+.rds-label { display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px; }
+.rds-block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--md-outline-variant); }
+.rds-block-title { font-size: 14px; font-weight: 600; color: var(--md-on-surface); margin-bottom: 6px; }
+.rds-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 14px; gap: 8px; }
+.rds-row .rds-label { color: var(--md-on-surface-variant); flex: 1; }
+.rds-row .rds-val { font-weight: 600; color: var(--md-on-surface); text-align: right; white-space: nowrap; }
+.rds-warn .rds-label, .rds-warn .rds-val { color: var(--md-error); }
+.rds-ok .rds-label, .rds-ok .rds-val { color: var(--md-primary); }
+.rds-perf { background: var(--md-primary-container); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+.rds-perf .rds-block-title { color: var(--md-on-primary-container); }
+.rds-perf .rds-row .rds-label { color: var(--md-on-primary-container); }
+.rds-perf .rds-row .rds-val { color: var(--md-on-primary-container); font-weight: 700; }
+.rds-note { font-size: 14px; color: var(--md-on-surface-variant); padding: 8px; text-align: center; }
+@media (prefers-color-scheme: dark) {
+  .rds-card { background: var(--md-surface-container-low); }
+  .rds-stat { background: var(--md-surface-container); }
+  .rds-perf { background: var(--md-primary-container); }
+}
+@media (max-width: 480px) {
+  .rds-overview { grid-template-columns: 1fr; }
+  .rds-num { font-size: 16px; }
+}
