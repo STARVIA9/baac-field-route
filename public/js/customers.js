@@ -545,6 +545,7 @@ const Customers = {
       <div class="popup-actions">
         ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">📍 เก็บพิกัดตรงนี้</button>`}
         <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
+        <button class="popup-visit" onclick="Visit.openLog('${this.escapeAttr(c.id)}')">📝 บันทึกเข้าพบ</button>
         <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️ ลบ</button>
       </div>
     `;

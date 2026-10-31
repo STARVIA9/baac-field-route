@@ -340,6 +340,9 @@ const App = {
     // Init bottom sheet (map-as-canvas mode)
     this.initBottomSheet();
     this.renderTodayRoute();
+    // UX ง่ายสุด: เปิดแอปมาเจองานวันนี้ก่อนเสมอ
+    try { this.switchSheetTab('today'); } catch {}
+    if (typeof TodayUI !== 'undefined') { try { TodayUI.refresh(); } catch (e) { console.warn('[afterLogin] today refresh:', e); } }
 
     // Load customer database (async, non-blocking)
     // 22 ต.ค.69: เครื่องเก่าดึงพิกัดใหม่ตามหลัง login (หมุดปักเครื่องอื่นไม่เข้าเครื่องนี้)
@@ -467,7 +470,7 @@ const App = {
       } catch {}
       overlay.remove();
       if (mode === 'gps') this.switchTab('customers');
-      else if (mode === 'route') this.switchSheetTab('plan');
+      else if (mode === 'route') this.switchSheetTab('planvisit');
       else if (mode === 'summary') this.switchSheetTab('debtsummary');
     };
     overlay.querySelectorAll('button[data-mode]').forEach(b => {
@@ -856,11 +859,11 @@ const App = {
   switchTab(name) {
     if (name === 'map') {
       this.setSheetState('peek');
-      this.switchSheetTab('route');
+      this.switchSheetTab('today');
       setTimeout(() => Customers.map && Customers.map.invalidateSize(), 50);
       return;
     }
-    const sheetNames = { customers: 'customers', route: 'route', visit: 'visit' };
+    const sheetNames = { customers: 'customers', route: 'today', visit: 'planvisit', plan: 'planvisit', planvisit: 'planvisit', today: 'today' };
     this.switchSheetTab(sheetNames[name] || name);
     this.setSheetState('half');
   },
@@ -871,13 +874,14 @@ const App = {
     document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
     const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
     if (tab) tab.classList.add('active');
-    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', calendar: 'sheet-calendar', debtsummary: 'sheet-debtsummary' };
-    const pane = document.getElementById(idMap[name] || 'sheet-route');
+    const idMap = { today: 'sheet-today', route: 'sheet-today', plan: 'tab-planvisit', planvisit: 'tab-planvisit', visit: 'tab-planvisit', customers: 'tab-customers', calendar: 'sheet-calendar', debtsummary: 'sheet-debtsummary' };
+    const pane = document.getElementById(idMap[name] || 'sheet-today');
     if (pane) pane.classList.add('active');
-    if (name !== 'route') this.setSheetState('half');
+    if (name !== 'today' && name !== 'route') this.setSheetState('half');
     // วาดเนื้อหาใหม่ทุกครั้งที่เปิดแท็บ — เดิมสลับแค่คลาส CSS ทำให้เปิดแท็บ "เข้าพบ"/"ลูกค้า"
     // แล้วเห็นหน้าว่างทั้งที่มีข้อมูล (ต้องเรียก render เองจากที่อื่นถึงจะขึ้น)
-    if (name === 'visit' && typeof Visit !== 'undefined') Visit.render();
+    if ((name === 'visit' || name === 'plan' || name === 'planvisit') && typeof Visit !== 'undefined') Visit.render();
+    if (name === 'today' && typeof TodayUI !== 'undefined') TodayUI.refresh();
     if (name === 'calendar' && typeof WorkCalendar !== 'undefined') WorkCalendar.render();
     if (name === 'customers' && typeof Customers !== 'undefined') Customers.renderList();
     // Render debt summary เมื่อเปิดแท็บสรุปหนี้
@@ -896,7 +900,7 @@ const App = {
     const routeCusts = routeIds.map(id => customers.find(c => c.id === id)).filter(Boolean);
 
     if (!routeCusts.length) {
-      container.innerHTML = '<p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>';
+      container.innerHTML = '<p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน/เข้าพบ</strong> เพื่อสร้างเส้นทาง</p>';
       this._updateRouteProgress(null);
       return;
     }
@@ -924,8 +928,8 @@ const App = {
       card.addEventListener('click', () => {
         const cif = card.dataset.cif;
         const id = card.dataset.id;
-        if (window.Visit && typeof Visit.openForCustomer === 'function') {
-          Visit.openForCustomer(cif || id);
+        if (window.Visit && typeof Visit.openLog === 'function') {
+          Visit.openLog(id || cif);
         }
       });
     });
@@ -1756,9 +1760,10 @@ const App = {
     const subsidyTypes = {};   // หนี้ประเภทไหน (SP/EP/ปกติ)
     const reserveTypes = {};   // สำรองประเภทไหน (%)
     const tierCount = {};
-    let m15Total = 0;         // ดอกเบี้ย 15 เดือน
+    let m15Total = 0;         // ต้นเงินของสัญญา 15 เดือน
     let m15Count = 0;
     const marketCodes = {};   // โครงการ
+    const dueGroups = {};     // กำหนดชำระแต่ละรายการ -> { amount, count } (ต้นเงินต่อวันถึงกำหนด ไม่ใช่รวมทั้งหมด)
 
     for (const c of routeCustomers) {
       const debt = DebtDB.getByCif(c.cif);
@@ -1778,10 +1783,18 @@ const App = {
         const res = (ct.reserve || '').trim();
         if (res) reserveTypes[res] = (reserveTypes[res] || 0) + (+ct.d || 0);
 
-        if (ct.m15 === 'Y') { m15Count++; m15Total += (+ct.m15_amt || 0); }
+        if (ct.m15 === 'Y') { m15Count++; m15Total += (+ct.d || 0); }
 
         const mc = (ct.mc || '').trim();
         if (mc) marketCodes[mc] = (marketCodes[mc] || 0) + (+ct.d || 0);
+
+        // กำหนดชำระแต่ละรายการ: ต้นเงิน (ct.d) ต่อวันถึงกำหนด (ct.due) ไม่ใช่รวมทั้งหมด
+        const dueKey = (ct.due || '').trim();
+        if (dueKey) {
+          if (!dueGroups[dueKey]) dueGroups[dueKey] = { amount: 0, count: 0 };
+          dueGroups[dueKey].amount += (+ct.d || 0);
+          dueGroups[dueKey].count++;
+        }
       }
     }
 
@@ -1822,6 +1835,25 @@ const App = {
       html += '</div>';
     }
 
+    // กำหนดชำระแต่ละรายการ (ต้นเงินต่อวันถึงกำหนด ไม่ใช่รวมทั้งหมด)
+    const dueKeys = Object.keys(dueGroups);
+    if (dueKeys.length) {
+      // เรียงตามวันที่ถึงกำหนด (dd/mm/yyyy)
+      const toNum = (d) => {
+        const m = String(d).match(/(\d+)\/(\d+)\/(\d+)/);
+        if (!m) return Number.MAX_SAFE_INTEGER;
+        return (+m[3]) * 10000 + (+m[2]) * 100 + (+m[1]);
+      };
+      dueKeys.sort((a, b) => toNum(a) - toNum(b));
+      html += '<div class="rds-block"><div class="rds-block-title">📅 กำหนดชำระแต่ละรายการ (ต้นเงินแยกตามวันถึงกำหนด)</div>';
+      for (const k of dueKeys) {
+        const g = dueGroups[k];
+        const pct = totalDebt ? Math.round(g.amount / totalDebt * 100) : 0;
+        html += '<div class="rds-row"><span class="rds-label">📅 ' + this.escapeHTML(k) + ' (' + g.count + ' สัญญา)</span><span class="rds-val">' + fmt(g.amount) + ' บาท (' + pct + '%)</span></div>';
+      }
+      html += '</div>';
+    }
+
     // ชั้นหนี้
     const tierKeys = Object.keys(tierCount);
     if (tierKeys.length) {
@@ -1833,9 +1865,9 @@ const App = {
     }
 
     // ดอกเบี้ย 15 เดือน
-    html += '<div class="rds-block"><div class="rds-block-title">⏰ ดอกเบี้ยค้าง 15 เดือน</div>';
+    html += '<div class="rds-block"><div class="rds-block-title">⏰ สัญญา 15 เดือน</div>';
     if (m15Count > 0) {
-      html += '<div class="rds-row rds-warn"><span class="rds-label">🔴 มีนัดค้าง 15 เดือน</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
+      html += '<div class="rds-row rds-warn"><span class="rds-label">🔴 สัญญา 15 เดือน</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
     } else {
       html += '<div class="rds-row rds-ok"><span class="rds-label">✅ ไม่มีนัดค้าง 15 เดือน</span><span class="rds-val">0 บาท</span></div>';
     }
@@ -1844,6 +1876,7 @@ const App = {
     // ผลงาน (performance summary)
     html += '<div class="rds-block rds-perf"><div class="rds-block-title">🎯 ผลงานที่จะได้ถ้าออกตามแผน</div>';
     html += '<div class="rds-row"><span class="rds-label">💰 หนี้ที่จะได้ตาม (รวม)</span><span class="rds-val">' + fmt(totalDebt) + ' บาท</span></div>';
+    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">💰 หนี้ที่จะได้ตาม (15 เดือน)</span><span class="rds-val">' + fmt(m15Total) + ' บาท (' + m15Count + ' สัญญา)</span></div>';
     html += '<div class="rds-row"><span class="rds-label">📋 สัญญาที่จะติดตาม</span><span class="rds-val">' + totalContracts.toLocaleString('th-TH') + ' สัญญา</span></div>';
     html += '<div class="rds-row"><span class="rds-label">👥 ลูกค้าที่จะเยี่ยม</span><span class="rds-val">' + routeCustomers.length + ' ราย</span></div>';
     if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">⚠️ ต้องเร่งติดตาม (15 เดือน)</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';

@@ -119,6 +119,7 @@ const Visit = {
     form.elements.lng.value = existing?.lng || '';
     form.elements.accuracy.value = existing?.accuracy || '';
     this._renderGpsDisplay(existing?.lat, existing?.lng, existing?.accuracy);
+    this._prefillGps();
     document.getElementById('visit-log-modal').classList.remove('hidden');
   },
 
@@ -201,6 +202,37 @@ const Visit = {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
+  },
+
+  // พิกัดอัตโนมัติ: เปิดฟอร์มแล้วจับพิกัดเงียบๆ ไว้ก่อน — กดบันทึกได้เลยไม่ต้องกดปุ่ม GPS
+  // ถ้าจับไม่ได้ (เช่น บันทึกเก่ามีพิกัดแล้ว/เครื่องไม่รองรับ) ก็ข้ามเงียบๆ ปุ่มกดมือยังอยู่
+  _prefillGps() {
+    try {
+      const latEl = document.getElementById('visit-lat');
+      if (!latEl || latEl.value || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        if (latEl.value) return;
+        latEl.value = pos.coords.latitude.toFixed(6);
+        document.getElementById('visit-lng').value = pos.coords.longitude.toFixed(6);
+        document.getElementById('visit-accuracy').value = Math.round(pos.coords.accuracy);
+        this._renderGpsDisplay(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+      }, () => {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+    } catch {}
+  },
+
+  // ปุ่มลัดวันนัด (เรียก TodayUI ตรงๆ — คณิตวันที่เทสได้ใน tests/test_today.mjs)
+  setPromiseOffset(days) {
+    const el = document.getElementById('visit-promise-date');
+    if (!el || typeof TodayUI === 'undefined') return;
+    el.value = TodayUI.promiseDateOffset(days);
+    el.focus();
+  },
+
+  setPromiseMonthEnd() {
+    const el = document.getElementById('visit-promise-date');
+    if (!el || typeof TodayUI === 'undefined') return;
+    el.value = TodayUI.monthEndStr();
+    el.focus();
   },
 
   closeLog() {

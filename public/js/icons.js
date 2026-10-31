@@ -12,6 +12,7 @@
     'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
     'user-plus': '<path d="M2 21a8 8 0 0 1 11.3-7.1"/><circle cx="10" cy="8" r="4"/><path d="M19 8v6M22 11h-6"/>',
     'locate': '<path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.2"/>',
+    'home': '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
     'map': '<path d="M14.1 5.6 9 3 3 5v15l6-3 6 3 6-3V2l-6.9 3.6Z"/><path d="M9 3v15M15 5v15"/>',
     'clipboard-check': '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
     'wallet': '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',

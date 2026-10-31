@@ -5326,3 +5326,32 @@ body.field-big .route-action-card { font-size: 17px; }
   .rds-overview { grid-template-columns: 1fr; }
   .rds-num { font-size: 16px; }
 }
+
+/* ===== UX ง่ายสุด: หน้าแรกงานวันนี้ + คิวเก็บพิกัด + ปุ่มลัด (31 ต.ค.69) ===== */
+.today-header h2 { font-size: 20px; margin: 0 0 2px; }
+.today-desc { color: var(--md-on-surface-variant, #5b5b52); font-size: 14px; margin: 0 0 10px; }
+.pane-divider { border: 0; border-top: 1px solid var(--md-outline-variant, #e0e0e0); margin: 14px 0; }
+#gps-collect { margin-bottom: 12px; }
+.gps-collect-card { background: var(--md-surface-container-low, #f6f6f0); border: 1px solid var(--md-outline-variant, #e0e0e0); border-radius: 12px; padding: 12px; }
+.gps-collect-card h3 { font-size: 16px; margin: 0 0 4px; }
+.gps-collect-desc { font-size: 14px; margin: 0 0 8px; }
+.gps-progress { height: 10px; border-radius: 999px; background: var(--md-surface-container-high, #e8e8e0); overflow: hidden; margin-bottom: 10px; }
+.gps-progress-fill { height: 100%; background: var(--md-primary); border-radius: 999px; transition: width .3s; }
+.gps-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--md-outline-variant, #e8e8e0); }
+.gps-row-info { flex: 1; min-width: 0; }
+.gps-row-name { font-weight: 700; font-size: 15px; }
+.gps-row-addr { font-size: 13px; color: var(--md-on-surface-variant, #5b5b52); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gps-row-btn { min-height: 48px; padding: 10px 14px; font-size: 15px; white-space: nowrap; }
+.gps-more { font-size: 13px; text-align: center; margin: 6px 0 0; }
+.promise-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.promise-chips-label { font-size: 14px; font-weight: 700; }
+.chip-btn { min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--md-primary); background: transparent; color: var(--md-primary); font-size: 14px; font-weight: 700; cursor: pointer; }
+.chip-btn:active { background: var(--md-primary); color: var(--md-on-primary); }
+details.qs-more { margin-top: 10px; }
+details.qs-more > summary { min-height: 48px; display: flex; align-items: center; font-size: 15px; font-weight: 700; cursor: pointer; color: var(--md-primary); }
+details.qs-more .quick-status-grid { margin-top: 8px; }
+details.adv-settings { margin-top: 8px; border: 1px solid var(--md-outline-variant, #e0e0e0); border-radius: 12px; padding: 0 12px 12px; }
+details.adv-settings > summary { min-height: 52px; display: flex; align-items: center; font-size: 15px; font-weight: 700; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) {
+  .gps-progress-fill { transition: none; }
+}

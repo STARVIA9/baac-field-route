@@ -19,7 +19,7 @@
   
   <!-- Preload critical resources -->
   <link rel="preload" href="css/app.css?v=20261031f" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261031c" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=20261031h" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -454,8 +454,8 @@
 
       <!-- Sheet section tabs (fixed, don't scroll) -->
       <div class="sheet-tabs">
-        <button class="sheet-tab active" data-sheet="plan"><i data-lucide="map" class="icon"></i> วางแผน</button>
-        <button class="sheet-tab" data-sheet="visit"><i data-lucide="clipboard-check" class="icon"></i> เข้าพบ</button>
+        <button class="sheet-tab active" data-sheet="today"><i data-lucide="home" class="icon"></i> งานวันนี้</button>
+        <button class="sheet-tab" data-sheet="planvisit"><i data-lucide="map" class="icon"></i> วางแผน/เข้าพบ</button>
         <button class="sheet-tab" data-sheet="calendar"><i data-lucide="calendar" class="icon"></i> ปฏิทิน<span id="cal-tab-badge" class="cal-badge hidden">0</span></button>
         <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
         <button class="sheet-tab" data-sheet="debtsummary"><i data-lucide="wallet" class="icon"></i> สรุปหนี้</button>
@@ -463,10 +463,18 @@
 
       <div class="sheet-scroll">
 
-        <!-- Route pane ("วันนี้" — shows queued customers) -->
-        <div class="sheet-content" id="sheet-route">
+        <!-- Today pane (งานวันนี้ — default landing) -->
+        <div class="sheet-content active" id="sheet-today">
+          <div class="today-header">
+            <h2>🏠 งานวันนี้</h2>
+            <p class="today-desc">นัดชำระ + เส้นทางวันนี้ — แตะรายชื่อเพื่อบันทึกผลได้เลย</p>
+          </div>
+          <div id="gps-collect" class="hidden"></div>
+          <h3 class="cal-section-title">🔔 นัดชำระวันนี้ + เลยกำหนด</h3>
+          <div id="today-promise"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
+          <h3 class="cal-section-title">🧭 เส้นทางวันนี้</h3>
           <div class="today-visits" id="today-visits">
-            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>
+            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน/เข้าพบ</strong> เพื่อสร้างเส้นทาง</p>
           </div>
         </div>
 
@@ -507,8 +515,30 @@
           </div>
         </div>
 
-        <!-- Plan pane (default active) -->
-        <div class="sheet-content active" id="tab-route">
+        <!-- Plan/visit pane (วางแผน + บันทึกเข้าพบในแท็บเดียว) -->
+        <div class="sheet-content" id="tab-planvisit">
+          <div class="visit-header">
+            <h2>📋 บันทึกการเข้าพบ</h2>
+            <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
+          </div>
+          <div class="visit-stats">
+            <div class="visit-stat visit-stat-pending">
+              <span class="visit-stat-num" id="visit-pending">0</span>
+              <span class="visit-stat-label">รอเยี่ยม</span>
+            </div>
+            <div class="visit-stat visit-stat-visited">
+              <span class="visit-stat-num" id="visit-completed">0</span>
+              <span class="visit-stat-label">เยี่ยมแล้ว</span>
+            </div>
+            <div class="visit-stat visit-stat-skipped">
+              <span class="visit-stat-num" id="visit-skipped">0</span>
+              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
+            </div>
+          </div>
+          <div class="visit-list" id="visit-list">
+            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+          </div>
+          <hr class="pane-divider">
           <div class="route-header">
             <h2>🧭 วางแผนเส้นทาง</h2>
             <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
@@ -528,6 +558,8 @@
             <!-- สรุปหนี้สำหรับแผน (หนี้ที่จะได้ตาม + ผลงาน) -->
             <div class="route-debt-summary hidden" id="route-debt-summary"></div>
           </div>
+          <details class="adv-settings">
+            <summary>⚙️ ตั้งค่าขั้นสูง: จุดเริ่ม-สิ้นสุด · รถ · ถนน</summary>
           <div class="route-start">
             <label>📍 จุดเริ่มต้น</label>
             <select id="route-start-mode">
@@ -561,6 +593,7 @@
             </select>
           </div>
 <div class="road-classification">            <label>🛣️ จำแนกถนน <span class="hint">(ใช้คำนวณความเร็ว)</span></label>            <select id="road-classification">              <option value="auto">🚗 อัตโนมัติ (จาก OpenStreetMap)</option>              <option value="highway">🛣️ ถนนหลัก (Highway)</option>              <option value="road">🛤️ ถนนรอง (Road)</option>              <option value="village">🏘️ ถนนใน (Village Road)</option>              <option value="dirt">🚜 ถนนลูกรัง (Dirt Road)</option>            </select>          </div>
+          </details>
           <div class="route-actions-col">
             <button class="route-action-card" id="btn-calculate-route" disabled>
               <span class="ra-title">🧮 คำนวณเส้นทาง — ตามลำดับที่เรียงไว้</span>
@@ -604,38 +637,6 @@
                 🔍 ดูหมุดทั้งหมด
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- Visit pane (copied from old #tab-visit, keeps ID) -->
-        <div class="sheet-content" id="tab-visit">
-          <div class="visit-header">
-            <h2>📋 บันทึกการเข้าพบ</h2>
-            <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
-          </div>
-          <div class="visit-guide">
-            <span class="visit-guide-step"><b>1</b> ดูรายชื่อในเส้นทาง</span>
-            <span class="visit-guide-arrow">→</span>
-            <span class="visit-guide-step"><b>2</b> แตะปุ่ม <b class="visit-guide-btn">📝 บันทึก</b></span>
-            <span class="visit-guide-arrow">→</span>
-            <span class="visit-guide-step"><b>3</b> เลือกผล + กดบันทึก</span>
-          </div>
-          <div class="visit-stats">
-            <div class="visit-stat visit-stat-pending">
-              <span class="visit-stat-num" id="visit-pending">0</span>
-              <span class="visit-stat-label">รอเยี่ยม</span>
-            </div>
-            <div class="visit-stat visit-stat-visited">
-              <span class="visit-stat-num" id="visit-completed">0</span>
-              <span class="visit-stat-label">เยี่ยมแล้ว</span>
-            </div>
-            <div class="visit-stat visit-stat-skipped">
-              <span class="visit-stat-num" id="visit-skipped">0</span>
-              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
-            </div>
-          </div>
-          <div class="visit-list" id="visit-list">
-            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
           </div>
         </div>
 
@@ -829,8 +830,7 @@
         <div class="visit-sections">
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">1</span><div><label>ผลการเข้าพบ *</label><p class="step-hint">แตะเลือก 1 ข้อที่ตรงที่สุด</p></div></div>
-          <!-- Quick status buttons -->
-          <p class="qs-group-title">✅ เจอตัวแล้ว — เลือกผลที่คุย</p>
+          <!-- Quick status buttons: 3 ปุ่มหลัก + ผลอื่นพับไว้ -->
           <div class="quick-status-grid grid-3col">
             <button type="button" class="quick-status-btn quick-status-visited" data-status="visited" onclick="Visit.setQuickStatus('visited')">
               <span class="qs-icon">✅</span>
@@ -848,29 +848,31 @@
               <span class="qs-desc">พบแล้ว ยังไม่มีจ่าย</span>
             </button>
           </div>
-          <p class="qs-group-title">📅 ไม่เจอ / เลื่อนนัด</p>
-          <div class="quick-status-grid grid-2col">
-            <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
-              <span class="qs-icon">❌</span>
-              <span class="qs-label">ไม่พบ</span>
-              <span class="qs-desc">ไปแล้วไม่เจอตัว</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
-              <span class="qs-icon">🚪</span>
-              <span class="qs-label">ไม่อยู่</span>
-              <span class="qs-desc">บ้านปิด / ออกไปนา</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
-              <span class="qs-icon">📅</span>
-              <span class="qs-label">นัดใหม่</span>
-              <span class="qs-desc">นัดพบ / นัดจ่ายใหม่</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
-              <span class="qs-icon">🚫</span>
-              <span class="qs-label">ไม่จ่าย</span>
-              <span class="qs-desc">บ่ายเบี่ยง / ปฏิเสธ</span>
-            </button>
-          </div>
+          <details class="qs-more">
+            <summary>🔁 ไปแล้วไม่เจอ / ผลอื่น (แตะเพื่อเปิด)</summary>
+            <div class="quick-status-grid grid-2col">
+              <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
+                <span class="qs-icon">❌</span>
+                <span class="qs-label">ไม่พบ</span>
+                <span class="qs-desc">ไปแล้วไม่เจอตัว</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
+                <span class="qs-icon">🚪</span>
+                <span class="qs-label">ไม่อยู่</span>
+                <span class="qs-desc">บ้านปิด / ออกไปนา</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
+                <span class="qs-icon">📅</span>
+                <span class="qs-label">นัดใหม่</span>
+                <span class="qs-desc">นัดพบ / นัดจ่ายใหม่</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
+                <span class="qs-icon">🚫</span>
+                <span class="qs-label">ไม่จ่าย</span>
+                <span class="qs-desc">บ่ายเบี่ยง / ปฏิเสธ</span>
+              </button>
+            </div>
+          </details>
           <select name="status" required class="hidden" id="visit-status-select">
             <option value="visited">✅ พบลูกค้า - คุยเรื่องหนี้แล้ว</option>
             <option value="interested">🤝 รับปากจ่าย</option>
@@ -897,6 +899,13 @@
               <label>ยอดที่รับปาก (บาท)</label>
               <input type="number" id="visit-promise-amount" name="promiseAmount" min="0" step="any" inputmode="decimal" placeholder="เช่น 5000">
             </div>
+          </div>
+          <div class="promise-chips">
+            <span class="promise-chips-label">ลัด:</span>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(1)">พรุ่งนี้</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(3)">+3 วัน</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(7)">+7 วัน</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseMonthEnd()">สิ้นเดือน</button>
           </div>
         </div>
         <div class="form-row visit-section">
@@ -1406,8 +1415,9 @@
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
   <script src="js/vendor.js?v=20261029a"></script>
-  <script src="js/app.bundle.js?v=20261031c"></script>
+  <script src="js/app.bundle.js?v=20261031h"></script>
   <script src="js/calendar.js?v=20261031b"></script>
+  <script src="js/today.js?v=20261031h"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
