@@ -1,12 +1,13 @@
 name: ✅ Auto tests
 
 # รัน harness ทุกไฟล์เมื่อมี push แตะโค้ด/เทส — แดงรู้เลย ไม่ต้องรอพ่อเจอบั๊ก (เฟส 5)
+# + push ขึ้น main = deploy Cloudflare Pages อัตโนมัติ (31 ต.ค.69 — กัน "muse code push แล้วเว็บไม่อัปเดต")
 
 on:
   push:
     paths:
       - 'functions/**'
-      - 'public/js/**'
+      - 'public/**'
       - 'public/_headers'
       - 'public/admin.html'
       - 'tests/**'
@@ -37,3 +38,19 @@ jobs:
           fail=0
           for f in tests/test_*.mjs; do echo "== $f"; node "$f" || fail=1; done
           exit $fail
+      - name: bundle ตรง source (กัน bundle เก่าหลุดขึ้นเว็บ)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          bash scripts/build-bundles.sh
+          if ! git diff --quiet; then
+            echo "❌ app.bundle.js ใน git ไม่ตรงกับ source — รัน scripts/build-bundles.sh + bump ?v= ใน index.html ก่อน push"
+            git diff --stat
+            exit 1
+          fi
+      - name: deploy Cloudflare Pages
+        if: github.ref == 'refs/heads/main'
+        env:
+          CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}'
+          CLOUDFLARE_ACCOUNT_ID: '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
+          CLOUDFLARE_TELEMETRY_DISABLED: '1'
+        run: npx -y wrangler@4 pages deploy public --project-name baac-field-route
