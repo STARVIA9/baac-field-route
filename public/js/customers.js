@@ -9,6 +9,7 @@ const Customers = {
   debtTier: '',        // ชั้นหนี้ (''=ทุกชั้น, '1'..'5')
   omsomMode: '',       // ''=รวม, 'exclude'=กรอง อสม.ออก, 'only'=เฉพาะ อสม.
   m15Mode: '',         // ''=ทุก 15เดือน, 'Y'=มี 15เดือน, 'none'=ไม่มี 15เดือน
+  reserveMode: '',      // ''=ทุกสำรอง, '1'=กันสำรอง 1%, '100'=กันสำรอง 100%, 'none'=ไม่มีกันสำรอง
   _baseLayers: {},
   _currentBaseLayer: 'roadmap',
 
@@ -335,28 +336,23 @@ const Customers = {
     const tierSel = document.getElementById('debt-tier-filter');
     const omSel = document.getElementById('debt-omsom-filter');
     const m15Sel = document.getElementById('debt-15m-filter');
+    const rsvSel = document.getElementById('debt-reserve-filter');
     const resetBtn = document.getElementById('debt-filter-reset');
     if (!monthSel || typeof DebtDB === 'undefined') return;
 
-    // เติม dropdown เดือนจากข้อมูลหนี้ (เรียงตามเวลา — แสดงทุกเดือนที่มีข้อมูล)
+    // เติม dropdown เดือนตามปีบัญชี ธ.ก.ส. (เม.ย. → มี.ค. ปีถัดไป) — เรียงตามปีบัญชี ไม่ตามข้อมูลดิบ
     if (DebtDB._loaded && monthSel.options.length <= 1) {
-      const months = new Set();
-      DebtDB._byCif.forEach(r => {
-        const k = DebtDB.dueMonthKey(r.earliest_due);
-        if (k) months.add(k);
-      });
-      // เรียงตาม key ตัวเลข YYYYMM (ปี*100+เดือน) เพื่อให้เรียงตามเวลาจริง
-      const sortKey = (mmyy) => {
-        const p = String(mmyy).split('/');
-        return (+p[1]) * 100 + (+p[0]);   // 'MM/YYYY' -> YYYY*100+MM
-      };
-      const sorted = [...months].sort((a, b) => sortKey(a) - sortKey(b));
-      sorted.forEach(k => {
+      const now = new Date();
+      const fyStartY = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+      for (let i = 0; i < 12; i++) {
+        const mm = ((3 + i) % 12) + 1;   // 4..12 แล้วต่อ 1..3
+        const yyyy = fyStartY + (mm < 4 ? 1 : 0);
+        const k = String(mm).padStart(2, '0') + '/' + yyyy;
         const o = document.createElement('option');
         o.value = k;
         o.textContent = DebtDB.fmtDate('01/' + k);
         monthSel.appendChild(o);
-      });
+      }
     }
 
     // T3: zone filter บนแผนที่ (sync กับ dropdown ในแท็บลูกค้า)
@@ -385,6 +381,7 @@ const Customers = {
       this.debtTier = tierSel.value;
       this.omsomMode = omSel.value;
       this.m15Mode = m15Sel ? m15Sel.value : '';
+      this.reserveMode = rsvSel ? rsvSel.value : '';
       this._zoneFilter = document.getElementById('customer-zone')?.value || '';
       this._lastMarkerHash = null;   // force rebuild
       this.renderAll();
@@ -393,13 +390,14 @@ const Customers = {
     tierSel.addEventListener('change', apply);
     omSel.addEventListener('change', apply);
     if (m15Sel) m15Sel.addEventListener('change', apply);
+    if (rsvSel) rsvSel.addEventListener('change', apply);
     if (resetBtn) resetBtn.addEventListener('click', () => {
-      monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value='';
+      monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value=''; if(rsvSel) rsvSel.value='';
       if (mapZoneSel) mapZoneSel.value = '';
       if (tabZoneSel) tabZoneSel.value = '';
       const mapBranchSel = document.getElementById('map-branch-filter');
       if (mapBranchSel) mapBranchSel.value = '';
-      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode='';
+      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode=''; this.reserveMode='';
       this._zoneFilter = '';
       this._branchFilter = '';
       this._lastMarkerHash = null;
@@ -411,16 +409,19 @@ const Customers = {
   // คืน true = ลูกค้าผ่านตัวกรองปัจจุบัน (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
   _passesMapFilters(c, query) {
     // === Debt filters (ข้อมูลหนี้ Customer Indicator) ===
-    if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode) {
+    if (this.debtMonth || this.debtTier || this.omsomMode || this.m15Mode || this.reserveMode) {
       const debt = c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
-      if (this.debtMonth) {
+      const isNpl = this.debtTier === 'npl';   // NPL (ชั้น 3-5) ดูทั้งหมด ไม่ต้องกรองเดือน
+      if (this.debtMonth && !isNpl) {
         // กรองเดือนที่ถึงกำหนด: เทียบ debt.earliest_due กับเดือนที่เลือก
         const due = debt ? DebtDB.dueMonthKey(debt.earliest_due) : '';
         if (due !== this.debtMonth) return false;
       }
       if (this.debtTier) {
         const maxTier = debt ? (parseInt(debt.max_tier) || 0) : 0;
-        if (maxTier !== parseInt(this.debtTier)) return false;
+        if (isNpl) {
+          if (!(maxTier >= 3 && maxTier <= 5)) return false;
+        } else if (maxTier !== parseInt(this.debtTier)) return false;
       }
       if (this.omsomMode) {
         const isOmsom = debt ? debt.is_omsom : false;
@@ -431,6 +432,12 @@ const Customers = {
         const has15 = debt && debt.contracts && debt.contracts.some(x=>x.m15==='Y' || (x.m15_amt||0)>0);
         if (this.m15Mode === 'Y' && !has15) return false;
         if (this.m15Mode === 'none' && has15) return false;
+      }
+      if (this.reserveMode) {
+        const ctrs = (debt && debt.contracts) || [];
+        if (this.reserveMode === 'none') {
+          if (ctrs.some(x=>String(x.reserve||'')!=='')) return false;
+        } else if (!ctrs.some(x=>String(x.reserve||'')===this.reserveMode)) return false;
       }
     }
 
@@ -511,7 +518,8 @@ const Customers = {
           debtHTML = `
           <div class="popup-debt">
             ${DebtDB.summaryHTML(debt)}
-            ${DebtDB.contractsHTML(debt, true)}
+            <button type="button" class="debt-more" onclick="DebtUI.toggleContracts('${this.escapeAttr(debt.cif)}', this)">📄 ดูสัญญา (${debt.contracts ? debt.contracts.length : 0} สัญญา) ▾</button>
+            <div class="debt-contracts-wrap hidden" id="debt-contracts-${this.escapeAttr(debt.cif)}"></div>
           </div>
         `;
         } else {

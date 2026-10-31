@@ -283,14 +283,28 @@ const DebtUI = {
   // เรียกตอนโหลดหน้า — ถ้าเคยเปิดซูมไว้ ให้การ์ดหนี้ใหญ่ทันที
   init() { this._paint(this.isZoomOn()); },
 
-  // ขยาย/ย่อรายการสัญญาในการ์ด popup
-  expand(cif) {
-    const detail = document.getElementById('debt-contracts-' + cif);
-    if (!detail) return;
-    const debt = DebtDB.getByCif(cif);
-    if (!debt) return;
-    detail.innerHTML = DebtDB.contractsHTML(debt, true);
+  // พับ/ขยายรายการสัญญาในการ์ด popup (เริ่มพับไว้ — จอเล็กไม่ล้น)
+  // กดครั้งแรกค่อยวาดรายการ (lazy) แล้วสลับซ่อน/โชว์
+  toggleContracts(cif, btn) {
+    const box = document.getElementById('debt-contracts-' + cif);
+    if (!box) return;
+    if (!box.dataset.filled) {
+      const debt = DebtDB.getByCif(cif);
+      if (!debt) return;
+      box.innerHTML = DebtDB.contractsHTML(debt, true);
+      box.dataset.filled = '1';
+    }
+    const opening = box.classList.contains('hidden');
+    box.classList.toggle('hidden');
+    if (btn) {
+      const n = box.querySelectorAll('.debt-contract').length || ((DebtDB.getByCif(cif) || {}).contracts || []).length;
+      btn.innerHTML = opening ? `📄 ซ่อนสัญญา (${n} สัญญา) ▴` : `📄 ดูสัญญา (${n} สัญญา) ▾`;
+      if (btn.blur) btn.blur();
+    }
   },
+
+  // ชื่อเก่า (ปุ่มใน contractsHTML แบบย่อเรียกใช้) — ชี้มาที่ตัวใหม่
+  expand(cif) { this.toggleContracts(cif, null); },
 };
 window.DebtUI = DebtUI;
 

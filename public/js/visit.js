@@ -19,6 +19,7 @@ const Visit = {
       document.getElementById('visit-pending').textContent = 0;
       document.getElementById('visit-completed').textContent = 0;
       document.getElementById('visit-skipped').textContent = 0;
+      if (typeof WorkCalendar !== 'undefined' && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
       return;
     }
 
@@ -35,6 +36,13 @@ const Visit = {
       // Debt badge (ย้ายมาจากแท็บเส้นทาง): บอกว่าเป็นหนี้ถึงกำหนดหรือค้าง
       const debtBadge = c.debtType === 'overdue' ? '⚠️ ค้าง' : (c.debtType === 'current' ? '📅 ถึงกำหนด' : '');
 
+      // นัดชำระจากบันทึกเดิม (ถ้ามี) — โชว์ในรายการเข้าพบให้เห็นระหว่างออกพื้นที่
+      let promiseMeta = '';
+      if (visit && visit.promiseDate && typeof WorkCalendar !== 'undefined') {
+        const cls = WorkCalendar.classify(visit.promiseDate, visit.promiseStatus);
+        promiseMeta = ' · 📅 นัดชำระ ' + WorkCalendar.fmtDate(visit.promiseDate) + ' (' + WorkCalendar.statusLabel(cls) + ')';
+      }
+
       const item = document.createElement('div');
       item.className = `visit-item ${itemClass}`;
       const goLabel = status === 'pending' ? '📝 บันทึก' : '✏️ แก้ไข';
@@ -45,7 +53,7 @@ const Visit = {
         </div>
         <div class="visit-info">
           <div class="visit-name">${this.escapeHTML(c.name)}${debtBadge ? ` <span class="visit-debt">${debtBadge}</span>` : ''}</div>
-          <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) : '⏳ รอเยี่ยม — แตะเพื่อบันทึก'}</div>
+          <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) + promiseMeta : '⏳ รอเยี่ยม — แตะเพื่อบันทึก'}</div>
         </div>
         <button type="button" class="visit-go-btn">${goLabel}</button>
       `;
@@ -56,6 +64,8 @@ const Visit = {
     document.getElementById('visit-pending').textContent = counts.pending;
     document.getElementById('visit-completed').textContent = counts.visited;
     document.getElementById('visit-skipped').textContent = counts.skipped;
+    // อัปเดตแถบแจ้งเตือนนัดชำระ + ตัวเลขแท็บปฏิทินทุกครั้งที่รายการเข้าพบเปลี่ยน
+    if (typeof WorkCalendar !== 'undefined' && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
   },
 
   statusIcon(status) {
@@ -97,6 +107,13 @@ const Visit = {
     this.setQuickStatus(status);
     
     form.elements.note.value = existing?.note || '';
+    // นัดชำระเดิม (ถ้ามี) — เติมให้แก้ต่อได้ ไม่ต้องกรอกใหม่
+    const pDate = document.getElementById('visit-promise-date');
+    const pAmt = document.getElementById('visit-promise-amount');
+    if (pDate) pDate.value = existing?.promiseDate || '';
+    if (pAmt) pAmt.value = existing?.promiseAmount ?? '';
+    this._renderPromiseStatus(existing);
+    this._updatePromiseVisibility(status);
     // Phase 5: pre-fill GPS if previously recorded
     form.elements.lat.value = existing?.lat || '';
     form.elements.lng.value = existing?.lng || '';
@@ -110,11 +127,34 @@ const Visit = {
     // Update hidden select
     const select = document.getElementById('visit-status-select');
     if (select) select.value = status;
-    
+
     // Update button states
     document.querySelectorAll('.quick-status-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.status === status);
     });
+    this._updatePromiseVisibility(status);
+  },
+
+  // ช่องนัดชำระโผล่เฉพาะผล "รับปากจ่าย/นัดใหม่" — สถานะอื่นไม่ต้องใส่วันนัด
+  _updatePromiseVisibility(status) {
+    const sec = document.getElementById('visit-promise-section');
+    if (!sec) return;
+    sec.classList.toggle('hidden', !(status === 'interested' || status === 'reschedule'));
+  },
+
+  _renderPromiseStatus(existing) {
+    const el = document.getElementById('visit-promise-status');
+    if (!el) return;
+    if (existing && existing.promiseDate && typeof WorkCalendar !== 'undefined') {
+      const cls = WorkCalendar.classify(existing.promiseDate, existing.promiseStatus);
+      const hist = Array.isArray(existing.promiseHistory) && existing.promiseHistory.length
+        ? ' · เคยนัด/เลื่อน ' + existing.promiseHistory.length + ' ครั้ง' : '';
+      el.textContent = '📌 นัดเดิม: ' + WorkCalendar.fmtDate(existing.promiseDate) + ' — ' + WorkCalendar.statusLabel(cls) + hist;
+      el.classList.remove('hidden');
+    } else {
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
   },
 
   // Phase 5: Render GPS display in visit modal
@@ -170,10 +210,32 @@ const Visit = {
 
   async submit(form) {
     if (!this.currentCustomerId) return;
+    const status = document.getElementById('visit-status-select').value;
     const data = {
-      status: document.getElementById('visit-status-select').value,
+      status,
       note: form.elements.note.value,
     };
+    // นัดชำระ: บังคับใส่วันที่เมื่อผลเป็นรับปากจ่าย/นัดใหม่ กันนัดหลุดจากปฏิทิน
+    if (status === 'interested' || status === 'reschedule') {
+      const pDateEl = document.getElementById('visit-promise-date');
+      const pAmtEl = document.getElementById('visit-promise-amount');
+      const promiseDate = pDateEl ? pDateEl.value : '';
+      if (!promiseDate) {
+        Utils.toast('กรุณาใส่วันที่รับปากชำระ/วันนัดใหม่ก่อนบันทึก', 'error');
+        if (pDateEl) pDateEl.focus();
+        return;
+      }
+      const existing = Storage.getVisits()[this.currentCustomerId] || {};
+      const history = Array.isArray(existing.promiseHistory) ? [...existing.promiseHistory] : [];
+      if (existing.promiseDate && existing.promiseDate !== promiseDate) {
+        history.push({ date: existing.promiseDate, result: 'rescheduled', newDate: promiseDate, at: new Date().toISOString() });
+      }
+      data.promiseDate = promiseDate;
+      data.promiseAmount = pAmtEl && pAmtEl.value !== '' ? Number(pAmtEl.value) : '';
+      // วันนัดเดิม + ผลเดิมค้างอยู่ = คงสถานะชำระแล้วไว้; วันใหม่/นัดใหม่ = กลับเป็นรอติดตาม
+      data.promiseStatus = (existing.promiseDate === promiseDate && existing.promiseStatus === 'paid') ? 'paid' : 'pending';
+      data.promiseHistory = history;
+    }
     // Phase 5: GPS coordinates (if captured)
     const lat = form.elements.lat.value;
     const lng = form.elements.lng.value;

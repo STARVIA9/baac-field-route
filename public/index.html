@@ -19,7 +19,7 @@
   
   <!-- Preload critical resources -->
   <link rel="preload" href="css/app.css?v=20261028a" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261028a" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=20261029c" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -357,6 +357,9 @@
     <!-- Full-screen map container (Leaflet) -->
     <div id="map"></div>
 
+    <!-- แจ้งเตือนนัดชำระ: โผล่ใต้หัวเว็บเฉพาะเมื่อมีนัดถึงกำหนด/เลยกำหนด กดแล้วเปิดปฏิทิน -->
+    <div id="promise-alert" class="promise-alert hidden" role="alert" title="เปิดปฏิทินงาน"></div>
+
     <!-- Debt filter bar (floating over map) — includes search + filters in one panel -->
     <div class="map-debt-filter mdf-collapsed" id="map-debt-filter">
       <!-- Row 0: Search bar (always visible — collapsed state shows only this row) -->
@@ -379,9 +382,7 @@
           <option value="">ทุกชั้นหนี้</option>
           <option value="1">ชั้น 1</option>
           <option value="2">ชั้น 2</option>
-          <option value="3">ชั้น 3</option>
-          <option value="4">ชั้น 4</option>
-          <option value="5">ชั้น 5</option>
+          <option value="npl">🔴 NPL (ชั้น 3-5)</option>
         </select>
       </div>
       <!-- Row 2 -->
@@ -403,14 +404,23 @@
           <option value="only">ดูเฉพาะ อสม.</option>
         </select>
       </div>
-      <!-- Row 3 -->
+      <!-- Row 3: 15 เดือน + กันสำรอง (29 ต.ค.69 — พ่อสั่งเพิ่มกล่องสำรอง 1/100 มุมซ้าย) -->
       <div class="mdf-row">
         <select id="debt-15m-filter" class="mdf-select" title="กรอง 15 เดือน">
           <option value="">หนี้ทั้งหมด</option>
           <option value="Y">⏳ มี 15 เดือน</option>
           <option value="none">✓ ไม่มี 15 เดือน</option>
         </select>
-        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด">✕ ล้างตัวกรอง</button>
+        <select id="debt-reserve-filter" class="mdf-select" title="กรองกันสำรองหนี้">
+          <option value="">🛡️ สำรองทั้งหมด</option>
+          <option value="1">🛡️ สำรอง 1%</option>
+          <option value="100">🛡️ สำรอง 100%</option>
+          <option value="none">✓ ไม่มีสำรอง</option>
+        </select>
+      </div>
+      <!-- Row 3b: ล้างตัวกรองเต็มแถว -->
+      <div class="mdf-row">
+        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด" style="grid-column:1/-1">✕ ล้างตัวกรอง</button>
       </div>
       <!-- Row 4: จำนวนรายที่จะออก (28 ต.ค.69) -->
       <div class="mdf-row mdf-plan-row">
@@ -446,6 +456,7 @@
       <div class="sheet-tabs">
         <button class="sheet-tab active" data-sheet="plan"><i data-lucide="map" class="icon"></i> วางแผน</button>
         <button class="sheet-tab" data-sheet="visit"><i data-lucide="clipboard-check" class="icon"></i> เข้าพบ</button>
+        <button class="sheet-tab" data-sheet="calendar"><i data-lucide="calendar" class="icon"></i> ปฏิทิน<span id="cal-tab-badge" class="cal-badge hidden">0</span></button>
         <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
         <button class="sheet-tab" data-sheet="debtsummary"><i data-lucide="wallet" class="icon"></i> สรุปหนี้</button>
       </div>
@@ -624,6 +635,27 @@
           <div class="visit-list" id="visit-list">
             <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
           </div>
+        </div>
+
+        <!-- Calendar pane (นัดรับปากชำระจากบันทึกเข้าพบ) -->
+        <div class="sheet-content" id="sheet-calendar">
+          <div class="cal-header">
+            <h2>📅 ปฏิทินงาน — นัดชำระ</h2>
+            <p class="cal-desc">นัดจากบันทึก “รับปากจ่าย/นัดใหม่” ในแท็บเข้าพบ · กดวันเพื่อดูรายชื่อ กด ✅ ชำระแล้ว หรือ 📅 เลื่อนนัดได้เลย</p>
+          </div>
+          <div class="cal-summary" id="cal-summary"></div>
+          <h3 class="cal-section-title">🔔 ต้องติดตาม (วันนี้ + เลยกำหนด)</h3>
+          <div id="cal-follow-list"><p class="empty-state">กำลังโหลด...</p></div>
+          <div class="cal-nav">
+            <button type="button" class="cal-nav-btn" id="cal-prev" aria-label="เดือนก่อน">‹</button>
+            <span class="cal-title" id="cal-title">ปฏิทิน</span>
+            <button type="button" class="cal-nav-btn" id="cal-next" aria-label="เดือนถัดไป">›</button>
+            <button type="button" class="cal-today-btn" id="cal-today-btn">วันนี้</button>
+          </div>
+          <div class="cal-week"><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span></div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <h3 class="cal-section-title" id="cal-agenda-title">นัดวันนี้</h3>
+          <div id="cal-agenda"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
         </div>
 
         <!-- Debt summary pane (ภาพรวมหนี้ทั้งสาขา) -->
@@ -850,6 +882,20 @@
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">2</span><div><label>หมายเหตุ</label><p class="step-hint">จดยอด + วัน + วิธีจ่าย เช่น จ่ายเท่าไหร่ วันไหน โอนหรือเงินสด</p></div></div>
           <textarea name="note" rows="3" placeholder="เช่น รับปากจ่าย 5,000 วันที่ 20 ก.ย. โอน / รอขายข้าวก่อน"></textarea>
+        </div>
+        <div class="form-row visit-section hidden" id="visit-promise-section">
+          <div class="visit-step-head"><span class="step-num">📅</span><div><label>วันนัดชำระ *</label><p class="step-hint">วันที่ลูกค้ารับปากจะชำระ — จะไปขึ้นในเมนูปฏิทินและแจ้งเตือนเมื่อถึงวัน</p></div></div>
+          <p class="visit-promise-status hidden" id="visit-promise-status"></p>
+          <div class="form-row-2">
+            <div>
+              <label>วันที่รับปากชำระ *</label>
+              <input type="date" id="visit-promise-date" name="promiseDate">
+            </div>
+            <div>
+              <label>ยอดที่รับปาก (บาท)</label>
+              <input type="number" id="visit-promise-amount" name="promiseAmount" min="0" step="any" inputmode="decimal" placeholder="เช่น 5000">
+            </div>
+          </div>
         </div>
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">3</span><div><label>📍 พิกัด GPS</label><p class="step-hint">ยืนกลางแจ้งแล้วกดปุ่ม 1 ครั้ง</p></div></div>
@@ -1357,8 +1403,9 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261018f"></script>
-  <script src="js/app.bundle.js?v=20261028a"></script>
+  <script src="js/vendor.js?v=20261029a"></script>
+  <script src="js/app.bundle.js?v=20261029c"></script>
+  <script src="js/calendar.js?v=20261031a"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

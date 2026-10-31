@@ -871,13 +871,14 @@ const App = {
     document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
     const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
     if (tab) tab.classList.add('active');
-    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', debtsummary: 'sheet-debtsummary' };
+    const idMap = { route: 'sheet-route', customers: 'tab-customers', plan: 'tab-route', visit: 'tab-visit', calendar: 'sheet-calendar', debtsummary: 'sheet-debtsummary' };
     const pane = document.getElementById(idMap[name] || 'sheet-route');
     if (pane) pane.classList.add('active');
     if (name !== 'route') this.setSheetState('half');
     // วาดเนื้อหาใหม่ทุกครั้งที่เปิดแท็บ — เดิมสลับแค่คลาส CSS ทำให้เปิดแท็บ "เข้าพบ"/"ลูกค้า"
     // แล้วเห็นหน้าว่างทั้งที่มีข้อมูล (ต้องเรียก render เองจากที่อื่นถึงจะขึ้น)
     if (name === 'visit' && typeof Visit !== 'undefined') Visit.render();
+    if (name === 'calendar' && typeof WorkCalendar !== 'undefined') WorkCalendar.render();
     if (name === 'customers' && typeof Customers !== 'undefined') Customers.renderList();
     // Render debt summary เมื่อเปิดแท็บสรุปหนี้
     if (name === 'debtsummary' && typeof DebtDB !== 'undefined' && DebtDB._loaded && window.DebtSummary) {
@@ -2861,7 +2862,7 @@ const FilterPanel = {
   },
 
   _hasActiveFilter() {
-    const ids = ['debt-month-filter', 'debt-tier-filter', 'map-zone-filter', 'debt-omsom-filter', 'debt-15m-filter'];
+    const ids = ['debt-month-filter', 'debt-tier-filter', 'map-zone-filter', 'debt-omsom-filter', 'debt-15m-filter', 'debt-reserve-filter'];
     return ids.some(id => {
       const el = document.getElementById(id);
       return el && el.value !== '';

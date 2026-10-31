@@ -152,6 +152,32 @@
       </div>
     </details>
 
+    <!-- ประวัติเข้าใช้ (IP + พิกัดประมาณ — ดูได้เฉพาะแอดมิน) -->
+    <details class="help-section" id="loginlog-section">
+      <summary class="help-toggle">🛡️ ประวัติเข้าใช้ (IP + บริเวณโดยประมาณ)</summary>
+      <div style="padding:4px 2px 8px; font-size:12px; color:#64748b;">
+        บันทึกเฉพาะครั้งที่ล็อกอินสำเร็จ 100 รายการล่าสุด — IP + จังหวัด/ประเทศประเมินจากเครือข่าย
+        (คลาดได้หลายสิบ กม. ไม่ใช่ GPS เครื่อง) ตรวจสอบโดยแอดมินเท่านั้น
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="loginlog-table">
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>ชื่อ</th>
+              <th>สาขา</th>
+              <th>IP</th>
+              <th>บริเวณโดยประมาณ</th>
+              <th>แผนที่</th>
+            </tr>
+          </thead>
+          <tbody id="loginlog-tbody">
+            <tr><td colspan="6" class="empty-state">เปิดดูเพื่อโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
     <!-- Table -->
     <div class="table-wrap">
       <table class="data-table" id="data-table">
@@ -306,7 +332,42 @@
 
   <script src="js/api.js?v=20261018d"></script>
   <script src="js/auth.js?v=20261018d"></script>
-  <script src="js/debt-db.js?v=20260916c"></script>
+  <script src="js/debt-db.js?v=20261029a"></script>
   <script src="js/admin-customers.js?v=20261018e"></script>
+  <script>
+  // ประวัติเข้าใช้ — โหลดเมื่อกาง details ครั้งแรก (ponytail: ไม่โหลดพร้อมหน้า)
+  (function () {
+    var loaded = false;
+    var sec = document.getElementById('loginlog-section');
+    if (!sec) return;
+    sec.addEventListener('toggle', function () {
+      if (!sec.open || loaded) return;
+      loaded = true;
+      var tb = document.getElementById('loginlog-tbody');
+      fetch('/api/admin/logins?limit=50', { headers: API.headers() })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.success || !d.logins.length) {
+            tb.innerHTML = '<tr><td colspan="6" class="empty-state">ยังไม่มีประวัติเข้าใช้</td></tr>';
+            return;
+          }
+          tb.innerHTML = d.logins.map(function (e) {
+            var when = (e.t || '').replace('T', ' ').slice(0, 16);
+            var area = [e.city, e.country].filter(Boolean).join(', ') || '—';
+            var map = (e.lat != null && e.lng != null)
+              ? '<a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=' + e.lat + '&mlon=' + e.lng + '#map=10/' + e.lat + '/' + e.lng + '">📍 ดูแผนที่</a>'
+              : '—';
+            return '<tr><td>' + when + '</td><td>' + (e.name || e.user || '') +
+              '</td><td>' + (e.branch || '') + '</td><td><code>' + (e.ip || '') +
+              '</code></td><td>' + area + '</td><td>' + map + '</td></tr>';
+          }).join('');
+        })
+        .catch(function () {
+          loaded = false;
+          tb.innerHTML = '<tr><td colspan="6" class="empty-state">โหลดไม่สำเร็จ ลองใหม่</td></tr>';
+        });
+    });
+  })();
+  </script>
 </body>
 </html>

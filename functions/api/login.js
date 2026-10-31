@@ -29,6 +29,34 @@ async function getBranchName(code, kv) {
   return b ? b.name : code;
 }
 
+// ===== ประวัติเข้าใช้ (IP + พิกัดประมาณจาก Cloudflare) =====
+// ponytail: เก็บแค่ 100 รายการล่าสุดใน KV — กันบวม, พังเงียบได้ (login ต้องไม่พังเพราะ log)
+// พิกัดจาก request.cf = ระดับเมือง/จังหวัดจาก IP (คลาดได้หลายสิบ กม.) ไม่ใช่ GPS เครื่อง
+async function logLogin(env, request, { username, name, role, branch }) {
+  try {
+    if (!env?.BFR_KV) return;
+    const cf = request?.cf || {};
+    const entry = {
+      t: new Date().toISOString(),
+      user: String(username || ''),
+      name: String(name || ''),
+      role: String(role || ''),
+      branch: String(branch || ''),
+      ip: request.headers.get('cf-connecting-ip') || 'unknown',
+      country: cf.country || '',
+      city: cf.city || '',
+      lat: typeof cf.latitude === 'number' ? cf.latitude : null,
+      lng: typeof cf.longitude === 'number' ? cf.longitude : null,
+      ua: (request.headers.get('user-agent') || '').slice(0, 120),
+    };
+    const KEY = 'loginlog:all';
+    const raw = await env.BFR_KV.get(KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    list.push(entry);
+    await env.BFR_KV.put(KEY, JSON.stringify(list.slice(-100)));
+  } catch { /* กัน login พังเพราะ log */ }
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   let body;
@@ -89,6 +117,7 @@ export async function onRequestPost(context) {
         };
         const token = await signHS256(tokenPayload, secret);
         if (env.BFR_KV) { try { await env.BFR_KV.delete(rateKey); } catch {} }
+        await logLogin(env, request, { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC' });
         return json({ success: true, token, user: { username: 'admin', name: 'Admin', role: 'admin', branch: 'WTC', branchName, loginMethod: 'pin', hasPassword: false } });
       }
     }
@@ -118,6 +147,7 @@ export async function onRequestPost(context) {
           };
           const token = await signHS256(tokenPayload, secret);
           if (env.BFR_KV) { try { await env.BFR_KV.delete(rateKey); } catch {} }
+          await logLogin(env, request, { username: staff.username, name: staff.displayName, role: staff.role, branch: staff.branch });
           return json({
             success: true,
             token,

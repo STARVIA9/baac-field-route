@@ -20,8 +20,8 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261018d" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261022a" as="script">
+  <link rel="preload" href="css/app.css?v=20261028a" as="style">
+  <link rel="preload" href="js/app.bundle.js?v=20261029c" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -148,8 +148,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261018d">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261018d"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261028a">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261028a"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="js/icons.js?v=20261018d" defer></script>
@@ -381,9 +381,7 @@
           <option value="">ทุกชั้นหนี้</option>
           <option value="1">ชั้น 1</option>
           <option value="2">ชั้น 2</option>
-          <option value="3">ชั้น 3</option>
-          <option value="4">ชั้น 4</option>
-          <option value="5">ชั้น 5</option>
+          <option value="npl">🔴 NPL (ชั้น 3-5)</option>
         </select>
       </div>
       <!-- Row 2 -->
@@ -412,8 +410,26 @@
           <option value="Y">⏳ มี 15 เดือน</option>
           <option value="none">✓ ไม่มี 15 เดือน</option>
         </select>
+        <select id="debt-reserve-filter" class="mdf-select" title="กรองกันสำรองหนี้">
+          <option value="">สำรองทั้งหมด</option>
+          <option value="1">🛡️ สำรอง 1%</option>
+          <option value="100">🛡️ สำรอง 100%</option>
+          <option value="none">✓ ไม่มีสำรอง</option>
+        </select>
         <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด">✕ ล้างตัวกรอง</button>
       </div>
+      <!-- Row 4: จำนวนรายที่จะออก (28 ต.ค.69 — sync กับเว็บหลัก) -->
+      <div class="mdf-row mdf-plan-row">
+        <span class="mdf-label">ออกครั้งละ</span>
+        <select id="auto-plan-count" class="mdf-select" title="เลือกจำนวนรายที่จะออก">
+          <option value="5">5 ราย</option>
+          <option value="10" selected>10 ราย</option>
+          <option value="15">15 ราย</option>
+          <option value="20">20 ราย</option>
+        </select>
+      </div>
+      <!-- Row 5: ปุ่มโกลเด้นรูทเต็มแถว (28 ต.ค.69 — sync กับเว็บหลัก) -->
+      <button class="mdf-plan" id="btn-auto-plan" title="เอาตัวกรองตอนนี้ + จับพิกัดที่มี + จัดแผนเลย">🧭 จัดแผน Golden Route</button>
     </div>
 
     <!-- Floating action buttons over map -->
@@ -1344,9 +1360,9 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="/demo/demo-mock.js?v=demo1"></script>
-<script src="js/vendor.js?v=20261018f"></script>
-  <script src="js/app.bundle.js?v=20261022a"></script>
+  <script src="/demo/demo-mock.js?v=demo3"></script>
+<script src="js/vendor.js?v=20261029a"></script>
+  <script src="js/app.bundle.js?v=20261029c"></script>
 
   <script>
     // ===== Landing page scroll reveal =====
