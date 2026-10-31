@@ -357,13 +357,8 @@ const App = {
     // เปิดแท็บงานวันนี้แบบเบา: วาดแค่ collect+promise ก่อน (ไม่ต้องกรองหนี้ 9k)
     try { this.switchSheetTab('today'); } catch {}
     if (typeof TodayUI !== 'undefined') {
+      // วาดคิวก่อนด้วยข้อมูลในเครื่อง (DebtDB อาจยังไม่เสร็จ — badge หนี้จะเติมทีหลัง)
       try { TodayUI.refreshCollect(); TodayUI.refreshPromise(); } catch (e) {}
-      // chase (กรองหนี้) รอ _debtPromise ด้านบน — ถ้าหนี้มาแล้วจะ refresh เอง
-      if (typeof DebtDB !== 'undefined' && DebtDB._loaded) {
-        const _doChase = () => { try { TodayUI.refreshChase(); } catch(e){} };
-        if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_doChase, {timeout: 800});
-        else setTimeout(_doChase, 40);
-      }
     }
 
     // Init floating map search bar (Google Maps-style)

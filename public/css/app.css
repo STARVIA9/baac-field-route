@@ -5455,3 +5455,34 @@ details.adv-settings > summary { min-height: 52px; display: flex; align-items: c
   border-radius: 999px;
   white-space: nowrap;
 }
+
+/* ===== คิวเก็บพิกัด (Today) — รายละเอียดการ์ด + ปุ่ม Golden Route ===== */
+.gps-row-cif { font-size: 12px; font-weight: 500; color: #7a857a; }
+.gps-row-meta { font-size: 12.5px; color: #6b756b; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gps-row-ok { font-size: 13px; font-weight: 700; color: #0a8f3c; white-space: nowrap; }
+.gps-count { font-size: 13px; font-weight: 700; color: #0a8f3c; background: #e8f5ec; border-radius: 999px; padding: 2px 9px; margin-left: 6px; vertical-align: middle; }
+.gps-search { grid-column: 1 / -1; background-image: none; padding-right: 9px; }
+.today-golden-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 9px 16px;
+  margin: 4px 0 14px;
+  border-radius: 999px;
+  border: 1px solid #d4b25a;
+  background: linear-gradient(135deg, #fff7dd, #ffe9a8);
+  color: #6b4e00;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(180, 140, 30, .16);
+  width: auto;
+}
+.today-golden-btn:active { transform: translateY(1px); }
+#btn-auto-plan.flash { animation: goldenFlash 1.8s ease; }
+@keyframes goldenFlash {
+  0%, 100% { box-shadow: none; }
+  30%, 60% { box-shadow: 0 0 0 4px rgba(255, 193, 7, .55); }
+}

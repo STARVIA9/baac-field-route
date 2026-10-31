@@ -18,9 +18,9 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261101a" as="style">
+  <link rel="preload" href="css/app.css?v=20261101b" as="style">
   <link rel="preload" href="js/vendor.js?v=20261101a" as="script">
-  <link rel="preload" href="js/app.bundle.js?v=20261101a" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=20261101b" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -147,8 +147,8 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261101a">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261101a"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=20261101b">
+  <noscript><link rel="stylesheet" href="css/app.css?v=20261101b"></noscript>
   
   <!-- Non-critical JS (defer) -->
   <script src="js/icons.js?v=20261018d" defer></script>
@@ -468,30 +468,23 @@
         <div class="sheet-content active" id="sheet-today">
           <div class="today-header">
             <h2>🏠 งานวันนี้</h2>
-            <p class="today-desc">นัดชำระ + ตามหนี้ตามประเภท — แตะรายชื่อเพื่อบันทึกผลได้เลย</p>
+            <p class="today-desc">คิวเก็บพิกัด + นัดชำระวันนี้ — กรองเขตแล้วออกไปเก็บพิกัดได้เลย</p>
           </div>
           <details class="today-filter-card" id="today-filter-card">
-            <summary>🎛️ ตัวกรองละเอียด <span class="today-filter-count" id="today-filter-count">ทั้งหมด</span></summary>
+            <summary>🎛️ ตัวกรองคิวเก็บพิกัด <span class="today-filter-count" id="today-filter-count">ยังไม่มีพิกัด</span></summary>
             <div class="today-filters">
-              <select id="today-month" class="mdf-select"><option value="">🗓️ ทุกเดือน</option></select>
-              <select id="today-tier" class="mdf-select">
-                <option value="">ทุกชั้นหนี้</option>
-                <option value="1">ชั้น 1</option>
-                <option value="2">ชั้น 2</option>
-                <option value="npl">🔴 NPL (ชั้น 3-5)</option>
+              <select id="gps-status" class="mdf-select">
+                <option value="missing">📍 ยังไม่มีพิกัด</option>
+                <option value="has">✅ มีพิกัดแล้ว</option>
+                <option value="all">ทั้งหมด</option>
               </select>
-              <select id="today-m15" class="mdf-select">
-                <option value="">หนี้ทั้งหมด</option>
-                <option value="Y">⏳ มี 15 เดือน</option>
-                <option value="none">✓ ไม่มี 15 เดือน</option>
+              <select id="gps-urgency" class="mdf-select">
+                <option value="all">🔥 ด่วนทั้งหมด</option>
+                <option value="npl">🔴 NPL ก่อน</option>
+                <option value="m15">⏳ 15 เดือนก่อน</option>
+                <option value="due">📅 ถึงกำหนดเดือนนี้</option>
               </select>
-              <select id="today-reserve" class="mdf-select">
-                <option value="">🛡️ สำรองทั้งหมด</option>
-                <option value="1">🛡️ สำรอง 1%</option>
-                <option value="100">🛡️ สำรอง 100%</option>
-                <option value="none">✓ ไม่มีสำรอง</option>
-              </select>
-              <select id="today-zone" class="mdf-select">
+              <select id="gps-zone" class="mdf-select">
                 <option value="">ทุกเขต</option>
                 <option value="1">เขต 1</option>
                 <option value="2">เขต 2</option>
@@ -499,23 +492,16 @@
                 <option value="4">เขต 4</option>
                 <option value="5">เขต 5</option>
               </select>
-              <select id="today-branch" class="mdf-select hidden">
+              <select id="gps-branch" class="mdf-select hidden">
                 <option value="">ทุกสาขา</option>
               </select>
+              <input type="search" id="gps-search" class="mdf-select gps-search" placeholder="🔍 ชื่อ / CIF / เบอร์โทร" autocomplete="off">
             </div>
           </details>
-          <div id="gps-collect" class="hidden"></div>
+          <div id="gps-collect"></div>
+          <button type="button" class="today-golden-btn" id="today-golden-btn">🧭 จัดแผนด้วย Golden Route</button>
           <h3 class="cal-section-title">🔔 นัดชำระวันนี้ + เลยกำหนด</h3>
           <div id="today-promise"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
-          <h3 class="cal-section-title">🔎 ตามหนี้ตามประเภท</h3>
-          <div class="chase-presets">
-            <button type="button" class="chip-btn chase-preset" data-preset="due">📅 ถึงกำหนดเดือนนี้</button>
-            <button type="button" class="chip-btn chase-preset" data-preset="m15">⏳ 15 เดือน</button>
-            <button type="button" class="chip-btn chase-preset" data-preset="rsv100">🛡️ สำรอง 100</button>
-            <button type="button" class="chip-btn chase-preset" data-preset="npl">🔴 NPL</button>
-            <button type="button" class="chip-btn chase-preset" data-preset="clear">✕ ล้าง</button>
-          </div>
-          <div id="today-chase-list"><p class="empty-state">เลือกตัวกรองเพื่อดูรายชื่อ</p></div>
         </div>
 
         <!-- Customers pane (copied from old #tab-customers, keeps ID) -->
@@ -1450,9 +1436,9 @@
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
   <script src="js/vendor.js?v=20261101a"></script>
-  <script src="js/app.bundle.js?v=20261101a"></script>
+  <script src="js/app.bundle.js?v=20261101b"></script>
   <script src="js/calendar.js?v=20261031b"></script>
-  <script src="js/today.js?v=20261101b"></script>
+  <script src="js/today.js?v=20261101c"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

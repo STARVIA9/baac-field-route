@@ -1,16 +1,11 @@
-// ===== งานวันนี้ — หน้าแรก + คิวเก็บพิกัดสาขาใหม่ =====
-// ไม่สร้างโครงข้อมูลใหม่: อ่านจำนวนพิกัดจาก Storage.getActiveCustomers(),
-// นัดชำระจาก WorkCalendar.entries(), เก็บพิกัดผ่าน Customers.saveQuickGps() เดิม
+// ===== งานวันนี้ — คิวเก็บพิกัดตามเขต (1 พ.ย.69) =====
+// ใช้ข้อมูลเดิมทั้งหมด: Storage.getActiveCustomers() + Customers.debtInfo()
+// ตัวกรองด้านบนสุด = กรองคิวเก็บพิกัด (ยังไม่มีพิกัด/มีแล้ว/เขต/สาขา/ความด่วน)
 
 const TodayUI = {
-  COVERAGE_OK: 0.2,  // มีพิกัดเกิน 20% ถือว่าพร้อมวางแผน — ไม่โชว์คิวเก็บพิกัด
-  MAX_QUEUE: 20,     // โชว์คิวมากสุด 20 ราย กันจอค้าง
-  _debounceTimer: null,
-
-  _debouncedRefreshChase() {
-    clearTimeout(this._debounceTimer);
-    this._debounceTimer = setTimeout(() => { try { this.refreshChase(); } catch(e){} }, 120);
-  },
+  MAX_QUEUE: 20,       // โชว์คิวมากสุด 20 ราย กันจอค้าง
+  _filterTimer: null,
+  _gpsWired: false,
 
   todayStr(base) {
     const d = base ? new Date(base) : new Date();
@@ -41,41 +36,169 @@ const TodayUI = {
     return { total: list.length, with: list.length - missing.length, missing };
   },
 
+  // นับแบบไม่เรียง — ใช้กับ 9k รายทุกครั้งที่รีเฟรช (เบากว่า coverageStats)
+  coverageCounts(customers) {
+    const list = Array.isArray(customers) ? customers : [];
+    let withGps = 0;
+    for (const c of list) {
+      if (Number.isFinite(c.lat) && Number.isFinite(c.lng)) withGps++;
+    }
+    return { total: list.length, with: withGps, missing: list.length - withGps };
+  },
+
   esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   },
 
-  refresh() {
-    try { this.refreshCollect(); } catch (e) { console.warn('[today] collect:', e); }
-    try { this.refreshPromise(); } catch (e) { console.warn('[today] promise:', e); }
-    try { if (typeof App !== 'undefined' && App.renderTodayRoute) App.renderTodayRoute(); } catch (e) {}
-    try { this.refreshChase(); } catch (e) { console.warn('[today] chase:', e); }
+  // ===== ตัวกรองคิวเก็บพิกัด =====
+  readGpsFilter() {
+    const v = (id) => { const el = typeof document !== 'undefined' ? document.getElementById(id) : null; return el ? el.value : ''; };
+    return {
+      status: v('gps-status') || 'missing',
+      urgency: v('gps-urgency') || 'all',
+      zone: v('gps-zone'),
+      branch: v('gps-branch'),
+      q: (v('gps-search') || '').trim().toLowerCase(),
+    };
   },
 
-  // โหมดเก็บพิกัดสาขาใหม่: มีพิกัดน้อยกว่าเกณฑ์ → โชว์คิวเก็บพิกัดแทนหน้าว่าง
+  ensureGpsOptions() {
+    if (typeof document === 'undefined') return;
+    // เติมสาขาจากตัวกรองแผนที่ (ที่เดียวกัน ตรรกะเดียวกัน)
+    const dst = document.getElementById('gps-branch');
+    const src = document.getElementById('map-branch-filter');
+    if (dst && src && dst.options.length <= 1 && src.options.length > 1) dst.innerHTML = src.innerHTML;
+    if (dst) {
+      const isAdmin = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      dst.classList.toggle('hidden', !isAdmin);
+    }
+    if (!this._gpsWired) {
+      this._gpsWired = true;
+      ['gps-status', 'gps-urgency', 'gps-zone', 'gps-branch'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => this._debouncedRefresh());
+      });
+      const search = document.getElementById('gps-search');
+      if (search) search.addEventListener('input', () => this._debouncedRefresh());
+      const golden = document.getElementById('today-golden-btn');
+      if (golden) golden.addEventListener('click', () => this.openGoldenRoute());
+    }
+  },
+
+  _debouncedRefresh() {
+    clearTimeout(this._filterTimer);
+    this._filterTimer = setTimeout(() => { try { this.refresh(); } catch (e) {} }, 120);
+  },
+
+  _updateFilterBadge(f, count) {
+    const el = typeof document !== 'undefined' ? document.getElementById('today-filter-count') : null;
+    if (!el) return;
+    const parts = [];
+    parts.push(f.status === 'has' ? 'มีพิกัดแล้ว' : f.status === 'all' ? 'ทั้งหมด' : 'ยังไม่มีพิกัด');
+    if (f.urgency === 'npl') parts.push('NPL');
+    else if (f.urgency === 'm15') parts.push('15 เดือน');
+    else if (f.urgency === 'due') parts.push('ถึงกำหนดเดือนนี้');
+    if (f.zone) parts.push('เขต ' + f.zone);
+    if (f.q) parts.push('ค้นหา');
+    el.textContent = parts.join(' · ') + (typeof count === 'number' ? ' · ' + count + ' ราย' : '');
+  },
+
+  _info(c) {
+    return (typeof Customers !== 'undefined' && Customers.debtInfo)
+      ? Customers.debtInfo(c)
+      : { due: '', maxTier: 0, has15: false, reserves: [], zone: null, branch: c.branch || '' };
+  },
+
+  currentMonthKey(base) {
+    const s = this.todayStr(base); // YYYY-MM-DD
+    return s.slice(5, 7) + '/' + s.slice(0, 4);
+  },
+
+  _matchGps(c, f) {
+    const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+    if (f.status === 'missing' && hasGps) return false;
+    if (f.status === 'has' && !hasGps) return false;
+    if (f.zone && String(c.zone == null ? '' : c.zone) !== String(f.zone)) return false;
+    if (f.branch && String(c.branch || '') !== String(f.branch)) return false;
+    if (f.q) {
+      const hay = [c.name, c.nickname, c.cif, c.phone].join(' ').toLowerCase();
+      if (!hay.includes(f.q)) return false;
+    }
+    if (f.urgency !== 'all') {
+      const info = this._info(c);
+      if (f.urgency === 'npl' && !(info.maxTier >= 3)) return false;
+      if (f.urgency === 'm15' && !info.has15) return false;
+      if (f.urgency === 'due' && info.due !== this.currentMonthKey()) return false;
+    }
+    return true;
+  },
+
+  // ลำดับความด่วน: NPL → 15 เดือน → ถึงกำหนดเดือนนี้ → ที่เหลือ
+  _urgencyRank(c) {
+    const info = this._info(c);
+    if (info.maxTier >= 3) return 0;
+    if (info.has15) return 1;
+    if (info.due && info.due === this.currentMonthKey()) return 2;
+    return 3;
+  },
+
+  _sortQueue(list) {
+    const decorated = list.map((c) => ({ c, rank: this._urgencyRank(c) }));
+    decorated.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      const za = parseInt(a.c.zone, 10) || 99;
+      const zb = parseInt(b.c.zone, 10) || 99;
+      if (za !== zb) return za - zb;
+      return String(a.c.name || '').localeCompare(String(b.c.name || ''), 'th');
+    });
+    return decorated.map((x) => x.c);
+  },
+
+  _rowHTML(c, missing) {
+    const info = this._info(c);
+    const meta = [];
+    if (info.maxTier) meta.push('🏷️ ชั้น ' + info.maxTier);
+    if (info.has15) meta.push('⏳ 15 เดือน');
+    if (info.due && typeof DebtDB !== 'undefined' && DebtDB.fmtDate) meta.push('📅 ' + DebtDB.fmtDate('01/' + info.due));
+    const zone = (info.zone != null ? info.zone : c.zone) || '';
+    if (zone) meta.push('เขต ' + zone);
+    const addr = [c.address, c.tambon].filter(Boolean).join(' ');
+    return '<div class="gps-row">' +
+      '<div class="gps-row-info">' +
+        '<div class="gps-row-name">' + this.esc(c.name || 'ไม่ระบุชื่อ') +
+          (c.cif ? ' <span class="gps-row-cif">CIF ' + this.esc(c.cif) + '</span>' : '') + '</div>' +
+        (meta.length ? '<div class="gps-row-meta">' + meta.map((m) => this.esc(m)).join(' · ') + '</div>' : '') +
+        (addr ? '<div class="gps-row-addr">' + this.esc(addr) + '</div>' : '') +
+      '</div>' +
+      (missing
+        ? '<button type="button" class="btn-primary gps-row-btn" data-gps-capture="' + this.esc(c.id || '') + '">📍 เก็บพิกัด</button>'
+        : '<span class="gps-row-ok">✅ มีพิกัด</span>') +
+    '</div>';
+  },
+
   refreshCollect() {
     const box = typeof document !== 'undefined' ? document.getElementById('gps-collect') : null;
     if (!box) return;
-    const customers = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
-    const st = this.coverageStats(customers);
-    if (!st.total || !st.missing.length || st.with / st.total >= this.COVERAGE_OK) {
-      box.classList.add('hidden');
-      box.innerHTML = '';
+    this.ensureGpsOptions();
+    const f = this.readGpsFilter();
+    const all = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
+    const counts = this.coverageCounts(all);
+    const filtered = this._sortQueue(all.filter((c) => this._matchGps(c, f)));
+    this._updateFilterBadge(f, filtered.length);
+    if (!filtered.length) {
+      box.innerHTML = '<div class="gps-collect-card"><h3>✅ ไม่มีรายการตรงตัวกรอง</h3>' +
+        '<p class="gps-collect-desc">ลองเปลี่ยนเขต/สถานะ หรือล้างตัวกรองด้านบน</p></div>';
       return;
     }
-    const pct = Math.round((st.with / st.total) * 100);
-    const rows = st.missing.slice(0, this.MAX_QUEUE).map((c) => {
-      const addr = [c.address, c.tambon].filter(Boolean).join(' ');
-      return '<div class="gps-row">' +
-        '<div class="gps-row-info"><div class="gps-row-name">' + this.esc(c.name || 'ไม่ระบุชื่อ') + '</div>' +
-        (addr ? '<div class="gps-row-addr">' + this.esc(addr) + '</div>' : '') + '</div>' +
-        '<button type="button" class="btn-primary gps-row-btn" data-gps-capture="' + this.esc(c.id || '') + '">📍 เก็บพิกัดที่นี่</button></div>';
-    }).join('');
-    box.classList.remove('hidden');
-    box.innerHTML = '<div class="gps-collect-card"><h3>📍 สาขานี้ยังไม่มีพิกัด (' + st.with + '/' + st.total + ' · ' + pct + '%)</h3>' +
-      '<p class="gps-collect-desc">ไปหาลูกค้าแล้วกดปุ่มเก็บพิกัดทีละราย ครบแล้วเมนูวางแผนจะพร้อมใช้</p>' +
-      '<div class="gps-progress"><div class="gps-progress-fill" style="width:' + pct + '%"></div></div>' + rows +
-      (st.missing.length > this.MAX_QUEUE ? '<p class="gps-more">…และอีก ' + (st.missing.length - this.MAX_QUEUE) + ' ราย</p>' : '') + '</div>';
+    const pct = counts.total ? Math.round((counts.with / counts.total) * 100) : 0;
+    const rows = filtered.slice(0, this.MAX_QUEUE).map((c) => this._rowHTML(c, f.status !== 'has')).join('');
+    box.innerHTML = '<div class="gps-collect-card">' +
+      '<h3>📍 คิวเก็บพิกัด <span class="gps-count">' + filtered.length + ' ราย</span></h3>' +
+      '<p class="gps-collect-desc">เก็บแล้ว ' + counts.with + '/' + counts.total + ' (' + pct + '%) · เรียงด่วนก่อน NPL → 15 เดือน → ถึงกำหนด</p>' +
+      '<div class="gps-progress"><div class="gps-progress-fill" style="width:' + pct + '%"></div></div>' +
+      rows +
+      (filtered.length > this.MAX_QUEUE ? '<p class="gps-more">…และอีก ' + (filtered.length - this.MAX_QUEUE) + ' ราย (กรองเขตเพื่อดูทีละเขต)</p>' : '') +
+      '</div>';
     box.querySelectorAll('[data-gps-capture]').forEach((btn) => {
       btn.addEventListener('click', () => this.collectGps(btn.dataset.gpsCapture, btn));
     });
@@ -86,7 +209,7 @@ const TodayUI = {
     if (!customerId || typeof Customers === 'undefined' || !Customers.saveQuickGps) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังจับพิกัด...'; }
     const before = this._withCount();
-    try { Customers.saveQuickGps(customerId); } catch (e) { if (btn) { btn.disabled = false; btn.textContent = '📍 เก็บพิกัดที่นี่'; } return; }
+    try { Customers.saveQuickGps(customerId); } catch (e) { if (btn) { btn.disabled = false; btn.textContent = '📍 เก็บพิกัด'; } return; }
     let tries = 0;
     const timer = setInterval(() => {
       tries++;
@@ -104,6 +227,16 @@ const TodayUI = {
     } catch { return -1; }
   },
 
+  // เปิดตัวกรองแผนที่ + หุบแผงล่าง แล้วกระพริบปุ่ม Golden Route
+  openGoldenRoute() {
+    try { if (typeof FilterPanel !== 'undefined' && FilterPanel.expand) FilterPanel.expand(); } catch (e) {}
+    const btn = typeof document !== 'undefined' ? document.getElementById('btn-auto-plan') : null;
+    if (btn) {
+      btn.classList.add('flash');
+      setTimeout(() => btn.classList.remove('flash'), 1800);
+    }
+  },
+
   // นัดชำระวันนี้ + เลยกำหนด — ใช้การ์ดเดียวกับปฏิทิน (ปุ่ม ✅/📅/📝 ครบ)
   refreshPromise() {
     const box = typeof document !== 'undefined' ? document.getElementById('today-promise') : null;
@@ -117,153 +250,11 @@ const TodayUI = {
     WorkCalendar._bindEntryButtons(box);
   },
 
-
-
-  currentMonthKey(base) {
-    const s = this.todayStr(base); // YYYY-MM-DD
-    return s.slice(5, 7) + '/' + s.slice(0, 4);
-  },
-
-  readChaseFilter() {
-    const v = (id) => { const el = typeof document !== 'undefined' ? document.getElementById(id) : null; return el ? el.value : ''; };
-    return { month: v('today-month'), tier: v('today-tier'), omsom: '', m15: v('today-m15'), reserve: v('today-reserve'), zone: v('today-zone'), branch: v('today-branch') };
-  },
-
-  // ป้ายสรุปตัวกรองที่เปิดใช้ — โชว์บนหัวการ์ดพับได้
-  _updateFilterBadge(f) {
-    const el = typeof document !== 'undefined' ? document.getElementById('today-filter-count') : null;
-    if (!el) return;
-    const labels = [];
-    if (f.month) labels.push('เดือน');
-    if (f.tier) labels.push('ชั้น');
-    if (f.m15) labels.push('15 เดือน');
-    if (f.reserve) labels.push('สำรอง');
-    if (f.zone) labels.push('เขต');
-    if (f.branch) labels.push('สาขา');
-    el.textContent = labels.length ? labels.join(' · ') : 'ทั้งหมด';
-  },
-
-  applyPreset(name) {
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    ['today-month', 'today-tier', 'today-m15', 'today-reserve', 'today-zone', 'today-branch'].forEach((id) => set(id, ''));
-    if (name === 'due') set('today-month', this.currentMonthKey());
-    else if (name === 'm15') set('today-m15', 'Y');
-    else if (name === 'rsv100') set('today-reserve', '100');
-    else if (name === 'npl') set('today-tier', 'npl');
-    this._chaseDefaulted = true;
-    this.refreshChase();
-  },
-
-  // เติมตัวเลือกเดือน/สาขาจากแผงซ้าย (ที่เดียวกัน ตรรกะเดียวกัน) — มีแล้วไม่เติมซ้ำ
-  ensureChaseOptions() {
-    const copyIfEmpty = (dstId, srcId) => {
-      const dst = document.getElementById(dstId);
-      const src = document.getElementById(srcId);
-      if (dst && src && dst.options.length <= 1 && src.options.length > 1) dst.innerHTML = src.innerHTML;
-    };
-    copyIfEmpty('today-month', 'debt-month-filter');
-    copyIfEmpty('today-branch', 'map-branch-filter');
-    const brSel = document.getElementById('today-branch');
-    if (brSel) {
-      const isAdmin = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
-      brSel.classList.toggle('hidden', !isAdmin);
-    }
-    if (!this._chaseWired) {
-      this._chaseWired = true;
-      ['today-month', 'today-tier', 'today-m15', 'today-reserve', 'today-zone', 'today-branch'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => { this._chaseDefaulted = true; this._debouncedRefreshChase(); });
-      });
-      document.querySelectorAll('[data-preset]').forEach((b) => {
-        b.addEventListener('click', () => this.applyPreset(b.dataset.preset));
-      });
-    }
-    // เปิดครั้งแรก: ตั้งเดือนปัจจุบันให้เลย จะได้เจอรายชื่อทันที
-    if (!this._chaseDefaulted) {
-      this._chaseDefaulted = true;
-      const m = document.getElementById('today-month');
-      const hasCurrent = m && Array.from(m.options).some((o) => o.value === this.currentMonthKey());
-      if (m && hasCurrent && !m.value) m.value = this.currentMonthKey();
-    }
-  },
-
-  // รายชื่อตามหนี้ — การ์ดสไตล์เดียวกับปฏิทิน (ไม่ใช่กล่องธรรมดา)
-  refreshChase() {
-    const box = typeof document !== 'undefined' ? document.getElementById('today-chase-list') : null;
-    if (!box || typeof Customers === 'undefined' || !Customers.matchDebt) return;
-    this.ensureChaseOptions();
-    const f = this.readChaseFilter();
-    this._updateFilterBadge(f);
-    if (typeof DebtDB === 'undefined' || !DebtDB._loaded) {
-      box.innerHTML = '<p class="empty-state">⏳ กำลังโหลดข้อมูลหนี้...</p>';
-      return;
-    }
-    const customers = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
-    let route = [];
-    try { route = (typeof Storage !== 'undefined' && Storage.getRoute) ? Storage.getRoute() : []; } catch (e) {}
-    const routeSet = new Set(route);
-    const list = customers.filter((c) => {
-      try { return Customers.matchDebt(f, Customers.debtInfo(c)); } catch (e) { return false; }
-    });
-    list.sort((a, b) => {
-      const ar = routeSet.has(a.id) ? 0 : 1, br = routeSet.has(b.id) ? 0 : 1;
-      if (ar !== br) return ar - br;
-      return String(a.name || '').localeCompare(String(b.name || ''), 'th');
-    });
-    const MAX = 60;
-    const shown = list.slice(0, MAX);
-    let html = '<p class="chase-count">เจอ ' + list.length + ' ราย' + (routeSet.size ? ' · 🧭 ในเส้นทาง ' + list.filter((c) => routeSet.has(c.id)).length + ' ราย' : '') + '</p>';
-    html += shown.length
-      ? shown.map((c) => this._customerCardHTML(c, routeSet.has(c.id))).join('')
-      : '<p class="empty-state">ไม่มีลูกค้าตรงตัวกรอง — ลองเปลี่ยนเดือน/ชั้นหนี้ หรือกด ✕ ล้าง</p>';
-    if (list.length > MAX) html += '<p class="gps-more">…และอีก ' + (list.length - MAX) + ' ราย (ใช้ช่องค้นหาในแท็บลูกค้าเพื่อหาเพิ่ม)</p>';
-    box.innerHTML = html;
-    box.querySelectorAll('[data-today-visit]').forEach((b) => {
-      b.addEventListener('click', () => { if (typeof Visit !== 'undefined' && Visit.openLog) Visit.openLog(b.dataset.todayVisit); });
-    });
-    box.querySelectorAll('[data-today-route]').forEach((b) => {
-      b.addEventListener('click', () => {
-        if (typeof Storage === 'undefined' || !Storage.addToRoute) return;
-        const id = b.dataset.todayRoute;
-        if (routeSet.has(id)) {
-          if (Storage.removeFromRoute) Storage.removeFromRoute(id);
-        } else {
-          Storage.addToRoute(id);
-        }
-        try { this.refreshChase(); } catch (e) {}
-        if (typeof Visit !== 'undefined' && Visit.render) { try { Visit.render(); } catch (e) {} }
-      });
-    });
-  },
-
-  _customerCardHTML(c, inRoute) {
-    const debt = (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) ? DebtDB.getByCif(c.cif) : null;
-    const info = (typeof Customers !== 'undefined' && Customers.debtInfo) ? Customers.debtInfo(c) : { maxTier: 0 };
-    let cls = 'upcoming';
-    const v = (typeof Storage !== 'undefined' && Storage.getVisits) ? (Storage.getVisits()[c.id] || null) : null;
-    if (v && v.promiseDate && typeof WorkCalendar !== 'undefined') cls = WorkCalendar.classify(v.promiseDate, v.promiseStatus);
-    else if ((info.maxTier || 0) >= 3) cls = 'overdue';
-    const meta = [];
-    if (info.maxTier) meta.push('🏷️ ชั้น ' + info.maxTier);
-    if (info.due && typeof DebtDB !== 'undefined' && DebtDB.fmtDate) meta.push('📅 ถึงกำหนด ' + DebtDB.fmtDate('01/' + info.due));
-    if (info.has15) meta.push('⏳ 15 เดือน');
-    const rsv = (info.reserves || []).filter((x) => String(x) !== '');
-    if (rsv.length) meta.push('🛡️ สำรอง ' + rsv.join('/') + '%');
-    const zone = (info.zone != null ? info.zone : c.zone) || '';
-    if (zone) meta.push('เขต ' + zone);
-    if (c.phone) meta.push('☎️ ' + c.phone);
-    if (inRoute) meta.push('🧭 ในเส้นทาง');
-    return '<div class="cal-entry cal-entry-' + cls + '">' +
-      '<div class="cal-entry-main">' +
-        '<div class="cal-entry-name">' + this.esc(c.name || 'ไม่ระบุชื่อ') + (c.cif ? ' <span class="cal-cif">CIF ' + this.esc(c.cif) + '</span>' : '') + '</div>' +
-        (meta.length ? '<div class="cal-entry-meta">' + meta.map((m) => this.esc(m)).join(' · ') + '</div>' : '') +
-        (c.address ? '<div class="cal-entry-note">' + this.esc(c.address) + '</div>' : '') +
-      '</div>' +
-      '<div class="cal-entry-actions">' +
-        '<button type="button" class="cal-btn cal-btn-paid" data-today-visit="' + this.esc(c.id || '') + '">📝 บันทึก</button>' +
-        '<button type="button" class="cal-btn" data-today-route="' + this.esc(c.id || '') + '">' + (inRoute ? '✅ ในเส้นทาง' : '➕ เส้นทาง') + '</button>' +
-      '</div>' +
-    '</div>';
+  refresh() {
+    try { this.ensureGpsOptions(); } catch (e) { console.warn('[today] options:', e); }
+    try { this.refreshCollect(); } catch (e) { console.warn('[today] collect:', e); }
+    try { this.refreshPromise(); } catch (e) { console.warn('[today] promise:', e); }
+    try { if (typeof App !== 'undefined' && App.renderTodayRoute) App.renderTodayRoute(); } catch (e) {}
   },
 };
 

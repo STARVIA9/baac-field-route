@@ -46,5 +46,27 @@ ok('สาขาตรง', Customers.matchDebt(F({ branch: 'WTC' }), D({ branch
 ok('สาขาไม่ตรงตก', !Customers.matchDebt(F({ branch: 'KBB' }), D({ branch: 'WTC' })));
 const di = Customers.debtInfo({ cif: 'x', branch: 'WTC' });
 ok('debtInfo ไม่มีข้อมูลหลังบ้านไม่พัง', di.due === '' && di.maxTier === 0 && di.zone === null && di.branch === 'WTC');
+
+// ---- คิวเก็บพิกัด: กรอง + เรียงด่วน (pure) ----
+const M = TodayUI.currentMonthKey();
+globalThis.Customers = { debtInfo: (c) => c._info || { due: '', maxTier: 0, has15: false, reserves: [], zone: c.zone || null, branch: c.branch || '' } };
+const queue = [
+  { id: 'normal', name: 'ง', zone: '1', _info: { maxTier: 1, due: '12/2026' } },
+  { id: 'due', name: 'ค', zone: '2', _info: { maxTier: 1, due: M } },
+  { id: 'npl', name: 'ก', zone: '3', _info: { maxTier: 4, due: M } },
+  { id: 'm15', name: 'ข', zone: '1', _info: { maxTier: 1, has15: true } },
+];
+ok('เรียง NPL → 15 เดือน → ถึงกำหนด → ปกติ',
+  JSON.stringify(TodayUI._sortQueue(queue).map((x) => x.id)) === JSON.stringify(['npl', 'm15', 'due', 'normal']));
+const F0 = { status: 'missing', urgency: 'all', zone: '', branch: '', q: '' };
+ok('กรองยังไม่มีพิกัด', TodayUI._matchGps({ id: 'x', lat: null, lng: null }, F0));
+ok('มีพิกัดแล้วตกจากคิว missing', !TodayUI._matchGps({ id: 'x', lat: 13, lng: 101 }, F0));
+ok('กรองมีพิกัดแล้ว', TodayUI._matchGps({ id: 'x', lat: 13, lng: 101 }, { ...F0, status: 'has' }));
+ok('กรองเขต', TodayUI._matchGps({ id: 'x', zone: '3', lat: null, lng: null }, { ...F0, zone: '3' })
+  && !TodayUI._matchGps({ id: 'x', zone: '2', lat: null, lng: null }, { ...F0, zone: '3' }));
+ok('กรอง NPL', TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { maxTier: 4 } }, { ...F0, urgency: 'npl' })
+  && !TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { maxTier: 2 } }, { ...F0, urgency: 'npl' }));
+ok('ค้นชื่อ/CIF', TodayUI._matchGps({ id: 'x', name: 'สมชาย', cif: '1001', lat: null, lng: null }, { ...F0, q: '1001' }));
+ok('coverageCounts นับถูก', (() => { const c = TodayUI.coverageCounts([{ lat: 1, lng: 1 }, { lat: null, lng: null }, {}]); return c.total === 3 && c.with === 1 && c.missing === 2; })());
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
