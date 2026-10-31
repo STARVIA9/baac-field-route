@@ -3206,22 +3206,31 @@ const App = {
     this.updateAdminUI();
     // Init bottom sheet (map-as-canvas mode)
     this.initBottomSheet();
-    this.renderTodayRoute();
-    // UX ง่ายสุด: เปิดแอปมาเจองานวันนี้ก่อนเสมอ
-    try { this.switchSheetTab('today'); } catch {}
-    if (typeof TodayUI !== 'undefined') { try { TodayUI.refresh(); } catch (e) { console.warn('[afterLogin] today refresh:', e); } }
+    // PERF 20261101a: โหลด CustomerDB + DebtDB ขนานกันทันที (ก่อน TodayUI จะกรอง 9k ราย)
+    // เดิม TodayUI.refresh() วิ่งก่อน DebtDB เสร็จ → เจอ retry 3 รอบ × 2.5วิ = ค้าง
+    const _custPromise = (typeof CustomerDB !== 'undefined' && CustomerDB.load) ? CustomerDB.load().then(() => { try { this._backfillFromCentralDB(); } catch {} }).catch(() => {}) : Promise.resolve();
+    const _debtPromise = (typeof DebtDB !== 'undefined' && DebtDB.load) ? DebtDB.load().then(() => {
+        if (typeof Customers !== 'undefined' && Customers.initDebtFilter) Customers.initDebtFilter();
+        if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
+        // หนี้พร้อมแล้วค่อยวาดหน้า "งานวันนี้" แบบ idle (ไม่บล็อกแผนที่)
+        if (typeof TodayUI !== 'undefined') {
+          const _doToday = () => { try { TodayUI.refresh(); } catch(e){} };
+          if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_doToday, {timeout: 1200});
+          else setTimeout(_doToday, 60);
+        }
+    }).catch(() => {}) : Promise.resolve();
 
-    // Load customer database (async, non-blocking)
-    // 22 ต.ค.69: เครื่องเก่าดึงพิกัดใหม่ตามหลัง login (หมุดปักเครื่องอื่นไม่เข้าเครื่องนี้)
-    // CustomerDB โหลดสดจาก /api/customers ทุกครั้งที่เปิดแอปอยู่แล้ว — ไม่เสียโควต้าเพิ่ม
-    CustomerDB.load().then(() => { try { this._backfillFromCentralDB(); } catch {} }).catch(() => {});
-    // Load debt database (ข้อมูลหนี้ Customer Indicator) — async, non-blocking
-    if (typeof DebtDB !== 'undefined') {
-      DebtDB.load().then(() => {
-        if (Customers.initDebtFilter) Customers.initDebtFilter();
-        // re-render ให้ popup/รายชื่อที่โชว์ "กำลังโหลด..." อัปเดตเป็นข้อมูลจริง
-        if (Customers.renderAll) Customers.renderAll();
-      }).catch(() => {});
+    this.renderTodayRoute();
+    // เปิดแท็บงานวันนี้แบบเบา: วาดแค่ collect+promise ก่อน (ไม่ต้องกรองหนี้ 9k)
+    try { this.switchSheetTab('today'); } catch {}
+    if (typeof TodayUI !== 'undefined') {
+      try { TodayUI.refreshCollect(); TodayUI.refreshPromise(); } catch (e) {}
+      // chase (กรองหนี้) รอ _debtPromise ด้านบน — ถ้าหนี้มาแล้วจะ refresh เอง
+      if (typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+        const _doChase = () => { try { TodayUI.refreshChase(); } catch(e){} };
+        if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_doChase, {timeout: 800});
+        else setTimeout(_doChase, 40);
+      }
     }
 
     // Init floating map search bar (Google Maps-style)

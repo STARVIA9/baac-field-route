@@ -5,6 +5,12 @@
 const TodayUI = {
   COVERAGE_OK: 0.2,  // มีพิกัดเกิน 20% ถือว่าพร้อมวางแผน — ไม่โชว์คิวเก็บพิกัด
   MAX_QUEUE: 20,     // โชว์คิวมากสุด 20 ราย กันจอค้าง
+  _debounceTimer: null,
+
+  _debouncedRefreshChase() {
+    clearTimeout(this._debounceTimer);
+    this._debounceTimer = setTimeout(() => { try { this.refreshChase(); } catch(e){} }, 120);
+  },
 
   todayStr(base) {
     const d = base ? new Date(base) : new Date();
@@ -152,7 +158,7 @@ const TodayUI = {
       this._chaseWired = true;
       ['today-month', 'today-tier', 'today-m15', 'today-reserve', 'today-zone', 'today-branch'].forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => { this._chaseDefaulted = true; this.refreshChase(); });
+        if (el) el.addEventListener('change', () => { this._chaseDefaulted = true; this._debouncedRefreshChase(); });
       });
       document.querySelectorAll('[data-preset]').forEach((b) => {
         b.addEventListener('click', () => this.applyPreset(b.dataset.preset));
@@ -174,16 +180,8 @@ const TodayUI = {
     this.ensureChaseOptions();
     if (typeof DebtDB === 'undefined' || !DebtDB._loaded) {
       box.innerHTML = '<p class="empty-state">⏳ กำลังโหลดข้อมูลหนี้...</p>';
-      if (!this._chaseRetry) {
-        this._chaseRetry = 0;
-      }
-      if (this._chaseRetry < 3) {
-        this._chaseRetry++;
-        setTimeout(() => { try { this.refreshChase(); } catch (e) {} }, 2500);
-      }
       return;
     }
-    this._chaseRetry = 0;
     const f = this.readChaseFilter();
     const customers = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
     let route = [];
