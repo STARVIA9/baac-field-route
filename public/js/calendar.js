@@ -97,7 +97,7 @@ const WorkCalendar = {
     if (banner) {
       if (total > 0) {
         banner.classList.remove('hidden');
-        banner.innerHTML = '🔔 วันนี้มีนัดชำระ ' + counts.due + ' ราย · เลยกำหนด ' + counts.overdue + ' ราย <span class="promise-alert-go">เปิดปฏิทิน ›</span>';
+        banner.innerHTML = '🔔 วันนี้มีนัดชำระ ' + counts.due + ' ราย · เลยกำหนด ' + counts.overdue + ' ราย <span class="promise-alert-go">เปิดปฏิทิน ›</span> <button type="button" class="promise-alert-close" aria-label="ปิด">×</button>';
       } else {
         banner.classList.add('hidden');
         banner.innerHTML = '';
@@ -285,7 +285,16 @@ const WorkCalendar = {
     if (next) next.addEventListener('click', () => this.shiftMonth(1));
     if (todayBtn) todayBtn.addEventListener('click', () => this.goToday());
     const banner = document.getElementById('promise-alert');
-    if (banner) banner.addEventListener('click', () => { if (typeof App !== 'undefined' && App.switchSheetTab) App.switchSheetTab('calendar'); });
+    if (banner) {
+      banner.addEventListener('click', (e) => {
+        if (e.target.closest('.promise-alert-close')) {
+          e.stopPropagation();
+          banner.classList.add('hidden');
+          return;
+        }
+        if (typeof App !== 'undefined' && App.switchSheetTab) App.switchSheetTab('calendar');
+      });
+    }
     this.refreshAlert();
   },
 };

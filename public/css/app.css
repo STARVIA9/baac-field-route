@@ -5212,6 +5212,25 @@ body.field-big .route-action-card { font-size: 17px; }
   transition: background .15s;
 }
 #promise-alert .promise-alert-go:hover { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+#promise-alert .promise-alert-close {
+  margin-left: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .08);
+  color: var(--md-on-error-container);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  transition: background .15s;
+}
+#promise-alert .promise-alert-close:hover { background: rgba(0, 0, 0, .16); }
+@media (prefers-color-scheme: dark) {
+  #promise-alert .promise-alert-close { background: rgba(255, 255, 255, .12); color: var(--md-on-error-container); }
+  #promise-alert .promise-alert-close:hover { background: rgba(255, 255, 255, .2); }
+}
 @keyframes promiseAlertIn {
   from { transform: translateY(-16px) scale(.96); }
   to   { transform: translateY(0) scale(1); }
