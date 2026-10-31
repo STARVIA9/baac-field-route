@@ -174,5 +174,17 @@ const fullBytes = Buffer.byteLength(JSON.stringify(full));
     ok('vendor.js parity 2-4: ' + needle, vendorSrc.includes(needle) && storageSrc.includes(needle));
   }
 }
+// 5: ที่อยู่เต็มจากคอลัมน์แยก (บ้านเลขที่ + หมู่/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์)
+{
+  const { S } = boot({ idbBacking: new Map(), ls: makeLS() });
+  await S.ready;
+  const fullAddr = '16/1 ม.8 ต.วังตะเคียน อ.กบินทร์บุรี จ.ปราจีนบุรี 25110';
+  ok('address: ต่อบ้านเลขที่+หมู่/ตำบล/อำเภอ/จังหวัด',
+    S._fullAddress({ address: '16/1', extra: { moo: "'8", tambon: 'วังตะเคียน', amphoe: 'กบินทร์บุรี', province: 'ปราจีนบุรี', postcode: '25110' } }) === fullAddr);
+  ok('address: "-" ไม่นำหน้าซ้ำ',
+    S._fullAddress({ address: '-', extra: { moo: '2', tambon: 'วังตะเคียน', amphoe: 'กบินทร์บุรี', province: 'ปราจีนบุรี', postcode: '25110' } }) === 'ม.2 ต.วังตะเคียน อ.กบินทร์บุรี จ.ปราจีนบุรี 25110');
+  ok('address: เต็มอยู่แล้วไม่ต่อซ้ำ', S._fullAddress({ address: fullAddr }) === fullAddr);
+  ok('vendor.js parity: _fullAddress', vendorSrc.includes('_fullAddress(r)') && storageSrc.includes('_fullAddress(r)'));
+}
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

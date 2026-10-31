@@ -87,15 +87,25 @@ const CustomerDB = {
     return (badges[cls] || '') + ' ' + cls;
   },
 
-  // Build full address string
+  // Build full address string (รองรับทั้ง r.moo ตรงๆ และ r.extra.moo จาก API)
   fullAddress(r) {
-    const parts = [r.address];
-    if (r.moo) parts.push('ม.' + r.moo.replace(/^'/, ''));
-    if (r.tambon) parts.push('ต.' + r.tambon);
-    if (r.amphoe) parts.push('อ.' + r.amphoe);
-    if (r.province) parts.push('จ.' + r.province);
-    if (r.postcode) parts.push(r.postcode);
-    return parts.filter(Boolean).join(' ');
+    if (!r) return '';
+    const clean = (v) => String(v == null ? '' : v).replace(/^'+/, '').trim();
+    const house = clean(r.address);
+    if (/ม\.|ต\.|อ\.|จ\./.test(house)) return house;
+    const parts = [];
+    if (house && house !== '-') parts.push(house);
+    const moo = clean(r.extra?.moo ?? r.moo);
+    const tambon = clean(r.extra?.tambon ?? r.tambon);
+    const amphoe = clean(r.extra?.amphoe ?? r.amphoe);
+    const province = clean(r.extra?.province ?? r.province);
+    const postcode = clean(r.extra?.postcode ?? r.postcode);
+    if (moo) parts.push('ม.' + moo);
+    if (tambon) parts.push('ต.' + tambon);
+    if (amphoe) parts.push('อ.' + amphoe);
+    if (province) parts.push('จ.' + province);
+    if (postcode) parts.push(postcode);
+    return parts.join(' ');
   },
 };
 

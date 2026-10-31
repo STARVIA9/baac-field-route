@@ -3139,12 +3139,16 @@ const App = {
         const old = byCif.get(String(key || '').trim());
         if (!old) return;
         const nLat = (r.lat ?? null), nLng = (r.lng ?? null);
+        const nAddr = (typeof Storage._fullAddress === 'function') ? Storage._fullAddress(r) : (r.address || '');
+        const addrStale = nAddr && old.address !== nAddr &&
+          (!old.address || old.address === (r.address || '') || old.address === '-');
         if ((old.branch || '') !== (r.branch || '') || (old.zone || '') !== (r.zone || '') ||
-            (old.lat ?? null) !== nLat || (old.lng ?? null) !== nLng) {
+            (old.lat ?? null) !== nLat || (old.lng ?? null) !== nLng || addrStale) {
           old.branch = r.branch || '';
           old.zone = r.zone || '';
           old.lat = nLat;
           old.lng = nLng;
+          if (addrStale) old.address = nAddr;
           n++;
         }
       });

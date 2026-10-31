@@ -64,6 +64,27 @@ const Storage = {
     });
   },
 
+  // รวมที่อยู่เต็มจากคอลัมน์แยกของ D1 (บ้านเลขที่ + หมู่ + ตำบล + อำเภอ + จังหวัด + รหัสไปรษณีย์)
+  // ถ้าค่าที่เก็บเป็นที่อยู่เต็มอยู่แล้ว (มี ม./ต./อ./จ.) จะคืนค่าเดิม ไม่ต่อซ้ำ
+  _fullAddress(r) {
+    const clean = (v) => String(v == null ? '' : v).replace(/^'+/, '').trim();
+    const house = clean(r && r.address);
+    if (/ม\.|ต\.|อ\.|จ\./.test(house)) return house;
+    const parts = [];
+    if (house && house !== '-') parts.push(house);
+    const moo = clean(r && (r.extra?.moo ?? r.moo));
+    const tambon = clean(r && (r.extra?.tambon ?? r.tambon));
+    const amphoe = clean(r && (r.extra?.amphoe ?? r.amphoe));
+    const province = clean(r && (r.extra?.province ?? r.province));
+    const postcode = clean(r && (r.extra?.postcode ?? r.postcode));
+    if (moo) parts.push('ม.' + moo);
+    if (tambon) parts.push('ต.' + tambon);
+    if (amphoe) parts.push('อ.' + amphoe);
+    if (province) parts.push('จ.' + province);
+    if (postcode) parts.push(postcode);
+    return parts.join(' ');
+  },
+
   // โหลดรายชื่อเข้า _mem ครั้งเดียว + ย้ายของเก่าจาก localStorage (ครั้งเดียวแล้วลบ)
   _loadMem() {
     return this._idbGet('customers').then(seed => {
@@ -208,7 +229,7 @@ const Storage = {
       name: r.name,
       nickname: r.nickname || '',
       phone: r.phone || '',
-      address: r.address || [r.extra?.moo && 'ม.' + r.extra.moo, r.extra?.tambon && 'ต.' + r.extra.tambon, r.extra?.amphoe && 'อ.' + r.extra.amphoe, r.extra?.province && 'จ.' + r.extra.province].filter(Boolean).join(' '),
+      address: this._fullAddress(r),
       lat: r.lat ?? null,
       lng: r.lng ?? null,
       branch: r.branch || '',
@@ -230,12 +251,17 @@ const Storage = {
       if (!r.cif) continue;
       const old = byCif.get(r.cif);
       if (!old) continue;
+      const nAddr = this._fullAddress(r);
+      // เติมที่อยู่เฉพาะเมื่อของเดิมยังเป็นบ้านเลขที่ล้วน/ว่าง/'-' (ไม่ทับที่อยู่ที่คนแก้เอง)
+      const addrStale = nAddr && old.address !== nAddr &&
+        (!old.address || old.address === (r.address || '') || old.address === '-');
       if ((old.branch || '') !== (r.branch || '') || (old.zone || '') !== (r.zone || '') ||
-          (old.lat ?? null) !== (r.lat ?? null) || (old.lng ?? null) !== (r.lng ?? null)) {
+          (old.lat ?? null) !== (r.lat ?? null) || (old.lng ?? null) !== (r.lng ?? null) || addrStale) {
         old.branch = r.branch || '';
         old.zone = r.zone || '';
         old.lat = r.lat ?? null;
         old.lng = r.lng ?? null;
+        if (addrStale) old.address = nAddr;
         backfilled++;
       }
     }
