@@ -5180,10 +5180,10 @@ body.field-big .fab { width: 56px; height: 56px; }
 body.field-big .route-action-card { font-size: 17px; }
 #promise-alert {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  top: calc(env(safe-area-inset-top, 0px) + 68px);
   left: 12px;
   right: 12px;
-  z-index: 50;
+  z-index: 800;
   display: flex;
   align-items: center;
   gap: 8px;
