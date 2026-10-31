@@ -81,5 +81,9 @@ ok('ทุกเดือนในปีบัญชี = เม.ย.69-มี.�
   TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '01/2027' } }, { ...F0, urgency: 'due', dueMonth: '' })
   && !TodayUI._matchGps({ id: 'x', lat: null, lng: null, _info: { due: '03/2025' } }, { ...F0, urgency: 'due', dueMonth: '' }));
 ok('coverageCounts นับถูก', (() => { const c = TodayUI.coverageCounts([{ lat: 1, lng: 1 }, { lat: null, lng: null }, {}]); return c.total === 3 && c.with === 1 && c.missing === 2; })());
+ok('แบ่งหน้า 25 ราย = 3 หน้า', (() => { const p = TodayUI.pageInfo(25, 1, 10); return p.pages === 3 && p.start === 0 && p.end === 10; })());
+ok('หน้าสุดท้าย แสดง 20–25', (() => { const p = TodayUI.pageInfo(25, 3, 10); return p.start === 20 && p.end === 25; })());
+ok('หน้าเกินถูก clamp ที่หน้าสุดท้าย', TodayUI.pageInfo(25, 9, 10).page === 3);
+ok('ไม่ถึง 10 ราย = 1 หน้า', TodayUI.pageInfo(7, 1, 10).pages === 1);
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

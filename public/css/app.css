@@ -5486,3 +5486,37 @@ details.adv-settings > summary { min-height: 52px; display: flex; align-items: c
   0%, 100% { box-shadow: none; }
   30%, 60% { box-shadow: 0 0 0 4px rgba(255, 193, 7, .55); }
 }
+
+/* ที่อยู่ในคิวเก็บพิกัด — ให้ขึ้นบรรทัดใหม่ได้ ไม่ตัดจังหวัดทิ้ง */
+#gps-collect .gps-row-addr,
+#gps-collect .gps-row-meta {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+}
+
+/* แบ่งหน้าคิวเก็บพิกัด — หน้าละ 10 ราย */
+.gps-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e6ebe4;
+}
+.gps-page-btn {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #cfe0d2;
+  background: #fff;
+  color: #0a8f3c;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gps-page-btn:disabled { opacity: .4; cursor: default; }
+.gps-pager-info { flex: 1; text-align: center; font-size: 12px; line-height: 1.35; color: #5b6b5b; }

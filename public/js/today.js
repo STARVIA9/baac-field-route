@@ -3,7 +3,8 @@
 // ตัวกรองด้านบนสุด = กรองคิวเก็บพิกัด (ยังไม่มีพิกัด/มีแล้ว/เขต/สาขา/ความด่วน)
 
 const TodayUI = {
-  MAX_QUEUE: 20,       // โชว์คิวมากสุด 20 ราย กันจอค้าง
+  PAGE_SIZE: 10,       // แสดงหน้าละ 10 ราย
+  _page: 1,            // หน้าปัจจุบันของคิวเก็บพิกัด
   _filterTimer: null,
   _gpsWired: false,
 
@@ -198,6 +199,7 @@ const TodayUI = {
   },
 
   _debouncedRefresh() {
+    this._page = 1;
     clearTimeout(this._filterTimer);
     this._filterTimer = setTimeout(() => { try { this.refresh(); } catch (e) {} }, 120);
   },
@@ -317,17 +319,49 @@ const TodayUI = {
       return;
     }
     const pct = counts.total ? Math.round((counts.with / counts.total) * 100) : 0;
-    const rows = filtered.slice(0, this.MAX_QUEUE).map((c) => this._rowHTML(c, f.status !== 'has')).join('');
+    const info = this.pageInfo(filtered.length, this._page, this.PAGE_SIZE);
+    this._page = info.page;
+    const start = info.start;
+    const shown = filtered.slice(start, start + this.PAGE_SIZE);
+    const pages = info.pages;
+    const rows = shown.map((c) => this._rowHTML(c, f.status !== 'has')).join('');
+    const pager = filtered.length > this.PAGE_SIZE
+      ? '<div class="gps-pager">' +
+          '<button type="button" class="gps-page-btn" data-gps-page="' + (this._page - 1) + '"' + (this._page <= 1 ? ' disabled' : '') + '>‹ ก่อนหน้า</button>' +
+          '<span class="gps-pager-info">หน้า ' + this._page + '/' + pages + '<br>แสดง ' + (start + 1) + '–' + (start + shown.length) + ' จาก ' + filtered.length + ' ราย</span>' +
+          '<button type="button" class="gps-page-btn" data-gps-page="' + (this._page + 1) + '"' + (this._page >= pages ? ' disabled' : '') + '>ถัดไป ›</button>' +
+        '</div>'
+      : '<p class="gps-more">แสดงทั้งหมด ' + filtered.length + ' ราย</p>';
     box.innerHTML = '<div class="gps-collect-card">' +
-      '<h3>📍 คิวเก็บพิกัด <span class="gps-count">' + filtered.length + ' ราย</span></h3>' +
+      '<h3>📍 คิวเก็บพิกัด <span class="gps-count">เหลือ ' + filtered.length + ' ราย</span></h3>' +
       '<p class="gps-collect-desc">เก็บแล้ว ' + counts.with + '/' + counts.total + ' (' + pct + '%) · เรียงด่วนก่อน NPL → 15 เดือน → ถึงกำหนด</p>' +
       '<div class="gps-progress"><div class="gps-progress-fill" style="width:' + pct + '%"></div></div>' +
-      rows +
-      (filtered.length > this.MAX_QUEUE ? '<p class="gps-more">…และอีก ' + (filtered.length - this.MAX_QUEUE) + ' ราย (กรองเขตเพื่อดูทีละเขต)</p>' : '') +
+      rows + pager +
       '</div>';
     box.querySelectorAll('[data-gps-capture]').forEach((btn) => {
       btn.addEventListener('click', () => this.collectGps(btn.dataset.gpsCapture, btn));
     });
+    box.querySelectorAll('[data-gps-page]').forEach((btn) => {
+      btn.addEventListener('click', () => this.gotoPage(parseInt(btn.dataset.gpsPage, 10)));
+    });
+  },
+
+  // คำนวณช่วงรายการของหน้านั้น (pure — ใช้ในเทสด้วย)
+  pageInfo(total, page, size) {
+    const per = Math.max(1, parseInt(size, 10) || this.PAGE_SIZE || 10);
+    const pages = Math.max(1, Math.ceil((parseInt(total, 10) || 0) / per));
+    const p = Math.min(Math.max(1, parseInt(page, 10) || 1), pages);
+    const start = (p - 1) * per;
+    return { page: p, pages, start, end: Math.min(start + per, parseInt(total, 10) || 0) };
+  },
+
+  // เปลี่ยนหน้าคิว (1-based)
+  gotoPage(n) {
+    if (!Number.isFinite(n)) return;
+    this._page = n;
+    this.refreshCollect();
+    const box = typeof document !== 'undefined' ? document.getElementById('gps-collect') : null;
+    if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   // เก็บพิกัดผ่านของเดิม (Customers.saveQuickGps) แล้วรอจนพิกัดเข้าค่อยรีเฟรช
