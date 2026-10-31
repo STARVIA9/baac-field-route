@@ -5198,7 +5198,7 @@ body.field-big .route-action-card { font-size: 17px; }
   line-height: 1.4;
   box-shadow: 0 4px 20px rgba(0, 0, 0, .18);
   cursor: pointer;
-  animation: promiseAlertIn .35s cubic-bezier(.2, .8, .2, 1);
+  animation: promiseAlertIn .35s cubic-bezier(.2, .8, .2, 1) forwards;
   transition: opacity .2s, transform .2s;
 }
 #promise-alert.hidden { display: none !important; }
