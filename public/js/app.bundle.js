@@ -461,7 +461,7 @@ const Customers = {
   // คืน true = ลูกค้าผ่านตัวกรองปัจจุบัน (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
   _passesMapFilters(c, query) {
     // === Debt/zone/branch filters — ตรรกะเดียวกับหน้า "งานวันนี้" (Customers.matchDebt) ===
-    const df = { month: this.debtMonth || '', tier: this.debtTier || '', omsom: this.omsomMode || '', m15: this.m15Mode || '', reserve: this.reserveMode || '', zone: this._zoneFilter || '', branch: this._branchFilter || '' };
+    const df = { month: this.debtMonth || '', tier: this.debtTier || '', omsom: this.omsomMode || '', m15: this.m15Mode || '', reserve: this.reserveMode || '', zone: this._zoneFilter || '', branch: this._userBranch() || this._branchFilter || '' };
     if (!Customers.matchDebt(df, Customers.debtInfo(c))) return false;
 
     // คำค้นในช่องค้นหาแผนที่ (ชื่อ/ชื่อเล่น/CIF/เบอร์)
@@ -858,8 +858,8 @@ const Customers = {
       });
     }
 
-    // Branch filter (สาขา — sync กับ dropdown บนแผนที่)
-    const branchVal = document.getElementById('map-branch-filter')?.value || '';
+    // Branch filter (สาขา — sync กับ dropdown บนแผนที่) + ล็อกสาขาตัวเองสำหรับ non-admin
+    const branchVal = this._userBranch() || document.getElementById('map-branch-filter')?.value || '';
     if (branchVal) {
       customers = customers.filter(c => {
         const db = (c.cif && typeof CustomerDB !== 'undefined') ? CustomerDB.getByCif(c.cif) : null;

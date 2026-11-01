@@ -85,5 +85,16 @@ ok('แบ่งหน้า 25 ราย = 3 หน้า', (() => { const p = 
 ok('หน้าสุดท้าย แสดง 20–25', (() => { const p = TodayUI.pageInfo(25, 3, 10); return p.start === 20 && p.end === 25; })());
 ok('หน้าเกินถูก clamp ที่หน้าสุดท้าย', TodayUI.pageInfo(25, 9, 10).page === 3);
 ok('ไม่ถึง 10 ราย = 1 หน้า', TodayUI.pageInfo(7, 1, 10).pages === 1);
+
+// ---- ล็อกสาขา: non-admin ต้องไม่เห็นสาขาอื่น แม้เขตเลขเดียวกัน ----
+globalThis.Auth = { isAdmin: () => false, getUser: () => ({ branch: '145' }) };
+const F1 = { status: 'missing', urgency: 'all', dueMonth: '', zone: '', branch: '', q: '' };
+ok('non-admin: เห็นเฉพาะสาขาตัวเอง', TodayUI._matchGps({ id: 'x', branch: '145', zone: '1', lat: null, lng: null }, F1)
+  && !TodayUI._matchGps({ id: 'x', branch: '854', zone: '1', lat: null, lng: null }, F1));
+ok('non-admin: เขต 1 สาขาอื่นไม่หลุด', !TodayUI._matchGps({ id: 'x', branch: '854', zone: '1', lat: null, lng: null }, { ...F1, zone: '1' }));
+globalThis.Auth = { isAdmin: () => true, getUser: () => ({ branch: '145' }) };
+ok('admin: เห็นทุกสาขาเมื่อไม่เลือกสาขา', TodayUI._matchGps({ id: 'x', branch: '854', zone: '1', lat: null, lng: null }, F1)
+  && TodayUI._matchGps({ id: 'x', branch: '145', zone: '1', lat: null, lng: null }, F1));
+ok('admin: เลือกสาขาแล้วกรองตามสาขา', !TodayUI._matchGps({ id: 'x', branch: '854', zone: '1', lat: null, lng: null }, { ...F1, branch: '145' }));
 console.log(fails ? `\n${fails} FAIL` : '\nALL PASS');
 process.exit(fails ? 1 : 0);

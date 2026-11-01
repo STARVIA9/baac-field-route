@@ -153,7 +153,8 @@ const TodayUI = {
       if (code) codes.add(code);
     }
     labels.forEach((_, code) => codes.add(code));
-    const list = [...codes].sort();
+    const scope = this._scopeBranch();
+    const list = scope ? [scope] : [...codes].sort();
     sel.innerHTML = '<option value="">ทุกสาขา</option>' +
       list.map((code) => '<option value="' + this.esc(code) + '">' + this.esc(labels.get(code) || code) + '</option>').join('');
     sel.value = prev && list.includes(prev) ? prev : '';
@@ -183,7 +184,7 @@ const TodayUI = {
     if (typeof document === 'undefined') return;
     const sel = document.getElementById('gps-zone');
     if (!sel) return;
-    const branch = (document.getElementById('gps-branch') || {}).value || '';
+    const branch = this._scopeBranch() || ((document.getElementById('gps-branch') || {}).value || '');
     const all = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
     const zones = new Set();
     for (const c of all) {
@@ -229,6 +230,19 @@ const TodayUI = {
       : { due: '', maxTier: 0, has15: false, reserves: [], zone: null, branch: c.branch || '' };
   },
 
+  // สาขาของผู้ใช้ที่ล็อกไว้ (non-admin) — admin คืน '' เพื่อเลือกดูได้ทุกสาขา
+  _scopeBranch() {
+    try {
+      if (typeof Auth !== 'undefined' && Auth.isAdmin && Auth.isAdmin()) return '';
+      const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      return String((u && u.branch) || '').trim();
+    } catch { return ''; }
+  },
+
+  _effectiveBranch(f) {
+    return this._scopeBranch() || (f && f.branch) || '';
+  },
+
   currentMonthKey(base) {
     const s = this.todayStr(base); // YYYY-MM-DD
     return s.slice(5, 7) + '/' + s.slice(0, 4);
@@ -239,7 +253,11 @@ const TodayUI = {
     if (f.status === 'missing' && hasGps) return false;
     if (f.status === 'has' && !hasGps) return false;
     if (f.zone && String(c.zone == null ? '' : c.zone) !== String(f.zone)) return false;
-    if (f.branch && String(c.branch || '') !== String(f.branch)) return false;
+    const branch = this._effectiveBranch(f);
+    if (branch) {
+      const cb = String(c.branch || '').trim() || String(this._info(c).branch || '').trim();
+      if (cb !== String(branch)) return false;
+    }
     if (f.q) {
       const hay = [c.name, c.nickname, c.cif, c.phone].join(' ').toLowerCase();
       if (!hay.includes(f.q)) return false;
@@ -309,7 +327,9 @@ const TodayUI = {
     if (!box) return;
     this.ensureGpsOptions();
     const f = this.readGpsFilter();
-    const all = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
+    const scope = this._scopeBranch();
+    const raw = (typeof Storage !== 'undefined' && Storage.getActiveCustomers) ? Storage.getActiveCustomers() : [];
+    const all = scope ? raw.filter((c) => String(c.branch || '') === String(scope)) : raw;
     const counts = this.coverageCounts(all);
     const filtered = this._sortQueue(all.filter((c) => this._matchGps(c, f)));
     this._updateFilterBadge(f, filtered.length);
@@ -383,7 +403,10 @@ const TodayUI = {
 
   _withCount() {
     try {
-      return Storage.getActiveCustomers().filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng)).length;
+      const scope = this._scopeBranch();
+      return Storage.getActiveCustomers()
+        .filter((c) => (!scope || String(c.branch || '') === String(scope)) && Number.isFinite(c.lat) && Number.isFinite(c.lng))
+        .length;
     } catch { return -1; }
   },
 
