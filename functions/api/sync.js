@@ -199,6 +199,9 @@ export async function onRequestPost(context) {
   // โหมดฟรีให้เขียน 1,000 คีย์/วัน → push เปล่า ๆ ก็กินโควตา ตอนนี้เขียน 0–2 คีย์
   const visitsChanged = JSON.stringify(mergedVisits) !== JSON.stringify(existingVisits);
   const routesChanged = JSON.stringify(mergedRoutes) !== JSON.stringify(existingRoutes);
+  // serverTime ต้องประกาศก่อนบล็อกเขียน index ด้านล่าง — เดิมประกาศทีหลัง (TDZ)
+  // ทำให้ try/catch เงียบ ReferenceError แล้ว visits:users_index ไม่เคยถูกเขียน
+  const serverTime = new Date().toISOString();
 
   if (visitsChanged) {
     await env.BFR_KV.put(visitsKey, JSON.stringify(mergedVisits));
@@ -222,7 +225,6 @@ export async function onRequestPost(context) {
 
   // meta:lastwrite (global) = เฉพาะ D1 customers เปลี่ยน (ทุกคนต้องรู้)
   // meta:lastwrite:user:<who> = visit/route ของ user นี้เปลี่ยน (เฉพาะ user นั้น)
-  const serverTime = new Date().toISOString();
   if (visitsChanged || routesChanged) {
     const who = scopeSanitize(auth.user.username || auth.user.sub || auth.user.name) || 'default';
     await env.BFR_KV.put('meta:lastwrite:user:' + who, serverTime);
@@ -319,15 +321,32 @@ export async function onRequestGet(context) {
     }
     visitsByUser = {};
     try {
-      const idxRaw = await env.BFR_KV.get('visits:users_index');
-      const idx = idxRaw ? JSON.parse(idxRaw) : { users: [] };
-      for (const u of idx.users) {
-        try {
-          const raw = await env.BFR_KV.get('visits:user:' + scopeSanitize(u));
-          if (raw) visitsByUser[u] = JSON.parse(raw);
-        } catch (e) { /* skip */ }
-      }
-    } catch (e) { /* skip */ }
+      // ไล่จาก key จริงใน KV — อย่าพึ่ง visits:users_index (index เคยพังจาก TDZ จนไม่เคยถูกเขียน
+      // แล้ว admin เห็น visit ของทุกคนเป็น {} ทั้งที่มีข้อมูล; list ตาม prefix เดียวกับ admin/backup)
+      let cursor = undefined;
+      do {
+        const page = await env.BFR_KV.list({ prefix: 'visits:user:', cursor });
+        for (const k of page.keys || []) {
+          try {
+            const raw = await env.BFR_KV.get(k.name);
+            if (raw) visitsByUser[k.name.slice('visits:user:'.length)] = JSON.parse(raw);
+          } catch (e) { /* skip */ }
+        }
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+    } catch (e) {
+      // fallback: index เก่า (ถ้ามี)
+      try {
+        const idxRaw = await env.BFR_KV.get('visits:users_index');
+        const idx = idxRaw ? JSON.parse(idxRaw) : { users: [] };
+        for (const u of idx.users) {
+          try {
+            const raw = await env.BFR_KV.get('visits:user:' + scopeSanitize(u));
+            if (raw) visitsByUser[u] = JSON.parse(raw);
+          } catch (e2) { /* skip */ }
+        }
+      } catch (e2) { /* skip */ }
+    }
     // ส่ง visitsByUser กลับไป + visits รวมทั้งหมด
   }
 
