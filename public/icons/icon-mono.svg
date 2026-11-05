@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Monochrome / themed icon: single white shape on transparent, safe-zone compliant, hole cut via evenodd -->
+  <path d="M 140 372 Q 206 384 238 354" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="198" cy="374" r="17" fill="#ffffff"/>
+  <circle cx="140" cy="372" r="28" fill="#ffffff"/>
+  <path fill-rule="evenodd" fill="#ffffff" d="M 256 334 Q 180 262 180 198 A 76 76 0 1 1 332 198 Q 332 262 256 334 Z M 256 162 A 36 36 0 1 0 256 234 A 36 36 0 1 0 256 162 Z"/>
+</svg>

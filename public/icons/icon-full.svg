@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full "Golden Route" icon — vector source for 180/192/512/maskable (pin + route, no emoji, no text) -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#087a33"/>
+  <!-- route: white path leading to the pin (all content within maskable safe circle r<=204) -->
+  <path d="M 140 372 Q 206 384 238 354" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="198" cy="374" r="17" fill="#ffffff"/>
+  <circle cx="140" cy="372" r="28" fill="#ffffff"/>
+  <!-- map pin (gold), head circle center (256,198) r=76, tip at (256,334) -->
+  <path d="M 256 334 Q 180 262 180 198 A 76 76 0 1 1 332 198 Q 332 262 256 334 Z" fill="#ffd766"/>
+  <circle cx="256" cy="198" r="36" fill="#087a33"/>
+</svg>

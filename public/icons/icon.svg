@@ -1,5 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#0a8f3c"/>
-  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-size="280" fill="#d4af37">🗺️</text>
-  <text x="50%" y="85%" text-anchor="middle" dominant-baseline="middle" font-size="56" font-weight="700" fill="white" font-family="sans-serif">BFR</text>
+  <!-- Favicon source (16-32px): enlarged solid pin with a small hole (r=28 → ~1.7px at 16px, so it
+       reads as a clean solid silhouette when tiny, and as a proper map pin at 24-32px tab sizes).
+       32px PNG+ and app icons use icon-full.svg (pin + hole + route). -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#087a33"/>
+  <path d="M 256 428 Q 168 326 136 190 A 120 120 0 1 1 376 190 Q 344 326 256 428 Z" fill="#ffd766"/>
+  <circle cx="256" cy="190" r="28" fill="#087a33"/>
 </svg>
