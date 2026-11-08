@@ -289,17 +289,18 @@ export async function onRequestGet(context) {
         maxIso = maxResProbe?.m || null;
       } catch (e) { maxIso = null; }
     }
-    // serverTime = ค่าล่าสุดจาก D1 customers OR global lastwrite OR per-user lastwrite
+    // serverTime = ของข้อมูลลูกค้า (D1) เท่านั้น — ต้องเป็นค่าเดียวกับ GET เต็ม ไม่งั้น client จะเห็น "มีของใหม่" ทุกรอบ
+    // visit/route ของผู้ใช้ออกเป็น userUpdatedAt แยก (client เทียบ/เก็บแยก)
     const candidates = [];
     if (maxIso) candidates.push(maxIso);
     if (lastWriteProbe) candidates.push(lastWriteProbe);
-    if (userLastWrite) candidates.push(userLastWrite);
     candidates.sort().reverse();
     const serverTimeProbe = candidates[0] || new Date().toISOString();
     return json({
       success: true,
       probe: true,
       serverTime: serverTimeProbe,
+      userUpdatedAt: userLastWrite || null,
       overlayUpdatedAt: overlayProbe || null,
       visitsUpdated: null,
       customers: [],
@@ -374,6 +375,8 @@ export async function onRequestGet(context) {
     var visits = await readVisitsList(env, visitsKey, auth.user);
   }
   const lastWrite = await env.BFR_KV.get('meta:lastwrite');
+  const whoScope = scopeSanitize(auth.user.username || auth.user.sub || auth.user.name) || 'default';
+  const userLastWrite = await env.BFR_KV.get('meta:lastwrite:user:' + whoScope);
   const overlayUpdatedAt = await env.BFR_KV.get('meta:overlay-updated');
   // ไม่ต้องอ่าน meta:visits-updated ทุกครั้ง — client ไม่ได้ใช้ค่านี้ (ตัด 1 read/รอบ)
 
@@ -406,6 +409,12 @@ export async function onRequestGet(context) {
       'SELECT MAX(updated_at) m FROM customers'
     ).first();
     const maxTime = maxRes?.m ? new Date(maxRes.m).getTime() : 0;
+
+    // serverTime ของ GET เต็มต้องเท่ากับที่ probe รายงาน — ทั้งตอน cache hit และ miss
+    // (เดิมยกเป็น MAX เฉพาะตอน miss → hit คืน meta:lastwrite เก่ากว่า probe → client ดึงเต็มทุกรอบ)
+    if (maxRes?.m && maxTime > new Date(effectiveServerTime).getTime()) {
+      effectiveServerTime = maxRes.m;
+    }
 
     // ETAG HIT: MAX เท่าเดิม + counts cache ยังสด → ไม่มีข้อมูลใหม่ → 0 query เพิ่ม
     const etagHit = maxTime > 0 && cachedMaxTime > 0 && maxTime === cachedMaxTime && cacheFresh;
@@ -444,11 +453,6 @@ export async function onRequestGet(context) {
         : await env.BFR_DB.prepare(countSql).first();
       allCustomersCount = countRes?.n || 0;
       gpsCount = await d1GpsCount(env);
-      // S3: serverTime = newest updated_at in D1 (not stale KV lastwrite) — clients
-      // use this as `since` cursor, so no change is ever skipped between polls
-      if (maxRes?.m && (!lastWrite || maxRes.m > lastWrite)) {
-        effectiveServerTime = maxRes.m;
-      }
       // Refresh KV caches (MAX + counts สำหรับ etag hit ครั้งถัดไป)
       try {
         const nowIso = new Date().toISOString();
@@ -462,6 +466,7 @@ export async function onRequestGet(context) {
   return json({
     success: true,
     serverTime: effectiveServerTime,
+    userUpdatedAt: userLastWrite || null,
     overlayUpdatedAt: overlayUpdatedAt || null,
     visitsUpdated: null,   // client ไม่ได้ใช้ (เลิกอ่าน meta:visits-updated เพื่อลด KV read)
     customers,

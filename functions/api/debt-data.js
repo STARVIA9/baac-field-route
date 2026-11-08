@@ -17,6 +17,11 @@ function json(data, status = 200) {
   });
 }
 
+// เวอร์ชันรูปแบบข้อมูลหนี้ (ไม่ใช่เวลาอัพ) — ใช้ต่อท้ายตราประทับแคชฝั่งเครื่อง
+// bump เมื่อ payload เปลี่ยนรูปร่าง/การกรอง → เครื่องที่แคชของเก่าโหลดใหม่ครั้งเดียว
+// v2 (8 พ.ย.69): เติมสาขาให้ครบ + กรองสาขาเข้ม (เครื่องที่เคยแคช 7.6MB ต้องทิ้งของเก่า)
+const DEBT_CACHE_VER = 'b2';
+
 // debt_class ใน D1 (ตัวเลข '1'-'5' หรือข้อความไทยเก่า) → max_tier ตัวเลข
 function tierToNum(v) {
   const s = String(v || '').trim();
@@ -45,12 +50,13 @@ export async function onRequestGet(context) {
   if (new URL(request.url).searchParams.get('v') === '1') {
     let updated = null;
     try { updated = env.BFR_KV ? await env.BFR_KV.get('debt:updated') : null; } catch {}
-    return json({ success: true, updated });
+    return json({ success: true, updated: updated ? updated + '|' + DEBT_CACHE_VER : null });
   }
 
   // ตราประทับรอบอัพหนี้ล่าสุด → แปะหัว X-Debt-Updated ให้หน้าบ้านจำเทียบรอบหน้า
   let debtUpdated = null;
   try { debtUpdated = env.BFR_KV ? await env.BFR_KV.get('debt:updated') : null; } catch {}
+  const debtStamp = debtUpdated ? debtUpdated + '|' + DEBT_CACHE_VER : null;
 
   // 1) แหล่งหลัก: KV (ฉบับล่าสุดจาก /api/debt-import — รายสัญญาครบ)
   if (env.BFR_KV) {
@@ -61,18 +67,15 @@ export async function onRequestGet(context) {
           let rows = JSON.parse(raw);
           if (!Array.isArray(rows)) rows = [];
           if (wantBranch) {
-            rows = rows.filter(r => {
-              const b = String((r && r.branch) || '').trim();
-              if (!b) return true; // แถวเก่า (ก่อน sync สาขาลงคลัง) รวมไว้ก่อน กันซ่อนหนี้
-              return b === wantBranch;
-            });
+            // ล็อกตามสาขาแบบเข้ม: แถวที่ไม่รู้สาขา (ข้อมูลเก่า) ต้องไม่หลุดให้สาขาอื่นเห็น
+            rows = rows.filter(r => String((r && r.branch) || '').trim() === wantBranch);
           }
           return new Response(JSON.stringify(rows), {
             headers: {
               'Content-Type': 'application/json; charset=utf-8',
               'Cache-Control': 'no-cache',
               'X-Debt-Source': 'kv',
-              ...(debtUpdated ? { 'X-Debt-Updated': debtUpdated } : {}),
+              ...(debtStamp ? { 'X-Debt-Updated': debtStamp } : {}),
             },
           });
         } catch (e) {

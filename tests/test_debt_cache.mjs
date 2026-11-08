@@ -21,9 +21,9 @@ const req = (qs) => new Request('https://baacroute.shop/api/debt-data' + qs, { h
 
 let r = await onRequestGet({ request: req('?v=1'), env });
 let j = await r.json();
-ok('?v=1 -> updated stamp', r.status === 200 && j.success && j.updated === '2026-10-18T01:00:00Z');
+ok('?v=1 -> updated stamp', r.status === 200 && j.success && j.updated === '2026-10-18T01:00:00Z|b2');
 r = await onRequestGet({ request: req(''), env });
-ok('full has X-Debt-Updated', r.headers.get('X-Debt-Updated') === '2026-10-18T01:00:00Z');
+ok('full has X-Debt-Updated', r.headers.get('X-Debt-Updated') === '2026-10-18T01:00:00Z|b2');
 ok('full rows intact', (await r.json()).length === 1);
 r = await onRequestGet({ request: new Request('https://baacroute.shop/api/debt-data?v=1'), env });
 ok('?v=1 no token -> 401', r.status === 401);
@@ -46,9 +46,9 @@ const sandbox = {
     }),
   },
   fetch: async (url) => {
-    if (String(url).includes('?v=1')) return { ok: true, json: async () => ({ success: true, updated: '2026-10-18T01:00:00Z' }), headers: { get: () => null } };
+    if (String(url).includes('?v=1')) return { ok: true, json: async () => ({ success: true, updated: '2026-10-18T01:00:00Z|b2' }), headers: { get: () => null } };
     fullFetches++;
-    return { ok: true, clone: () => ({ json: async () => FULL }), json: async () => FULL, headers: { get: (h) => h === 'X-Debt-Updated' ? '2026-10-18T01:00:00Z' : (h === 'X-Debt-Source' ? 'kv' : null) } };
+    return { ok: true, clone: () => ({ json: async () => FULL }), json: async () => FULL, headers: { get: (h) => h === 'X-Debt-Updated' ? '2026-10-18T01:00:00Z|b2' : (h === 'X-Debt-Source' ? 'kv' : null) } };
   },
   API: { baseUrl: () => '', headers: () => ({}) },
   Auth: { getUser: () => ({ id: 'wtc01' }) },
@@ -60,7 +60,7 @@ const D = sandbox.DebtDB;
 
 await D.load();
 ok('1st load: full fetch + stamp + cache', fullFetches === 1 && D._byCif.size === 1 && D._fromCache === false
-  && sandbox.localStorage.getItem('bfr_debt_updated') === 'wtc01|2026-10-18T01:00:00Z' && cache.size === 1);
+  && sandbox.localStorage.getItem('bfr_debt_updated') === 'wtc01|2026-10-18T01:00:00Z|b2' && cache.size === 1);
 D._loaded = false;
 await D.load();
 ok('2nd load: cache hit, no full fetch', fullFetches === 1 && D._fromCache === true && D._byCif.size === 1);

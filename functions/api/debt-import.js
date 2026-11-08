@@ -345,6 +345,19 @@ export async function onRequestPost(context) {
       (rows.results || []).forEach(r => current.set(r.cif, r));
     }
 
+    // เติมสาขาให้แถวที่ไฟล์ไม่มีคอลัมน์สาขา — ใช้สาขาเดิมใน D1 (กันแถวไม่มีป้ายหลุดข้ามสาขา)
+    let branchFilled = 0;
+    for (const row of debtRows) {
+      if (String(row.branch || '').trim()) continue;
+      const cur = current.get(String(row.cif));
+      const b = cur && cur.branch ? String(cur.branch).trim() : '';
+      if (b) {
+        row.branch = b;
+        if (summaries[row.cif]) summaries[row.cif].branch = b;
+        branchFilled++;
+      }
+    }
+
     // เทียบทีละ CIF → เขียนเฉพาะที่เปลี่ยนจริง (เท่าเดิม = ข้าม ไม่เปลืองโควต้า)
     let updated = 0;
     let added = 0;
@@ -480,6 +493,12 @@ export async function onRequestPost(context) {
     }
     const kvMerged = new Map();
     for (const r of kvPrev) if (r && r.cif != null) kvMerged.set(String(r.cif), r);
+    // แถวใหม่ที่ยังไม่มีสาขา → ใช้สาขาของแถวเดิมในคลัง (กันเขียนทับป้ายสาขาด้วยค่าว่าง)
+    for (const r of debtRows) {
+      if (String(r.branch || '').trim()) continue;
+      const prev = kvMerged.get(String(r.cif));
+      if (prev && String(prev.branch || '').trim()) { r.branch = String(prev.branch).trim(); branchFilled++; }
+    }
     for (const r of debtRows) kvMerged.set(String(r.cif), r);
     let kvDropped = 0;
     for (const cif of [...kvMerged.keys()]) {
@@ -492,6 +511,8 @@ export async function onRequestPost(context) {
     }
     const kvFinal = [...kvMerged.values()];
     const kvKept = kvFinal.length - debtRows.length;
+    // แถวที่ยังไม่รู้สาขา = พนักงานจะไม่เห็น (admin ยังเห็น) — โชว์ในผลอัพเพื่อไม่ให้หายเงียบ
+    const kvNoBranch = kvFinal.filter(r => !String((r && r.branch) || '').trim()).length;
 
     // โหมดวิเคราะห์: ตอบอย่างเดียว ไม่เขียน D1/KV ไม่นับโควต้า
     if (dryrun) {
@@ -506,6 +527,8 @@ export async function onRequestPost(context) {
         will_skip_identical: skipped,
         will_clear: cleared,
         kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped,
+        branch_filled: branchFilled,
+        kv_no_branch: kvNoBranch,
         field_diff: fieldTh,
         estimated_writes: estimatedWrites,
         quota,
@@ -564,6 +587,8 @@ export async function onRequestPost(context) {
       skipped_identical: skipped,
       cleared,
       kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped, kv_backup: kvBackup,
+      branch_filled: branchFilled,
+      kv_no_branch: kvNoBranch,
       field_diff: Object.fromEntries(Object.entries(fieldDiff).map(([f, n]) => [FIELD_TH[f] || f, n])),
       estimated_writes: estimatedWrites,
       quota: quotaAfter,

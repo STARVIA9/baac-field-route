@@ -643,6 +643,7 @@ const Storage = {
   KEY_VISITS: 'bfr_visits',
   KEY_SYNC_TIME: 'bfr_last_sync',
   KEY_SERVER_TIME: 'bfr_server_time',
+  KEY_USER_TIME: 'bfr_user_time',
   KEY_SAVED_ROUTES: 'bfr_saved_routes',
   KEY_OVERLAY_TIME: 'bfr_overlay_time',
 
@@ -1338,7 +1339,8 @@ const Storage = {
         this._notifyListeners({ status: 'syncing' });
         const res = await API.syncAll(this._buildPayload());
         if (res && res.success) {
-          localStorage.setItem(this.KEY_SERVER_TIME, res.serverTime);
+          // ไม่เขียนทับ KEY_SERVER_TIME ด้วยเวลาของ push — ตัวชี้ต้องเป็นเวลาของ "ข้อมูลที่ดึงล่าสุด"
+          // ไม่งั้นเครื่องนี้จะข้ามข้อมูลที่คนอื่นแก้ก่อนกดบันทึก (และหยุดดึงของใหม่)
           localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
           this._markRoutesSynced();   // ส่งสำเร็จแล้ว → จำลายเซ็นคลัง ไม่ต้องส่งซ้ำจนกว่าจะเปลี่ยน
           this._notifyListeners({ status: 'synced', serverTime: res.serverTime });
@@ -1404,6 +1406,7 @@ const Storage = {
         if (res && res.success) {
           this._mergeRemote(res);
           localStorage.setItem(this.KEY_SERVER_TIME, res.serverTime);
+          if (res.userUpdatedAt) localStorage.setItem(this.KEY_USER_TIME, res.userUpdatedAt);
           localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
           this._notifyListeners({
             status: 'synced',
@@ -1496,6 +1499,7 @@ const Storage = {
     const tick = async () => {
       try {
         const lastServer = localStorage.getItem(this.KEY_SERVER_TIME);
+        const lastUser = localStorage.getItem(this.KEY_USER_TIME);
         const probeOverlay = localStorage.getItem(this.KEY_OVERLAY_TIME);
 
         // ===== ขั้น 1: ตรวจเบา ๆ =====
@@ -1507,7 +1511,8 @@ const Storage = {
             if (p && p.success) {
               const overlayChanged = !!(p.overlayUpdatedAt && p.overlayUpdatedAt !== probeOverlay);
               const newer = !!(p.serverTime && (!lastServer || p.serverTime > lastServer));
-              hasNew = overlayChanged || newer;
+              const userChanged = !!(p.userUpdatedAt && p.userUpdatedAt !== lastUser);
+              hasNew = overlayChanged || newer || userChanged;
             }
           }
         } catch (e) { /* probe ล้มเหลว → ลองทางเต็มแทน */ }
@@ -1529,10 +1534,12 @@ const Storage = {
               if (n > 0) changed = true;
               else localStorage.setItem(this.KEY_OVERLAY_TIME, data.overlayUpdatedAt);
             }
-            if (data.serverTime && data.serverTime !== lastServer) {
+            const userChangedNow = !!(data.userUpdatedAt && data.userUpdatedAt !== localStorage.getItem(this.KEY_USER_TIME));
+            if ((data.serverTime && data.serverTime !== lastServer) || userChangedNow) {
               // Merge delta directly from poll response (don't call pull — returns empty customers)
               this._mergeRemote(data);
-              localStorage.setItem(this.KEY_SERVER_TIME, data.serverTime);
+              if (data.serverTime) localStorage.setItem(this.KEY_SERVER_TIME, data.serverTime);
+              if (data.userUpdatedAt) localStorage.setItem(this.KEY_USER_TIME, data.userUpdatedAt);
               localStorage.setItem(this.KEY_SYNC_TIME, new Date().toISOString());
               changed = true;
             }
