@@ -1,7 +1,7 @@
 // Harness: probe/full คืน serverTime เดียวกัน + userUpdatedAt แยก
 // + /api/debt-data ล็อกสาขาเข้ม (แถวไม่รู้สาขาต้องไม่หลุดให้สาขาอื่น)
 // รัน: node tests/test_sync_cursor.mjs
-import { onRequestGet as syncGet } from '../functions/api/sync.js';
+import { onRequestGet as syncGet, onRequestPost as syncPost } from '../functions/api/sync.js';
 import { onRequestGet as debtGet } from '../functions/api/debt-data.js';
 import { signHS256 } from '../functions/_lib/jwt.js';
 
@@ -74,7 +74,30 @@ const ok = (name, cond, extra = '') => { console.log((cond ? 'PASS ' : 'FAIL ') 
   ok('full counts ยังถูก', full.counts && full.counts.customers === 9130, JSON.stringify(full.counts));
 }
 
-// ---------- 2) debt-data แยกสาขา ----------
+// ---------- 2) POST กรองคีย์ visit ที่ไม่ใช่ลูกค้า ----------
+{
+  const store = kv({ 'visits:user:staff1': JSON.stringify({ c1: { status: 'x', timestamp: '2026-06-01T00:00:00Z' } }) });
+  const env = { BFR_JWT_SECRET: SECRET, BFR_DB: d1(), BFR_KV: store };
+  const token = await signHS256({ sub: 'u1', username: 'staff1', role: 'user', branch: 'WTC', exp: Math.floor(Date.now() / 1000) + 3600 }, SECRET);
+  const body = {
+    customers: [], savedRoutes: [],
+    visits: {
+      c1: { status: 'x', timestamp: '2026-06-02T00:00:00Z' },
+      'gps-seed-1': { status: 'y', timestamp: '2026-06-02T00:00:00Z' },
+      db_4641892: { status: 'visited', timestamp: '2026-11-09T00:00:00Z' },
+    },
+  };
+  const res = await syncPost({
+    request: new Request('https://x/api/sync', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    env,
+  });
+  const j = await res.json();
+  const kvVisits = JSON.parse(await store.get('visits:user:staff1'));
+  ok('POST ตัดคีย์ทดสอบออก', Object.keys(j.visits).join(',') === 'db_4641892', Object.keys(j.visits).join(','));
+  ok('KV ไม่เก็บคีย์ทดสอบ', Object.keys(kvVisits).join(',') === 'db_4641892', Object.keys(kvVisits).join(','));
+}
+
+// ---------- 3) debt-data แยกสาขา ----------
 {
   const rows = [
     { cif: '1001', branch: '854', total_debt: 1 },

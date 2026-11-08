@@ -65,6 +65,8 @@ async function readVisitsList(env, visitsKey, user) {
   try {
     const raw = await env.BFR_KV.get(visitsKey);
     if (raw && raw !== '{}') visits = JSON.parse(raw);
+    // ซ่อนคีย์ที่ไม่ใช่ลูกค้า (ขยะทดสอบ) ไม่ให้ขึ้นในรายการ/ถูก merge กลับ
+    for (const k of Object.keys(visits || {})) if (!isCustomerVisitKey(k)) delete visits[k];
   } catch (e) { visits = {}; }
 
   // ถ้ายังว่าง → ลอง migrate จาก visits:all
@@ -158,9 +160,20 @@ function mergeById(existing, incoming) {
 }
 
 // Merge visits (object keyed by customerId)
+// visit ต้องผูกกับลูกค้าเท่านั้น — db_<cif> (ปัจจุบัน) หรือเลข CIF เดิม
+// กันคีย์ทดสอบ/ขยะ (c1, gps-seed-..., UUID) ถูก push กลับเข้าคลังหลังล้างแล้ว
+function isCustomerVisitKey(k) {
+  return /^(db_)?\d{3,}$/.test(String(k || ''));
+}
+
 function mergeVisits(existing, incoming) {
-  const merged = { ...existing };
+  const merged = {};
+  // เริ่มจากของเดิมเฉพาะคีย์ที่เป็นลูกค้า (ขยะเก่าจะหลุดออกเมื่อผู้ใช้ push รอบถัดไป)
+  for (const [cid, v] of Object.entries(existing || {})) {
+    if (isCustomerVisitKey(cid)) merged[cid] = v;
+  }
   for (const [cid, visit] of Object.entries(incoming)) {
+    if (!isCustomerVisitKey(cid)) continue;
     const old = merged[cid];
     if (!old) {
       merged[cid] = visit;
