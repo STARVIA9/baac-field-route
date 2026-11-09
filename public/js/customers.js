@@ -731,6 +731,9 @@ const Customers = {
         <button class="pin-btn pin-btn-new" onclick="Customers._addNewAtLocation(${lat}, ${lng})">
           ➕ เพิ่มลูกค้าใหม่
         </button>
+        <a class="pin-btn pin-btn-street" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat.toFixed(6)},${lng.toFixed(6)}" target="_blank" rel="noopener">
+          🛣 เปิด Google Street View
+        </a>
       </div>
     `;
     document.body.appendChild(panel);
