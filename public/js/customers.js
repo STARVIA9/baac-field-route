@@ -889,7 +889,7 @@ const Customers = {
     if (customers.length === 0) {
       const msg = searchQuery
         ? `ไม่พบลูกค้าที่ตรงกับ "${searchQuery}"`
-        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม';
+        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>เพิ่มลูกค้า</strong> มุมขวาล่าง';
       list.innerHTML = `<p class="empty-state">${msg}</p>`;
       return;
     }

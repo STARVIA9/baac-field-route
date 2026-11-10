@@ -889,7 +889,7 @@ const Customers = {
     if (customers.length === 0) {
       const msg = searchQuery
         ? `ไม่พบลูกค้าที่ตรงกับ "${searchQuery}"`
-        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>＋</strong> มุมขวาล่างเพื่อเพิ่ม';
+        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>เพิ่มลูกค้า</strong> มุมขวาล่าง';
       list.innerHTML = `<p class="empty-state">${msg}</p>`;
       return;
     }
@@ -3554,8 +3554,12 @@ const App = {
     // (change-password ลบแล้ว 17 ต.ค.69 — เหลือ PIN อย่างเดียว)
 
     // === Sheet tabs ===
+    // แท็บเล็ต (≥768px): แตะแท็บแล้วเปิดแผงทำงานเต็มจอทันที — เดิมเปิดแค่ครึ่งจอในการ์ดมุมขวา
     document.querySelectorAll('.sheet-tab').forEach(t => {
-      t.addEventListener('click', () => this.switchSheetTab(t.dataset.sheet));
+      t.addEventListener('click', () => {
+        this.switchSheetTab(t.dataset.sheet);
+        if (window.matchMedia('(min-width: 768px)').matches) this.setSheetState('full');
+      });
     });
 
     // Customer search
@@ -3648,10 +3652,19 @@ const App = {
   initBottomSheet() {
     const sheet = document.getElementById('bottom-sheet');
     if (!sheet) return;
+    // กันผูกซ้ำ: afterLogin() ถูกเรียกทุกครั้งที่ล็อกอิน/สลับผู้ใช้โดยไม่รีโหลด
+    // ถ้าผูกซ้ำ การแตะแถบจับจะสลับสองรอบ (peek→full) จนเหมือนกดไม่ติด
+    if (sheet.dataset.sheetBound === '1') return;
+    sheet.dataset.sheetBound = '1';
 
-    // Click handle to toggle peek/half
+    // Click handle to toggle: มือถือ peek↔half · แท็บเล็ต (≥768px) peek↔full
     document.getElementById('sheet-handle').addEventListener('click', (e) => {
       e.stopPropagation();
+      const isWide = window.matchMedia('(min-width: 768px)').matches;
+      if (isWide) {
+        this.setSheetState(sheet.classList.contains('sheet-full') ? 'peek' : 'full');
+        return;
+      }
       if (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full')) {
         this.setSheetState('peek');
       } else {
@@ -3665,12 +3678,10 @@ const App = {
 
     const _readTransform = (el) => {
       const m = window.getComputedStyle(el).transform;
-      if (m && m !== 'none') {
-        const vals = m.split(/[(),\s]+/).filter(v => v !== '');
-        const idx = m.startsWith('matrix3d') ? 13 : 5;
-        return parseFloat(vals[idx]) || 0;
-      }
-      return 0;
+      if (!m || m === 'none') return 0;
+      // อ่านระยะเลื่อนแกน Y ให้ถูกทั้ง matrix และ matrix3d
+      // (เดิม hard-code index 5 = translateX → ได้ 0 เสมอ ทำให้ลากแผงแล้วเด้งกลับ)
+      try { return new DOMMatrixReadOnly(m).m42 || 0; } catch (e) { return 0; }
     };
 
     const onStart = (e) => {

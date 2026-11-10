@@ -1282,6 +1282,9 @@ body:has(.bottom-sheet.sheet-peek) .map-fab   { bottom: calc(180px + env(safe-ar
 body:has(.bottom-sheet.sheet-half) .map-fab   { bottom: calc(52vh + env(safe-area-inset-bottom, 0px)); }
 body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-area-inset-bottom, 0px)); }
 
+/* เปิด modal อยู่ → ซ่อนปุ่มลอย (เดิมปุ่ม + ลอยทับฉากหลังที่มืดอยู่) */
+body:has(.modal:not(.hidden)) .map-fab { display: none; }
+
 .map-fab .fab {
   pointer-events: auto;
 }
@@ -1415,6 +1418,9 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
 .bottom-sheet.sheet-half { transform: translateY(var(--sheet-half-y)); }
 .bottom-sheet.sheet-full { transform: translateY(0); }
 .bottom-sheet.sheet-collapsed { transform: translateY(var(--sheet-collapsed-y)); }
+
+/* แผงเต็มจอ = กำลังทำงานในแผง → ซ่อนการ์ดตัวกรองแผนที่ ไม่ให้ถูกตัดค้างเป็นเศษที่ขอบบน */
+body:has(.bottom-sheet.sheet-full) #map-debt-filter { display: none; }
 
 /* Sheet Handle — improved touch target */
 .sheet-handle {
@@ -3616,8 +3622,14 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
   }
   /* แท็บแผงล่างบนมือถือ: ย่อลงให้ครบ 5 ตัวพอดีจอ 360px (ยังเลื่อนแนวนอนได้ถ้าจอเล็กมาก) */
   .sheet-tab {
-    padding: var(--sp-3) var(--sp-2);
+    padding: var(--sp-3) 6px;
     font-size: 12px;
+  }
+  /* ไอคอนแท็บเล็กลงนิด + ไม่ต้องเว้นขวา (flex gap เว้นให้แล้ว) กันแถบแท็บล้นจอ */
+  .sheet-tab .icon {
+    width: 15px;
+    height: 15px;
+    margin-right: 0;
   }
   /* ซ่อนชื่อเต็ม เหลือแค่ไอคอน — ประหยัดพื้นที่ header */
   .logo-text {
@@ -3663,15 +3675,85 @@ body:has(.bottom-sheet.sheet-full) .map-fab   { bottom: calc(88vh + env(safe-are
     to { opacity: 1; transform: scale(1); }
   }
 
+  /* แท็บเล็ต/เดสก์ท็อป: แผงทำงานเต็มความกว้าง (ไม่ใช่การ์ดลอยมุมขวาแบบเดิม)
+     — เดิม max-width 420px + right/bottom offset ทำให้บนแท็บเล็ตเห็นแค่กล่องเล็ก ๆ
+       ที่มุมขวาล่าง อ่านและกดยาก · ตอนนี้กว้างเต็มจอ (จำกัด 1080px แล้วจัดกลาง) */
   .bottom-sheet {
-    max-width: 420px;
-    left: auto;
-    right: var(--sp-4);
-    bottom: var(--sp-4);
-    border-radius: var(--radius-xl);
-    max-height: 70dvh;
-    --sheet-h: 70dvh;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 1080px;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+    max-height: 90dvh;
+    --sheet-h: 90dvh;
   }
+
+  /* แท็บทั้ง 5 อยู่ในแถวเดียว ไม่ต้องเลื่อนแนวนอนซ่อนแท็บสุดท้าย */
+  .sheet-tabs {
+    justify-content: center;
+    padding: 0 var(--sp-4);
+  }
+
+  .sheet-tab {
+    font-size: 15px;
+    padding: var(--sp-3) var(--sp-5);
+    min-height: 52px;
+  }
+
+  .sheet-tab .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sheet-content {
+    width: 100%;
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: var(--sp-5);
+    font-size: 16px;   /* 50+ อ่านบนแท็บเล็ตระยะแขน — ใหญ่ขึ้นจาก 15px */
+  }
+
+  .sheet-handle {
+    min-height: 52px;
+  }
+
+  .sheet-handle-bar {
+    width: 56px;
+    height: 6px;
+  }
+
+  /* แผงเต็มจอ = ชั้นหน้าสุดของหน้า — ยกเหนือการ์ดตัวกรองแผนที่ (z 700) แต่ยังใต้ FAB (1100) */
+  .bottom-sheet.sheet-full {
+    z-index: 750;
+  }
+
+  /* modal ต้องอยู่เหนือแผงที่ยกขึ้นมา 750 (เดิม 200 → เปิดฟอร์มเพิ่มลูกค้าแล้วโดนแผงบัง) */
+  .modal {
+    z-index: 900;
+  }
+
+  /* ปุ่มลอย: ซ่อนเฉพาะปุ่มแผนที่ (ตำแหน่ง/ซูม) — เก็บปุ่ม ＋ เพิ่มลูกค้าไว้มุมขวาล่างของแผง
+     right ต้องอิงขอบขวาของแผง (ไม่ใช่ขอบจอ) ไม่งั้นจอ >1080px ปุ่มจะล้ำออกนอกแผง */
+  body:has(.bottom-sheet.sheet-full) .map-fab {
+    bottom: calc(var(--safe-bottom) + 24px);
+    right: max(var(--sp-4), calc((100vw - 1080px) / 2 + var(--sp-5)));
+  }
+
+  body:has(.bottom-sheet.sheet-full) .map-fab .fab-secondary,
+  body:has(.bottom-sheet.sheet-full) .map-fab .zoom-stack {
+    display: none;
+  }
+
+  /* แผงเกือบเต็มจอ: ปุ่มควบคุมบนแผนที่ถูกตัดครึ่งที่ขอบบน — ซ่อนไปเลย (เก็บ attribution ไว้) */
+  body:has(.bottom-sheet.sheet-full) .leaflet-top {
+    display: none;
+  }
+
 
   .app-header {
     padding: var(--sp-3) var(--sp-4);
@@ -4754,6 +4836,8 @@ html {
   .debt-summary { background: #242b24; }
   .debt-summary .debt-val { color: #f1f1e9; }
   .debt-summary.debt-urgent { background: #3a2424; }
+  /* การ์ดลูกค้า: แถบหนี้ overdue เดิมเป็นชมพูอ่อน+ตัวอักษรสว่าง = อ่านไม่ออกในโหมดมืด */
+  .customer-debt.debt-urgent { background: #3a2424; color: #f1f1e9; }
   .debt-contract { border-color: #44483d; }
   .debt-contract .dc-no { color: #f1f1e9; }
   .debt-contract .dc-line { color: #d5d9cc; }
