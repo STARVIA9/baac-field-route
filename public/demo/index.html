@@ -22,10 +22,11 @@
   <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   
-  <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=12eeb59edf" as="style">
-  <link rel="preload" href="js/vendor.js?v=1b05c04306" as="script">
-  <link rel="preload" href="js/app.bundle.js?v=ded1481aad" as="script">
+  <!-- Preload critical resources (absolute paths — Cloudflare แปลงเป็น Link: preload header
+       ตาม URL นี้ ถ้าเป็น path สัมพัทธ์ หน้า /demo/ จะโดนดึงซ้ำวนไม่จบ) -->
+  <link rel="preload" href="/css/app.css?v=12eeb59edf" as="style">
+  <link rel="preload" href="/js/vendor.js?v=1b05c04306" as="script">
+  <link rel="preload" href="/js/app.bundle.js?v=ded1481aad" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>

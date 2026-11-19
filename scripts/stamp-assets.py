@@ -15,7 +15,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUB = os.path.join(ROOT, 'public')
 INDEX = os.path.join(PUB, 'index.html')
-PATTERN = re.compile(r'((?:href|src)=")((?:js|css)/[^"?]+)(?:\?v=[^"]*)?(")')
+PATTERN = re.compile(r'((?:href|src)=")(/?)((?:js|css)/[^"?]+)(?:\?v=[^"]*)?(")')
 
 
 def dig(path):
@@ -31,12 +31,12 @@ def main():
     changed = []
 
     def repl(m):
-        pre, rel, post = m.group(1), m.group(2), m.group(3)
+        pre, slash, rel, post = m.group(1), m.group(2), m.group(3), m.group(4)
         fp = os.path.join(PUB, rel)
         if not os.path.isfile(fp):
             return m.group(0)
         v = dig(fp)
-        new = f'{pre}{rel}?v={v}{post}'
+        new = f'{pre}{slash}{rel}?v={v}{post}'
         if new != m.group(0):
             changed.append(rel)
         return new
