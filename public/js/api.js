@@ -48,13 +48,24 @@ const API = {
         if (res.status === 401 && !this.isAuthPath(path)) {
           Auth.logout();
         }
-        throw new Error(`HTTP ${res.status}`);
+        throw await this.errorFromResponse(res);
       }
       return await res.json();
     } catch (err) {
       console.warn(`API POST ${path} failed:`, err.message);
       throw err;
     }
+  },
+
+  // อ่านข้อความ error จากเซิร์ฟเวอร์ (ไทย) แทนการโชว์แค่ "HTTP 409"
+  // 17 พ.ย.69: เดิม API.post/put/del โยนแค่รหัส HTTP — ผู้ใช้เห็น "HTTP 409" ไม่รู้ว่าซ้ำอะไร
+  async errorFromResponse(res) {
+    let msg = '';
+    try {
+      const d = await res.json();
+      msg = (d && (d.error || d.message || d.detail)) || '';
+    } catch { /* body ไม่ใช่ JSON */ }
+    return new Error(msg || `HTTP ${res.status}`);
   },
 
   // ===== Login endpoints =====
@@ -86,7 +97,7 @@ const API = {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await this.errorFromResponse(res);
     return await res.json();
   },
 
@@ -97,7 +108,7 @@ const API = {
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await this.errorFromResponse(res);
     return await res.json();
   },
 

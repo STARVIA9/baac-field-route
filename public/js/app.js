@@ -343,9 +343,35 @@ const App = {
     this.updateAdminUI();
     // Init bottom sheet (map-as-canvas mode)
     this.initBottomSheet();
-    // PERF 20261101a: โหลด CustomerDB + DebtDB ขนานกันทันที (ก่อน TodayUI จะกรอง 9k ราย)
-    // เดิม TodayUI.refresh() วิ่งก่อน DebtDB เสร็จ → เจอ retry 3 รอบ × 2.5วิ = ค้าง
-    const _custPromise = (typeof CustomerDB !== 'undefined' && CustomerDB.load) ? CustomerDB.load().then(() => { try { this._backfillFromCentralDB(); } catch {} }).catch(() => {}) : Promise.resolve();
+    // PERF 20261117: ไม่โหลดฐานรายชื่อทั้งก้อน (11,785 แถว ~6MB) ตอนเปิดแอปอีกต่อไป
+    // → โหลดเมื่อผู้ใช้เปิดแท็บลูกค้า/ค้นหา/เปิดการ์ด (CustomerDB.ensure) แล้วค่อย backfill พิกัดให้
+    const _custPromise = Promise.resolve();
+    if (typeof CustomerDB !== 'undefined' && CustomerDB.ensure) {
+      document.addEventListener('customerdb:loaded', () => {
+        try { this._backfillFromCentralDB(); } catch {}
+      }, { once: true });
+    }
+
+    // 17 พ.ย.69: เครื่องที่เคยดึงลูกค้าแค่ 10,000 (เพดานเดิม) → เติมให้ครบตามยอดจริงในเซิร์ฟเวอร์
+    // (เดิมเกจขึ้น "952/10,000" เพราะในเครื่องมีแค่ 10,000 จาก 11,785)
+    if (typeof Storage !== 'undefined' && Storage.importFromStaticDB) {
+      const _topUp = async () => {
+        try {
+          const st = await API.get('/api/customers/stats');
+          if (!st || !st.success || !st.total_customers) return;
+          const have = Storage.getActiveCustomers().length;
+          if (have > 0 && have < st.total_customers) {
+            const r = await Storage.importFromStaticDB();
+            if (r && r.imported > 0) {
+              if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
+              if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📥 เติมลูกค้าให้ครบ ${r.imported.toLocaleString()} ราย`);
+            }
+          }
+        } catch { /* เงียบ — ลองใหม่รอบหน้า */ }
+      };
+      if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_topUp, { timeout: 5000 });
+      else setTimeout(_topUp, 3000);
+    }
     const _debtPromise = (typeof DebtDB !== 'undefined' && DebtDB.load) ? DebtDB.load().then(() => {
         if (typeof Customers !== 'undefined' && Customers.initDebtFilter) Customers.initDebtFilter();
         if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
@@ -1144,6 +1170,13 @@ const App = {
           results.innerHTML = '';
           return;
         }
+        // 17 พ.ย.69: ฐานรายชื่อโหลดเมื่อจำเป็น — พิมพ์ค้นหาครั้งแรกจึงดึง แล้วค้นต่อให้อัตโนมัติ
+        if (typeof CustomerDB !== 'undefined' && !CustomerDB._loaded) {
+          results.innerHTML = '<div class="db-search-hint">⏳ กำลังโหลดฐานรายชื่อ...</div>';
+          results.classList.add('active');
+          CustomerDB.ensure().then(() => { try { input.dispatchEvent(new Event('input')); } catch (e) {} });
+          return;
+        }
         const matches = CustomerDB.search(q, 15);
         if (matches.length === 0) {
           results.innerHTML = '<div class="db-search-hint">❌ ไม่พบข้อมูล</div>';
@@ -1751,6 +1784,40 @@ const App = {
     if (btnOptimize) btnOptimize.disabled = false;
     this.renderTodayRoute();
     this.updateRouteDebtSummary(routeCustomers);
+    if (!routeCustomers || routeCustomers.length === 0) this.hidePlanQuick();
+  },
+
+  // สรุปสั้นบนสุดของแท็บวางแผน — ให้เห็น "ได้อะไร" ก่อนเลื่อนลงไปดูรายละเอียด
+  // เลื่อนไปยังการ์ด "สรุปหนี้ตามแผน" (รายละเอียด) ในแท็บวางแผน
+  scrollToDebtSummary() {
+    const el = document.getElementById('route-debt-summary');
+    if (!el || el.classList.contains('hidden')) { Utils.toast('ยังไม่มีแผน — กดจัดแผนก่อนค่ะ'); return; }
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  hidePlanQuick() {
+    const q = document.getElementById('plan-quick');
+    if (q) q.classList.add('hidden');
+    for (const id of ['pq-km', 'pq-min']) {
+      const n = document.getElementById(id);
+      if (n) n.textContent = '—';
+    }
+  },
+
+  updatePlanQuick(nums) {
+    const q = document.getElementById('plan-quick');
+    if (!q || !nums) return;
+    const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
+    const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
+    set('pq-count', nums.count + ' ราย');
+    set('pq-debt', fmt(nums.debt));
+    set('pq-m15', nums.m15 > 0 ? fmt(nums.m15) : '—');
+    const more = document.getElementById('pq-more');
+    if (more && !more.dataset.bound) {
+      more.dataset.bound = '1';
+      more.addEventListener('click', (e) => { e.preventDefault(); this.scrollToDebtSummary(); });
+    }
+    q.classList.remove('hidden');
   },
 
   // สรุปหนี้สำหรับแผน (ถ้าออกตามแผนจะได้ตามหนี้ประเภทไหน ต้นเงินคงเป็นหนี้เท่าไหร่ สำรองประเภทไหน ดอกเบี้ย 15 เดือน ผลงานเท่าไหร่)
@@ -1760,6 +1827,7 @@ const App = {
     if (!routeCustomers || routeCustomers.length === 0) {
       el.classList.add('hidden');
       el.innerHTML = '';
+      this.hidePlanQuick();
       return;
     }
     // รอ DebtDB โหลด
@@ -1904,19 +1972,28 @@ const App = {
     html += '</div>';
     el.innerHTML = html;
     el.classList.remove('hidden');
+    this.updatePlanQuick({ count: routeCustomers.length, debt: totalDebt, m15: m15Total });
   },
 
   // Calculate route
   // useTSP = false (default) = use the manual order from chips
   // useTSP = true = call TSP.plan() to auto-optimize (opt-in)
-  async calculateRoute(useTSP = false) {
+  async calculateRoute(useTSP = false, opts = {}) {
     const route = Storage.getRoute();
     if (route.length === 0) return;
     const start = Route.getStartCoords();
     const end = Route.getEndCoords();
 
-    // Manual order (default) or TSP optimize (opt-in)
-    const ordered = useTSP ? TSP.plan(start, route, end) : route;
+    // Manual order (default) or auto-optimize on real road distances (opt-in)
+    let ordered = route;
+    if (useTSP) {
+      try {
+        ordered = await Route.optimizeOrder(start, route, end);
+      } catch (err) {
+        console.warn('optimizeOrder (OSRM table) ล้มเหลว → ใช้ haversine TSP แทน', err);
+        ordered = TSP.plan(start, route, end);
+      }
+    }
 
     // 🎯 TSP คิดลำดับใหม่ → บันทึกกลับเป็น "เส้นทางวันนี้"
     // เดิม: ลำดับใหม่ถูกใช้คำนวณครั้งเดียวแล้วหายไป → ชิปด้านบนกับแท็บ "เข้าพบ" ยังเรียงเก่า (ขัดกับผลที่โชว์)
@@ -1933,7 +2010,30 @@ const App = {
       result.autoOrdered = reordered;
       result.autoOrderTried = useTSP;
       Route.showResult(result);
-      this.switchTab('map'); // show route on map
+      // อัปเดตระยะทาง/เวลาในสรุปสั้นบนสุดของแท็บวางแผน
+      const kmEl = document.getElementById('pq-km');
+      const minEl = document.getElementById('pq-min');
+      if (kmEl) kmEl.textContent = (result.distance / 1000).toFixed(1) + ' กม.';
+      if (minEl) minEl.textContent = result.duration ? Math.round(result.duration / 60) + ' น.' : '—';
+      // เลื่อนแผงวางแผนขึ้นบนสุด เพื่อให้เห็นสรุปสั้นทันทีที่กลับมา
+      try {
+        const pane = document.getElementById('tab-planvisit');
+        const sc = pane && pane.closest ? pane.closest('.sheet-scroll') : null;
+        if (sc) sc.scrollTop = 0;
+      } catch (e) { /* ignore */ }
+      if (opts && opts.focusSummary) {
+        // กด "จัด" → พาไปหน้าสรุปทันที (ไม่ต้องไปดูแผนที่ก่อน)
+        this.switchSheetTab('planvisit');
+        this.setSheetState('half');
+        requestAnimationFrame(() => {
+          const sc = document.querySelector('.sheet-scroll');
+          if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' });
+          const q = document.getElementById('plan-quick');
+          if (q) { q.classList.add('flash'); setTimeout(() => q.classList.remove('flash'), 1600); }
+        });
+      } else {
+        this.switchTab('map'); // show route on map
+      }
       const routeType = result.isOpenPath ? ' (เปิด)' : '';
       const tspNote = reordered ? ' · 🎯 จัดลำดับให้ใหม่แล้ว' : (useTSP ? ' · ลำดับเดิมสั้นที่สุดอยู่แล้ว' : '');
       Utils.toast(`✅ เส้นทาง${routeType}${tspNote} — ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
@@ -1943,12 +2043,15 @@ const App = {
   // ===== Admin: Show/hide admin button based on role =====
   updateAdminUI() {
     const isAdmin = Auth.isAdmin();
+    const canManage = (typeof Auth.canManage === 'function') ? Auth.canManage() : isAdmin;
     const userBtn = document.getElementById('admin-users-btn');
     const dataBtn = document.getElementById('admin-data-btn');
-    if (userBtn) userBtn.style.display = isAdmin ? '' : 'none';
+    // ⚙️ จัดการระบบ = แอดมินกลาง + ผู้ดูแลสาขา · ข้อมูลลูกค้าเต็ม (/admin.html) = แอดมินกลางเท่านั้น
+    if (userBtn) userBtn.style.display = canManage ? '' : 'none';
     if (dataBtn) dataBtn.style.display = isAdmin ? '' : 'none';
     // ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
     // ซ่อน dropdown สาขาทันทีตั้งแต่เปิด (ค่าถูกล็อกใน refreshBranchOptions อีกชั้น)
+    // ผู้ดูแลสาขาก็ถูกล็อกสาขาเหมือนพนักงาน — ไม่เห็นข้อมูลข้ามสาขา
     if (!isAdmin) {
       for (const id of ['map-branch-filter', 'customer-branch']) {
         const s = document.getElementById(id);
@@ -1962,9 +2065,40 @@ const App = {
     const modal = document.getElementById('admin-users-modal');
     modal.classList.remove('hidden');
 
+    // ===== ขอบเขตสิทธิ์: แอดมินกลางเห็นทุกสาขา · ผู้ดูแลสาขาเห็นเฉพาะสาขาตัวเอง =====
+    const isSuperAdmin = Auth.isAdmin();
+    const myBranch = (typeof Auth.myBranch === 'function') ? Auth.myBranch() : '';
+    // ซ่อนแท็บที่ผู้ดูแลสาขาใช้ไม่ได้ (เพิ่มสาขา / PIN แอดมินกลาง / สุขภาพระบบ)
+    for (const key of ['branches', 'pin', 'health']) {
+      const btn = modal.querySelector(`.admin-tab[data-admin-tab="${key}"]`);
+      if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+    }
+    const roleGroup = document.getElementById('new-role-group');
+    if (roleGroup) roleGroup.style.display = isSuperAdmin ? '' : 'none';
+    const scopeHint = document.getElementById('admin-scope-hint');
+    if (scopeHint) {
+      if (isSuperAdmin) {
+        scopeHint.style.display = 'none';
+      } else {
+        const bName = (Auth.getUser() || {}).branchName || myBranch;
+        scopeHint.style.display = '';
+        scopeHint.textContent = `🏢 คุณเป็นผู้ดูแลสาขา — จัดการได้เฉพาะผู้ใช้ของ${bName}เท่านั้น`;
+      }
+    }
+    // ซ่อนกล่องนำเข้า/ส่งออกข้อมูลลูกค้า (แอดมินกลางเท่านั้น)
+    modal.querySelectorAll('.admin-import-section, .admin-export-section').forEach(el => {
+      el.style.display = isSuperAdmin ? '' : 'none';
+    });
+    if (!isSuperAdmin) {
+      // กลับไปแท็บผู้ใช้เสมอ (กันค้างแท็บที่ถูกซ่อน)
+      modal.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.adminTab === 'users'));
+      modal.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.toggle('active', p.id === 'admin-tab-users'));
+    }
+
     // Tab switching
     modal.querySelectorAll('.admin-tab').forEach(tab => {
       tab.onclick = () => {
+        if (tab.style.display === 'none') return;
         modal.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
         modal.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
@@ -1991,14 +2125,29 @@ const App = {
     } catch (e) {
       console.warn('Failed to load branches:', e);
     }
+    // ผู้ดูแลสาขา: ล็อกสาขาเป็นของตัวเอง (เซิร์ฟเวอร์บังคับซ้ำอีกชั้น)
+    if (!isSuperAdmin) {
+      const mine = (window._adminBranches || []).find(b => b.code === myBranch);
+      branchSelect.innerHTML = '';
+      const opt = document.createElement('option');
+      opt.value = myBranch;
+      opt.textContent = (mine && mine.name) || myBranch;
+      branchSelect.appendChild(opt);
+      branchSelect.value = myBranch;
+      branchSelect.disabled = true;
+    } else {
+      branchSelect.disabled = false;
+    }
 
     // Load data
     await this.loadAdminUsers();
-    await this.loadAdminBranches();
+    if (isSuperAdmin) {
+      await this.loadAdminBranches();
+      this.loadAdminHealth();
+      const healthBtn = document.getElementById('health-refresh');
+      if (healthBtn && !healthBtn.dataset.bound) { healthBtn.dataset.bound = '1'; healthBtn.onclick = () => this.loadAdminHealth(true); }
+    }
     await this.loadAdminViews();
-    this.loadAdminHealth();
-    const healthBtn = document.getElementById('health-refresh');
-    if (healthBtn && !healthBtn.dataset.bound) { healthBtn.dataset.bound = '1'; healthBtn.onclick = () => this.loadAdminHealth(true); }
 
     // สมุดคุม: พิมพ์ชื่อ user แล้วกด Enter เพื่อกรอง
     const viewsFilter = document.getElementById('admin-views-filter');
@@ -2028,11 +2177,17 @@ const App = {
 
       try {
         const body = { username, displayName, branch };
+        // สิทธิ์: เลือกได้เฉพาะแอดมินกลาง (ฟอร์มซ่อนสำหรับผู้ดูแลสาขา)
+        const roleGroupEl = document.getElementById('new-role-group');
+        const roleSel = document.getElementById('new-role');
+        if (roleGroupEl && roleGroupEl.style.display !== 'none' && roleSel) body.role = roleSel.value || 'user';
         if (pin) body.pin = pin;
         const res = await API.post('/api/admin/users', body);
         if (res.success) {
           Utils.toast(`✅ สร้างผู้ใช้ "${displayName}" สำเร็จ`);
           document.getElementById('admin-add-user-form').reset();
+          if (roleSel) roleSel.value = 'user';
+          if (branchSelect.disabled) branchSelect.value = myBranch;
           await this.loadAdminUsers();
         }
       } catch (err) {
@@ -2163,6 +2318,58 @@ const App = {
     const lastUpdate = document.getElementById('debt-last-update-time');
 
     if (!uploadBtn || !fileInput) return;
+
+    // ปุ่มตรวจสอบยอดกับฐานข้อมูล (KV vs D1) — ใช้เป็นตาข่ายกันข้อมูลเพี้ยน
+    const verifyBtn = document.getElementById('debt-verify-btn');
+    const verifyBox = document.getElementById('debt-verify-result');
+    if (verifyBtn && !verifyBtn.dataset.bound) {
+      verifyBtn.dataset.bound = '1';
+      verifyBtn.onclick = async () => {
+        verifyBtn.disabled = true;
+        if (verifyBox) verifyBox.innerHTML = '⏳ กำลังตรวจสอบ...';
+        try {
+          const r = await API.get('/api/admin/debt-verify');
+          const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง' };
+          const lines = Object.keys(r.per_branch || {}).map(b => {
+            const v = r.per_branch[b];
+            const bad = Math.abs(v.diff_baht) > 1 || v.d1_n !== v.kv_n;
+            const sign = v.diff_baht > 0 ? 'เกิน' : (v.diff_baht < 0 ? 'ขาด' : 'ตรง');
+            return `<div style="${bad ? 'color:#b45309;font-weight:600' : ''}">${bad ? '⚠️' : '✅'} ${names[b] || ('สาขา ' + b)}: การ์ด ${v.kv_n.toLocaleString()} ราย · ${Number(v.kv_baht).toLocaleString()} บาท`
+              + (bad ? ` — ต่างจากฐานข้อมูล ${sign} ${Math.abs(Number(v.diff_baht)).toLocaleString()} บาท` : ' — ตรง') + '</div>';
+          }).join('');
+          const ghost = r.ghost_count > 0
+            ? `<div style="margin-top:6px;color:#b45309">🧹 พบแถวค้างที่ฐานข้อมูลลบแล้ว ${r.ghost_count.toLocaleString()} ราย (${Number(r.ghost_baht).toLocaleString()} บาท)`
+              + ` <button type="button" id="debt-verify-fix" style="margin-left:6px;background:#b45309;color:#fff;border:none;border-radius:6px;padding:4px 10px">ลบแถวค้าง</button></div>`
+            : '';
+          if (verifyBox) verifyBox.innerHTML = (r.ok ? '✅ ยอดตรงกับฐานข้อมูลทุกสาขา' : '⚠️ ยอดยังไม่ตรง') + '<br>' + lines + ghost
+            + `<div style="margin-top:6px;font-size:12px;color:#666">ตรวจเมื่อ ${new Date(r.checked_at).toLocaleString('th-TH')}</div>`;
+          const fix = document.getElementById('debt-verify-fix');
+          if (fix) fix.onclick = async () => {
+            if (!confirm('ลบแถวค้างออกจากคลังการ์ดหนี้? (ระบบสำรองก่อนลบ)')) return;
+            fix.disabled = true;
+            try {
+              const res = await API.post('/api/admin/debt-verify', { fix_ghosts: true });
+              Utils.toast(`🧹 ลบแถวค้าง ${res.removed} ราย — ${res.ok ? 'ยอดตรงแล้ว' : 'ยังไม่ตรง ดูรายละเอียด'}`, res.ok ? 'success' : 'error');
+              verifyBtn.click();
+            } catch (e) { Utils.toast(e.message || 'ลบไม่สำเร็จ', 'error'); fix.disabled = false; }
+          };
+        } catch (e) {
+          if (verifyBox) verifyBox.innerHTML = `❌ ตรวจไม่สำเร็จ: ${e.message}`;
+        } finally { verifyBtn.disabled = false; }
+      };
+    }
+
+    // แจ้งขอบเขต: ผู้ดูแลสาขาอัพได้เฉพาะไฟล์ของสาขาตัวเอง (แถวสาขาอื่นถูกข้าม)
+    const scopeHint = document.getElementById('debt-scope-hint');
+    if (scopeHint) {
+      if (Auth.isAdmin()) {
+        scopeHint.style.display = 'none';
+      } else {
+        const bName = (Auth.getUser() || {}).branchName || Auth.myBranch();
+        scopeHint.style.display = '';
+        scopeHint.textContent = `🏢 อัปโหลดได้เฉพาะข้อมูลของ${bName} — แถวสาขาอื่นในไฟล์จะถูกข้ามอัตโนมัติ`;
+      }
+    }
 
     // โหลดวันที่อัปเดตหนี้ล่าสุด
     this.loadDebtLastUpdate();
@@ -2307,6 +2514,9 @@ const App = {
       + (data.will_clear > 0 ? ` · 🧹 หมดหนี้: <strong>${data.will_clear.toLocaleString()}</strong> ราย` : '')
       + `<br>⏭️ เท่าเดิมข้าม: <strong>${data.will_skip_identical.toLocaleString()}</strong> ราย (ไม่เปลืองโควต้า)<br>`
       + `🛡️ คลังการ์ดหนี้หลังอัพ: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย (คงเดิม ${(data.kv_kept || 0).toLocaleString()} · เอาออก ${(data.kv_dropped || 0).toLocaleString()})<br>`
+      + (data.ignored_other_branch > 0 ? `⏭️ ข้ามแถวสาขาอื่น: <strong>${data.ignored_other_branch.toLocaleString()}</strong> แถว<br>` : '')
+      + (data.ignored_no_branch > 0 ? `⚠️ แถวไม่ระบุสาขา (ข้าม): <strong>${data.ignored_no_branch.toLocaleString()}</strong> แถว<br>` : '')
+      + (data.clear_skipped ? `🛡️ ${data.clear_skipped}<br>` : '')
       + `💾 รอบนี้จะเขียน ~<strong>${data.estimated_writes.toLocaleString()}</strong> แถว`;
     const fds = data.field_diff || {};
     const keys = Object.keys(fds);
@@ -2317,6 +2527,31 @@ const App = {
     document.getElementById('debt-confirm-btn').textContent = `✅ ยืนยันอัพข้อมูล (~${data.estimated_writes.toLocaleString()} แถว)`;
     document.getElementById('debt-preview').style.display = 'block';
     document.getElementById('debt-preview').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  // แสดงผลตรวจสอบยอดหลังอัพ (KV กับ D1 ต้องตรงกันทุกสาขา)
+  renderDebtVerify(data) {
+    if (!data || data.verify_ok === null || data.verify_ok === undefined || !data.verify) return '';
+    const keys = Object.keys(data.verify);
+    if (!keys.length) return '';
+    if (data.verify_ok) {
+      return `<div style="margin-top:6px;color:#0a7c34;font-weight:600">✅ ตรวจแล้ว: ยอดในคลังการ์ดหนี้ตรงกับฐานข้อมูลทุกสาขา</div>`;
+    }
+    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง' };
+    const rows = keys
+      .filter(b => Math.abs((data.verify[b].diff_baht || 0)) > 1 || data.verify[b].d1_n !== data.verify[b].kv_n)
+      .map(b => {
+        const v = data.verify[b];
+        const d = Number(v.diff_baht || 0);
+        const sign = d > 0 ? 'เกิน' : 'ขาด';
+        return `• สาขา ${names[b] || b}: การ์ด ${v.kv_n.toLocaleString()} ราย / ฐานข้อมูล ${v.d1_n.toLocaleString()} ราย · ยอด${sign} ${Math.abs(d).toLocaleString()} บาท`;
+      });
+    const body = rows.length ? rows.join('<br>') : keys.map(b => {
+      const v = data.verify[b];
+      return `• สาขา ${names[b] || b}: ${v.kv_n.toLocaleString()} ราย · ${Number(v.kv_baht || 0).toLocaleString()} บาท`;
+    }).join('<br>');
+    return `<div style="margin-top:6px;padding:8px;border-radius:8px;background:#fff4e5;color:#8a4b00;text-align:left">
+      <b>⚠️ ยอดยังไม่ตรงกัน — อย่าปิดหน้านี้ก่อนแจ้งแอดมิน</b><br>${body}</div>`;
   },
 
   // ===== Debt Import: ยืนยันอัพจริง =====
@@ -2357,6 +2592,10 @@ const App = {
         + `🛡️ คลังการ์ดหนี้: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย`
         + (data.kv_backup ? ` (สำรองก่อนอัพไว้ที่ ${data.kv_backup})` : '')
         + `<br>`
+        + (data.ignored_other_branch > 0 ? `⏭️ ข้ามแถวสาขาอื่น: <strong>${data.ignored_other_branch.toLocaleString()}</strong> แถว<br>` : '')
+        + (data.ignored_no_branch > 0 ? `⚠️ แถวไม่ระบุสาขา (ข้าม): <strong>${data.ignored_no_branch.toLocaleString()}</strong> แถว<br>` : '')
+        + (data.clear_skipped ? `🛡️ ${data.clear_skipped}<br>` : '')
+        + this.renderDebtVerify(data)
         + (data.quota ? `📝 โควต้าวันนี้เหลือ <strong>${data.quota.remaining.toLocaleString()}</strong> แถว` : '');
 
       resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
@@ -2409,9 +2648,11 @@ const App = {
   },
 
   // ===== Debt KV: รายชื่อสำรอง + ปุ่มกู้คืน (ระบบกันหาย 17 ต.ค.69) =====
+  // กู้คืนทั้งคลังทุกสาขา = แอดมินกลางเท่านั้น
   async loadDebtRestore() {
     const el = document.getElementById('debt-restore');
     if (!el) return;
+    if (!Auth.isAdmin()) { el.innerHTML = ''; return; }
     try {
       const token = Auth.getToken();
       const res = await fetch('/api/admin/debt-restore', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -2502,15 +2743,22 @@ const App = {
       this._adminUsers = res.users;   // จำไว้ให้ปุ่ม export ใช้ (ไม่ยิง API ซ้ำ)
       const cnt = document.getElementById('admin-users-count');
       if (cnt) cnt.textContent = `ทั้งหมด ${res.users.length} คน`;
+      const me = Auth.getUser() || {};
+      const isSuperAdmin = Auth.isAdmin();
+      const roleBadge = (r) => r === 'admin' ? '👑 แอดมินกลาง' : (r === 'branch_admin' ? '🏢 ผู้ดูแลสาขา' : '👤 พนักงาน');
+      // สิทธิ์ปุ่มต่อคน — เซิร์ฟเวอร์บังคับซ้ำ (นี่แค่ซ่อนปุ่มที่กดแล้วจะโดนปฏิเสธ)
+      const canPin = (u) => u.role !== 'admin' && (isSuperAdmin || u.role === 'user' || u.id === me.id);
+      const canClear = (u) => u.hasPin && (isSuperAdmin || u.id === me.id);
+      const canDelete = (u) => u.id !== me.id && (isSuperAdmin || u.role === 'user');
       listEl.innerHTML = res.users.map(u => `
         <div class="admin-user-card">
           <div class="admin-user-info">
             <span class="admin-user-name">${this.escapeHTML(u.displayName)}</span>
-            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${u.role === 'admin' ? '👑 Admin' : '👤 User'} · ${u.pin ? ('🔑PIN ' + this.escapeHTML(u.pin)) : (u.hasPin ? '🔑มี PIN (เก่า)' : '— ไม่มี PIN')}</span>
+            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${roleBadge(u.role)} · ${u.pin ? ('🔑PIN ' + this.escapeHTML(u.pin)) : (u.hasPin ? '🔑มี PIN (เก่า)' : '— ไม่มี PIN')}</span>
           </div>
-          ${u.role !== 'admin' ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.openStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}', '${u.pin || ''}')">🔑</button>` : ''}
-          ${u.role !== 'admin' && u.hasPin ? `<button class="btn-icon-sm" title="ปิด login ด้วย PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🚫</button>` : ''}
-          <button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>
+          ${canPin(u) ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.openStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}', '${u.pin || ''}')">🔑</button>` : ''}
+          ${canClear(u) ? `<button class="btn-icon-sm" title="ปิด login ด้วย PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🚫</button>` : ''}
+          ${canDelete(u) ? `<button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>` : ''}
         </div>
       `).join('');
     } catch (err) {
@@ -3156,25 +3404,9 @@ const MapSearch = {
       return;
     }
 
-    // Collapse bottom sheet to show full map
-    if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
-
-    // Fly to marker + open popup (reuse Customers pattern)
-    if (typeof Customers !== 'undefined' && Customers.map) {
-      Customers.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
-      setTimeout(() => {
-        if (Customers.markers && Customers.markers[c.id]) {
-          Customers.map.openPopup(Customers.markers[c.id]);
-        } else if (Customers.markers) {
-          // Try by cif
-          for (const [mid, m] of Object.entries(Customers.markers)) {
-            if (mid === c.id || String(mid) === String(c.id || c.cif)) {
-              Customers.map.openPopup(m);
-              break;
-            }
-          }
-        }
-      }, 900);
+    // พาไปพิกัด + เด้งการ์ดลูกหนี้ที่จุดนั้น (ท่าเดียวกับปุ่ม 📍 บนการ์ดลูกค้า)
+    if (typeof Customers !== 'undefined' && Customers.locateCustomer && Customers.map) {
+      Customers.locateCustomer(c.id);
     }
 
     this._clear();

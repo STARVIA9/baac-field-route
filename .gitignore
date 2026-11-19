@@ -7,3 +7,9 @@ dist/
 .env.local
 .wrangler/
 tunnel-url.txt
+
+# backups มีข้อมูลลูกค้า (PII) — ห้าม commit
+backups/
+
+# ไฟล์สำรองตอน build (vendor.js.bak.*) — เก็บในเครื่องพอ
+public/js/*.bak.*

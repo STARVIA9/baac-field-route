@@ -20,7 +20,10 @@ const DebtDB = {
     } catch {}
     return 'anon';
   },
-  _cacheKey() { return API.baseUrl() + '/api/debt-data?scope=' + encodeURIComponent(this._cacheScope()); },
+  _cacheKey(branch) {
+    const base = API.baseUrl() + '/api/debt-data?scope=' + encodeURIComponent(this._cacheScope());
+    return branch ? base + '&branch=' + encodeURIComponent(branch) : base;
+  },
   _stamp() { try { return localStorage.getItem(this.KEY_DEBT_UPDATED) || ''; } catch { return ''; } },
   _saveStamp(v) { try { if (v) localStorage.setItem(this.KEY_DEBT_UPDATED, v); } catch {} },
 
@@ -50,17 +53,34 @@ const DebtDB = {
     try {
       if (typeof caches === 'undefined' || !copy) return;
       const c = await caches.open(this.CACHE_STORE);
-      for (const k of await c.keys()) { if (k.url !== key) await c.delete(k); }
+      // 17 พ.ย.69: เก็บแยกตามสาขาได้ (scope เดียวกันหลายคีย์) — ลบเฉพาะของ scope/สาขาที่เก่าซ้ำ
+      const scopeTag = key.split('?scope=')[1] || '';
+      for (const r of await c.keys()) {
+        if (r.url === key) continue;
+        if (scopeTag && r.url.indexOf('?scope=' + scopeTag.split('&')[0]) >= 0) await c.delete(r);
+      }
       await c.put(key, copy);
     } catch {}
   },
 
   _fill(data, tag) {
+    // ชั้นป้องกันสุดท้าย: คนที่ไม่ใช่แอดมินกลาง ต้องเห็นเฉพาะสาขาตัวเองเท่านั้น
+    // (ข้อมูลอาจมาจากแคช/คลังรวม — กรองซ้ำฝั่งเครื่องก่อนใช้เสมอ)
+    let rows = Array.isArray(data) ? data : [];
+    try {
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      const own = (typeof Auth !== 'undefined' && Auth.getUser) ? String((Auth.getUser() || {}).branch || '').trim() : '';
+      if (!isSuper && own) {
+        const before = rows.length;
+        rows = rows.filter(r => String((r && r.branch) || '').trim() === own);
+        if (before !== rows.length) console.warn(`[DebtDB] กรองข้อมูลต่างสาขาออก ${before - rows.length} ราย`);
+      }
+    } catch { /* ถ้า Auth อ่านไม่ได้ ใช้ข้อมูลเดิม */ }
     this._byCif = new Map();
-    for (const r of data) this._byCif.set(r.cif, r);
+    for (const r of rows) this._byCif.set(r.cif, r);
     this._loaded = true;
     this._loadedAt = Date.now();
-    console.log(`[DebtDB] Loaded ${data.length} customers` + tag);
+    console.log(`[DebtDB] Loaded ${rows.length} customers` + tag);
   },
 
   async load() {
@@ -68,29 +88,13 @@ const DebtDB = {
     if (this._loading) return false;
     this._loading = true;
     try {
-      // โหลดจาก API (อ่าน KV ที่อัปเดตล่าสุดจาก /api/debt-import → fallback static เดิม)
-      const key = this._cacheKey();
-      const want = this._cacheScope() + '|' + (await this._serverVersion());
-      // เวอร์ชันตรงกับที่จำไว้ → ใช้ของในเครื่อง ไม่โหลด 7MB ใหม่ (เฟส 2)
-      if (want && this._stamp() === want) {
-        const cached = await this._readCache(key);
-        if (cached) {
-          this._fromCache = true;
-          this._fill(cached, ' (จากแคชในเครื่อง — ข้อมูลหนี้ไม่เปลี่ยน)');
-          this._loading = false;
-          return true;
-        }
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      // 17 พ.ย.69: แอดมินกลางโหลดทีละสาขา (เริ่มจากสาขาของตัวเอง) แทนการโหลดทุกสาขา ~10MB
+      if (isSuper && typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) {
+        await this._loadAdminPrimary();
+      } else {
+        await this._loadScope('', '/api/debt-data', {});
       }
-      this._fromCache = false;
-      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
-      if (!res.ok) throw new Error('Failed to load debt data');
-      const copy = res.clone();
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('debt data not array');
-      const up = res.headers.get('X-Debt-Updated');
-      if (up) this._saveStamp(this._cacheScope() + '|' + up);
-      await this._writeCache(key, copy);
-      this._fill(data, res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : '');
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
       this._byCif = new Map();
@@ -99,23 +103,119 @@ const DebtDB = {
     return this._loaded;
   },
 
+  // โหลดชุดเดียว (ไม่ระบุสาขา = ตามสิทธิ์ผู้ใช้) — ใช้ทั้งผู้ใช้ทั่วไปและแอดมินกรณีโหลดรวม
+  async _loadScope(branch, url, headers, force) {
+    const key = this._cacheKey(branch);
+    const want = this._cacheScope() + '|' + (await this._serverVersion());
+    if (!force && want && this._stamp() === want) {
+      const cached = await this._readCache(key);
+      if (cached) {
+        this._fromCache = true;
+        this._fill(cached, ' (จากแคชในเครื่อง — ข้อมูลหนี้ไม่เปลี่ยน)');
+        return true;
+      }
+    }
+    this._fromCache = false;
+    const res = await fetch(url, { headers: API.headers() });
+    if (!res.ok) throw new Error('Failed to load debt data');
+    const copy = res.clone();
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('debt data not array');
+    const up = res.headers.get('X-Debt-Updated');
+    if (up) this._saveStamp(this._cacheScope() + '|' + up);
+    await this._writeCache(key, copy);
+    this._fill(data, res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : '');
+    return true;
+  },
+
+  // แอดมิน: โหลดเฉพาะสาขาหลักก่อน (เร็ว) แล้วค่อยโหลดสาขาอื่นเมื่อจำเป็น
+  async _loadAdminPrimary() {
+    let stats = null;
+    try {
+      const r = await fetch(API.baseUrl() + '/api/customers/stats', { headers: API.headers() });
+      const j = await r.json();
+      if (j && j.success) stats = j;
+    } catch { /* ไม่ได้ stats ก็ใช้ค่าเริ่มต้น */ }
+    this._stats = stats;
+    if (!stats) {
+      // อ่าน stats ไม่ได้ (เน็ต/สิทธิ์) → ถอยไปโหลดแบบเดิมทั้งก้อน ดีกว่าหน้าว่าง
+      return this._loadScope('', API.baseUrl() + '/api/debt-data', {});
+    }
+    const rowsB = (stats && stats.by_branch) || [];
+    this._branchesAll = rowsB.filter(b => (+b.with_debt || 0) > 0).map(b => String(b.branch));
+    this._branchesLoaded = new Set();
+    const own = String((Auth.getUser() || {}).branch || '').trim();
+    // สาขาหลัก = สาขาของผู้ใช้ (ถ้ามีข้อมูล) ไม่งั้นสาขาที่มีลูกค้าหนี้มากสุด
+    let primary = this._branchesAll.indexOf(own) >= 0 ? own : '';
+    if (!primary) {
+      let best = -1;
+      for (const b of rowsB) {
+        const n = +b.with_debt || 0;
+        if (n > best) { best = n; primary = String(b.branch); }
+      }
+    }
+    this._primaryBranch = primary;
+    this._partial = this._branchesAll.length > (primary ? 1 : 0);
+    if (!primary) {
+      this._byCif = new Map();
+      this._loaded = true;
+      this._loadedAt = Date.now();
+      return;
+    }
+    await this._loadScope(primary, API.baseUrl() + '/api/debt-data?branch=' + encodeURIComponent(primary));
+    this._branchesLoaded = new Set([primary]);
+  },
+
+  // โหลดสาขาเพิ่ม (เมื่อผู้ใช้เลือกสาขาที่ยังไม่มีในเครื่อง) — รวมเข้าคลังเดิม
+  async ensureBranch(branch, force) {
+    const b = String(branch || '').trim();
+    if (!b || b === 'ALL') return false;
+    if (!this._branchesLoaded) this._branchesLoaded = new Set();
+    if (!force && this._branchesLoaded.has(b)) return true;
+    try {
+      const res = await fetch(API.baseUrl() + '/api/debt-data?branch=' + encodeURIComponent(b), { headers: API.headers() });
+      if (!res.ok) return false;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return false;
+      if (!this._byCif) this._byCif = new Map();
+      for (const r of rows) this._byCif.set(r.cif, r);
+      this._branchesLoaded.add(b);
+      this._loadedAt = Date.now();
+      this._partial = (this._branchesAll || []).some(x => !this._branchesLoaded.has(x));
+      return true;
+    } catch { return false; }
+  },
+
+  // โหลดทุกสาขาที่ยังขาด (ผู้ใช้เลือก "ทุกสาขา")
+  async loadAllBranches() {
+    const all = this._branchesAll || [];
+    for (const b of all) {
+      if (!this._branchesLoaded || !this._branchesLoaded.has(b)) await this.ensureBranch(b);
+    }
+    this._partial = false;
+    return true;
+  },
+
   // re-fetch ข้อมูลล่าสุด (หลังแอดมินอัพหนี้ใหม่ → หน้าสรุปเห็นเลขใหม่
   // โดยไม่ต้องรีเฟรชหน้า) — ไม่บล็อก ล้มเหลวเงียบ
   async refresh() {
     try {
-      const key = this._cacheKey();
-      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
-      if (!res.ok) return false;
-      const copy = res.clone();
-      const data = await res.json();
-      if (!Array.isArray(data)) return false;
-      const up = res.headers.get('X-Debt-Updated');
-      if (up) this._saveStamp(this._cacheScope() + '|' + up);
-      await this._writeCache(key, copy);
-      this._fromCache = false;
-      this._fill(data, ' (หลังอัพหนี้ใหม่)');
-      console.log(`[DebtDB] Refreshed ${data.length} customers (หลังอัพหนี้ใหม่)`);
-      return true;
+      // 17 พ.ย.69: รีเฟรชเฉพาะสาขาที่โหลดอยู่ (แอดมินไม่ต้องดึงทุกสาขาใหม่ทั้งก้อน)
+      if (this._branchesLoaded && this._branchesLoaded.size) {
+        const list = [...this._branchesLoaded];
+        // ล้างเฉพาะสาขาเหล่านี้จาก memory แล้วโหลดใหม่ (สาขาอื่นที่โหลดไว้ก่อนหน้าคงอยู่)
+        this._branchesLoaded = new Set();
+        for (const b of list) {
+          if (this._byCif) {
+            const rows = [...this._byCif.values()].filter(r => String(r.branch || '').trim() !== b);
+            this._byCif = new Map(rows.map(r => [r.cif, r]));
+          }
+          await this.ensureBranch(b, true);
+        }
+        this._loadedAt = Date.now();
+        return true;
+      }
+      return await this._loadScope('', API.baseUrl() + '/api/debt-data', {}, true);
     } catch (err) {
       console.warn('[DebtDB] refresh failed:', err.message);
       return false;

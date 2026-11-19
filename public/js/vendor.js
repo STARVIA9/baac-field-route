@@ -170,16 +170,17 @@ const Utils = {
   },
 
   // ===== iOS/Android keyboard guard =====
-  // element position:fixed; bottom:X อ้างอิง layout viewport เต็มจอ
+  // ปัญหา: element position:fixed; bottom:X อ้างอิง layout viewport เต็มจอ
   // แต่พอแป้นพิมพ์เปิดบนมือถือ visualViewport หด -> หน้าต่าง/ช่องพิมพ์โดนบัง
-  // แก้: ฟัง visualViewport resize/scroll คำนวณความสูงแป้นพิมพ์ (--kb-h)
-  // + class keyboard-open บน <html> ให้ CSS ยก panel/modal ขึ้นพ้นแป้นพิมพ์
+  // วิธีแก้: ฟัง visualViewport resize/scroll คำนวณความสูงแป้นพิมพ์ (--kb-h)
+  // + ใส่ class keyboard-open บน <html> ให้ CSS ยก panel/modal ขึ้นพ้นแป้นพิมพ์
   initKeyboardGuard() {
     const vv = window.visualViewport;
     if (!vv || typeof vv.addEventListener !== 'function') return; // ไม่ support → ข้าม
     const root = document.documentElement;
     let raf = null;
     const update = () => {
+      // ความสูงแป้นพิมพ์ = layout viewport − visual viewport (bottom-anchored)
       const kb = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
       root.style.setProperty('--kb-h', kb.toFixed(0) + 'px');
       root.classList.toggle('keyboard-open', kb > 60);
@@ -187,15 +188,22 @@ const Utils = {
     vv.addEventListener('resize', () => {
       if (!raf) raf = requestAnimationFrame(() => { raf = null; update(); });
     });
+    // iOS Safari เลื่อน visualViewport เองตอนแป้นพิมพ์เปิด → ฟัง scroll ด้วย
     vv.addEventListener('scroll', update);
+    // กัน focus input แล้ว keyboard ขึ้นช้า (delay ~300ms) คำนวณซ้ำรอบหนึ่ง
     window.addEventListener('focusin', () => setTimeout(update, 350));
     update();
   },
 
-  // ===== Custom confirm dialog (iOS Safari confirm() ไม่แสดงตอนแป้นพิมพ์เปิด) =====
-  // รับ: { title, message, confirmText, cancelText, danger } → Promise<boolean>
+  // ===== Custom confirm dialog =====
+  // ปัญหา: window.confirm() บน iOS Safari/WebKit ไม่แสดงป็อปอัพ
+  // ขณะแป้นพิมพ์ยังเปิดอยู่ (และบางเวอร์ชัน return false ทันทีเงียบๆ)
+  // → ใช้ modal ของแอปเองแทน ใช้ได้ทุกเครื่อง/ทุกจังหวะ
+  // รับ: { title, message, confirmText, cancelText, danger }
+  // คืน: Promise<boolean>
   confirmDialog({ title = 'ยืนยัน', message = '', confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', danger = false } = {}) {
     return new Promise((resolve) => {
+      // ปิดแป้นพิมพ์ก่อน (กัน iOS keyboard ค้างบัง modal ใหม่)
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
       }
@@ -209,6 +217,7 @@ const Utils = {
       t.textContent = title;
       const m = document.createElement('div');
       m.className = 'confirm-msg';
+      // \n ในข้อความ → ขึ้นบรรทัดใหม่ (เลียนแบบ confirm เดิม)
       m.style.whiteSpace = 'pre-line';
       m.textContent = message;
       const btns = document.createElement('div');
@@ -228,6 +237,7 @@ const Utils = {
       overlay.appendChild(card);
       document.body.appendChild(overlay);
 
+      // โฟกัสปุ่มยืนยันให้กด Enter ได้
       setTimeout(() => okBtn.focus(), 50);
 
       const done = (v) => {
@@ -504,6 +514,24 @@ const Auth = {
     return user && user.role === 'admin';
   },
 
+  // ===== ผู้ดูแลสาขา (branch_admin) — จัดการได้เฉพาะคนในสาขาตัวเอง =====
+  isBranchAdmin() {
+    const user = this.getUser();
+    return user && user.role === 'branch_admin';
+  },
+
+  // เข้าเมนู "จัดการระบบ" ได้หรือไม่ (แอดมินกลาง หรือ ผู้ดูแลสาขา)
+  canManage() {
+    const user = this.getUser();
+    return !!user && (user.role === 'admin' || user.role === 'branch_admin');
+  },
+
+  // รหัสสาขาที่ผูกอยู่ (ใช้ล็อก dropdown ของผู้ดูแลสาขา)
+  myBranch() {
+    const user = this.getUser();
+    return (user && user.branch) || '';
+  },
+
   // true = เข้าด้วย PIN (admin PIN / staff PIN) — ไม่มีรหัสผ่านให้เปลี่ยน (16 ต.ค.69)
   // หมายเหตุ: staff ที่ตั้งรหัสครั้งแรกแล้ว login ใหม่จะได้ loginMethod=password เอง
   isPinSession() {
@@ -563,13 +591,24 @@ const API = {
         if (res.status === 401 && !this.isAuthPath(path)) {
           Auth.logout();
         }
-        throw new Error(`HTTP ${res.status}`);
+        throw await this.errorFromResponse(res);
       }
       return await res.json();
     } catch (err) {
       console.warn(`API POST ${path} failed:`, err.message);
       throw err;
     }
+  },
+
+  // อ่านข้อความ error จากเซิร์ฟเวอร์ (ไทย) แทนการโชว์แค่ "HTTP 409"
+  // 17 พ.ย.69: เดิม API.post/put/del โยนแค่รหัส HTTP — ผู้ใช้เห็น "HTTP 409" ไม่รู้ว่าซ้ำอะไร
+  async errorFromResponse(res) {
+    let msg = '';
+    try {
+      const d = await res.json();
+      msg = (d && (d.error || d.message || d.detail)) || '';
+    } catch { /* body ไม่ใช่ JSON */ }
+    return new Error(msg || `HTTP ${res.status}`);
   },
 
   // ===== Login endpoints =====
@@ -601,7 +640,7 @@ const API = {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await this.errorFromResponse(res);
     return await res.json();
   },
 
@@ -612,7 +651,7 @@ const API = {
       headers: this.headers(),
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await this.errorFromResponse(res);
     return await res.json();
   },
 
@@ -759,7 +798,16 @@ const Storage = {
 
   // Returns only non-deleted customers (for UI display)
   getActiveCustomers() {
-    return this.getCustomers().filter(c => !c.deleted);
+    const list = this.getCustomers().filter(c => !c.deleted);
+    // ชั้นป้องกันสุดท้าย (16 พ.ย.69): คนที่ไม่ใช่แอดมินกลาง เห็นเฉพาะสาขาตัวเอง
+    // เหตุผล: ข้อมูลในเครื่อง (IndexedDB) ใช้ร่วมกันทุกบัญชีบนเครื่องเดียว — ถ้าสลับคนใช้แล้วล้างไม่ทัน
+    // รายชื่อสาขาอื่นจะค้างอยู่ · เซิร์ฟเวอร์กรองแล้วชั้นหนึ่ง ที่นี่กรองซ้ำก่อนวาดจอ/คิดเลข
+    try {
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      const own = (typeof Auth !== 'undefined' && Auth.getUser) ? String((Auth.getUser() || {}).branch || '').trim() : '';
+      if (!isSuper && own) return list.filter(c => String(c.branch || '').trim() === own);
+    } catch { /* Auth อ่านไม่ได้ = ใช้รายการเดิม */ }
+    return list;
   },
 
   // ===== S2: Dirty tracking — push เฉพาะรายการที่แก้จริง =====
@@ -842,17 +890,26 @@ const Storage = {
   // This replaces the old fragmented static customers-db.json + KV stores with
   // one D1-backed endpoint. Only records with lat/lng render as map markers.
   async importFromStaticDB() {
-    // Pull full customer list from D1 (single source of truth) — limit 10000
-    // ครอบ 9,132 รายทั้งหมด (ค่าเริ่มต้นเซิร์ฟเวอร์ให้แค่ 5,000 → ข้อมูลแหว่ง)
-    let res;
+    // 17 พ.ย.69: ดึงเป็นหน้า ๆ จนครบ — เดิมขอ limit=10000 ครั้งเดียว แต่ฐานมี 11,785 ราย
+    // → เครื่องมีลูกค้าแค่ 10,000 ทำให้เกจพิกัดขึ้น "952/10,000" และลูกค้าที่เหลือหายจากแผนที่
+    let all = [];
     try {
-      res = await API.get('/api/customers?limit=10000');
+      const PAGE = 10000;
+      let offset = 0;
+      for (let i = 0; i < 8; i++) {
+        const r = await API.get(`/api/customers?limit=${PAGE}&offset=${offset}`);
+        if (!r || !r.success) throw new Error('Failed to load customers from D1');
+        const chunk = r.customers || [];
+        all = all.concat(chunk);
+        if (chunk.length < PAGE) break;
+        if (r.total && all.length >= r.total) break;
+        offset += PAGE;
+      }
     } catch (e) {
       console.warn('[Storage] importFromStaticDB: network error', e.message);
       throw new Error('ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้ — กรุณาตรวจสอบอินเทอร์เน็ต');
     }
-    if (!res || !res.success) throw new Error('Failed to load customers from D1');
-    const db = res.customers || [];
+    const db = all;
 
     // Find existing CIFs to avoid duplicates
     const byCif = new Map(this.getActiveCustomers().map(c => [c.cif, c]).filter(([k]) => k));
@@ -1178,7 +1235,7 @@ const Storage = {
 
   _routeSuffix() { return '_' + this.routeScope(); },
 
-  // สโคป visit: ใช้แค่ username (ตาม user ไม่ว่าใช้เครื่องอะไร — ตรงกับเซิร์ฟเวอร์ visits:user:<who>)
+  // สโคป visit: ใช้แค่ username (ตาม user ไม่ว่าใช้เครื่องอะไร)
   _visitSuffix() { return '_' + this._userId(); },
   _visitsKey() { return this.KEY_VISITS + this._visitSuffix(); },
 
@@ -1827,10 +1884,22 @@ const CustomerDB = {
       const doLoad = async () => {
         try {
           // Security: read from authed API instead of public static JSON
-          const res = await fetch(API.baseUrl() + '/api/customers?limit=10000', { headers: API.headers() });
-          if (!res.ok) throw new Error('Failed to load customer database');
-          const payload = await res.json();
-          this._data = Array.isArray(payload.customers) ? payload.customers : [];
+          // 17 พ.ย.69: ดึงเป็นหน้า ๆ จนครบ — เดิมขอ limit=10000 ครั้งเดียว แต่ฐานมี 11,785 ราย
+          // → ลูกค้าที่เหลือหลุดจากฐานรายชื่อ ทำให้หน้าสรุปหนี้ตัดยอดทิ้ง (ยอดขาด ~394 ล้าน)
+          const PAGE = 10000;
+          let all = [];
+          let offset = 0;
+          for (let page = 0; page < 6; page++) {
+            const res = await fetch(API.baseUrl() + `/api/customers?limit=${PAGE}&offset=${offset}`, { headers: API.headers() });
+            if (!res.ok) throw new Error('Failed to load customer database');
+            const payload = await res.json();
+            const chunk = Array.isArray(payload.customers) ? payload.customers : [];
+            all = all.concat(chunk);
+            if (chunk.length < PAGE) break;
+            offset += PAGE;
+            if (payload.total && all.length >= payload.total) break;
+          }
+          this._data = all;
           // Build CIF index
           this._byCif = new Map();
           for (const r of this._data) {
@@ -1838,6 +1907,7 @@ const CustomerDB = {
           }
           this._loaded = true;
           console.log(`[CustomerDB] Loaded ${this._data.length} customers`);
+          try { document.dispatchEvent(new CustomEvent('customerdb:loaded')); } catch { /* ignore */ }
         } catch (err) {
           console.warn('[CustomerDB] Load failed:', err.message);
           this._data = [];
@@ -1854,6 +1924,13 @@ const CustomerDB = {
       }
     });
     return this._loadPromise;
+  },
+
+  // โหลดเมื่อจำเป็น (17 พ.ย.69): เปิดแอปไม่ต้องโหลดฐานรายชื่อทั้งก้อน (11,785 แถว ~6MB)
+  // ค่อยโหลดตอนผู้ใช้เปิดแท็บลูกค้า/ค้นหา/เปิดการ์ด — ตัวเลขสรุปใช้ข้อมูลหนี้ + /api/customers/stats แทน
+  ensure() {
+    if (this._loaded) return Promise.resolve(this._data || []);
+    return this.load();
   },
 
   // Search by CIF or name (fuzzy, returns top N results)
@@ -1943,7 +2020,10 @@ const DebtDB = {
     } catch {}
     return 'anon';
   },
-  _cacheKey() { return API.baseUrl() + '/api/debt-data?scope=' + encodeURIComponent(this._cacheScope()); },
+  _cacheKey(branch) {
+    const base = API.baseUrl() + '/api/debt-data?scope=' + encodeURIComponent(this._cacheScope());
+    return branch ? base + '&branch=' + encodeURIComponent(branch) : base;
+  },
   _stamp() { try { return localStorage.getItem(this.KEY_DEBT_UPDATED) || ''; } catch { return ''; } },
   _saveStamp(v) { try { if (v) localStorage.setItem(this.KEY_DEBT_UPDATED, v); } catch {} },
 
@@ -1973,17 +2053,34 @@ const DebtDB = {
     try {
       if (typeof caches === 'undefined' || !copy) return;
       const c = await caches.open(this.CACHE_STORE);
-      for (const k of await c.keys()) { if (k.url !== key) await c.delete(k); }
+      // 17 พ.ย.69: เก็บแยกตามสาขาได้ (scope เดียวกันหลายคีย์) — ลบเฉพาะของ scope/สาขาที่เก่าซ้ำ
+      const scopeTag = key.split('?scope=')[1] || '';
+      for (const r of await c.keys()) {
+        if (r.url === key) continue;
+        if (scopeTag && r.url.indexOf('?scope=' + scopeTag.split('&')[0]) >= 0) await c.delete(r);
+      }
       await c.put(key, copy);
     } catch {}
   },
 
   _fill(data, tag) {
+    // ชั้นป้องกันสุดท้าย: คนที่ไม่ใช่แอดมินกลาง ต้องเห็นเฉพาะสาขาตัวเองเท่านั้น
+    // (ข้อมูลอาจมาจากแคช/คลังรวม — กรองซ้ำฝั่งเครื่องก่อนใช้เสมอ)
+    let rows = Array.isArray(data) ? data : [];
+    try {
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      const own = (typeof Auth !== 'undefined' && Auth.getUser) ? String((Auth.getUser() || {}).branch || '').trim() : '';
+      if (!isSuper && own) {
+        const before = rows.length;
+        rows = rows.filter(r => String((r && r.branch) || '').trim() === own);
+        if (before !== rows.length) console.warn(`[DebtDB] กรองข้อมูลต่างสาขาออก ${before - rows.length} ราย`);
+      }
+    } catch { /* ถ้า Auth อ่านไม่ได้ ใช้ข้อมูลเดิม */ }
     this._byCif = new Map();
-    for (const r of data) this._byCif.set(r.cif, r);
+    for (const r of rows) this._byCif.set(r.cif, r);
     this._loaded = true;
     this._loadedAt = Date.now();
-    console.log(`[DebtDB] Loaded ${data.length} customers` + tag);
+    console.log(`[DebtDB] Loaded ${rows.length} customers` + tag);
   },
 
   async load() {
@@ -1991,29 +2088,13 @@ const DebtDB = {
     if (this._loading) return false;
     this._loading = true;
     try {
-      // โหลดจาก API (อ่าน KV ที่อัปเดตล่าสุดจาก /api/debt-import → fallback static เดิม)
-      const key = this._cacheKey();
-      const want = this._cacheScope() + '|' + (await this._serverVersion());
-      // เวอร์ชันตรงกับที่จำไว้ → ใช้ของในเครื่อง ไม่โหลด 7MB ใหม่ (เฟส 2)
-      if (want && this._stamp() === want) {
-        const cached = await this._readCache(key);
-        if (cached) {
-          this._fromCache = true;
-          this._fill(cached, ' (จากแคชในเครื่อง — ข้อมูลหนี้ไม่เปลี่ยน)');
-          this._loading = false;
-          return true;
-        }
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      // 17 พ.ย.69: แอดมินกลางโหลดทีละสาขา (เริ่มจากสาขาของตัวเอง) แทนการโหลดทุกสาขา ~10MB
+      if (isSuper && typeof Auth !== 'undefined' && Auth.getUser && Auth.getUser()) {
+        await this._loadAdminPrimary();
+      } else {
+        await this._loadScope('', '/api/debt-data', {});
       }
-      this._fromCache = false;
-      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
-      if (!res.ok) throw new Error('Failed to load debt data');
-      const copy = res.clone();
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('debt data not array');
-      const up = res.headers.get('X-Debt-Updated');
-      if (up) this._saveStamp(this._cacheScope() + '|' + up);
-      await this._writeCache(key, copy);
-      this._fill(data, res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : '');
     } catch (err) {
       console.warn('[DebtDB] Load failed:', err.message);
       this._byCif = new Map();
@@ -2022,23 +2103,119 @@ const DebtDB = {
     return this._loaded;
   },
 
+  // โหลดชุดเดียว (ไม่ระบุสาขา = ตามสิทธิ์ผู้ใช้) — ใช้ทั้งผู้ใช้ทั่วไปและแอดมินกรณีโหลดรวม
+  async _loadScope(branch, url, headers, force) {
+    const key = this._cacheKey(branch);
+    const want = this._cacheScope() + '|' + (await this._serverVersion());
+    if (!force && want && this._stamp() === want) {
+      const cached = await this._readCache(key);
+      if (cached) {
+        this._fromCache = true;
+        this._fill(cached, ' (จากแคชในเครื่อง — ข้อมูลหนี้ไม่เปลี่ยน)');
+        return true;
+      }
+    }
+    this._fromCache = false;
+    const res = await fetch(url, { headers: API.headers() });
+    if (!res.ok) throw new Error('Failed to load debt data');
+    const copy = res.clone();
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('debt data not array');
+    const up = res.headers.get('X-Debt-Updated');
+    if (up) this._saveStamp(this._cacheScope() + '|' + up);
+    await this._writeCache(key, copy);
+    this._fill(data, res.headers.get('X-Debt-Source') === 'kv' ? ' (from KV)' : '');
+    return true;
+  },
+
+  // แอดมิน: โหลดเฉพาะสาขาหลักก่อน (เร็ว) แล้วค่อยโหลดสาขาอื่นเมื่อจำเป็น
+  async _loadAdminPrimary() {
+    let stats = null;
+    try {
+      const r = await fetch(API.baseUrl() + '/api/customers/stats', { headers: API.headers() });
+      const j = await r.json();
+      if (j && j.success) stats = j;
+    } catch { /* ไม่ได้ stats ก็ใช้ค่าเริ่มต้น */ }
+    this._stats = stats;
+    if (!stats) {
+      // อ่าน stats ไม่ได้ (เน็ต/สิทธิ์) → ถอยไปโหลดแบบเดิมทั้งก้อน ดีกว่าหน้าว่าง
+      return this._loadScope('', API.baseUrl() + '/api/debt-data', {});
+    }
+    const rowsB = (stats && stats.by_branch) || [];
+    this._branchesAll = rowsB.filter(b => (+b.with_debt || 0) > 0).map(b => String(b.branch));
+    this._branchesLoaded = new Set();
+    const own = String((Auth.getUser() || {}).branch || '').trim();
+    // สาขาหลัก = สาขาของผู้ใช้ (ถ้ามีข้อมูล) ไม่งั้นสาขาที่มีลูกค้าหนี้มากสุด
+    let primary = this._branchesAll.indexOf(own) >= 0 ? own : '';
+    if (!primary) {
+      let best = -1;
+      for (const b of rowsB) {
+        const n = +b.with_debt || 0;
+        if (n > best) { best = n; primary = String(b.branch); }
+      }
+    }
+    this._primaryBranch = primary;
+    this._partial = this._branchesAll.length > (primary ? 1 : 0);
+    if (!primary) {
+      this._byCif = new Map();
+      this._loaded = true;
+      this._loadedAt = Date.now();
+      return;
+    }
+    await this._loadScope(primary, API.baseUrl() + '/api/debt-data?branch=' + encodeURIComponent(primary));
+    this._branchesLoaded = new Set([primary]);
+  },
+
+  // โหลดสาขาเพิ่ม (เมื่อผู้ใช้เลือกสาขาที่ยังไม่มีในเครื่อง) — รวมเข้าคลังเดิม
+  async ensureBranch(branch, force) {
+    const b = String(branch || '').trim();
+    if (!b || b === 'ALL') return false;
+    if (!this._branchesLoaded) this._branchesLoaded = new Set();
+    if (!force && this._branchesLoaded.has(b)) return true;
+    try {
+      const res = await fetch(API.baseUrl() + '/api/debt-data?branch=' + encodeURIComponent(b), { headers: API.headers() });
+      if (!res.ok) return false;
+      const rows = await res.json();
+      if (!Array.isArray(rows)) return false;
+      if (!this._byCif) this._byCif = new Map();
+      for (const r of rows) this._byCif.set(r.cif, r);
+      this._branchesLoaded.add(b);
+      this._loadedAt = Date.now();
+      this._partial = (this._branchesAll || []).some(x => !this._branchesLoaded.has(x));
+      return true;
+    } catch { return false; }
+  },
+
+  // โหลดทุกสาขาที่ยังขาด (ผู้ใช้เลือก "ทุกสาขา")
+  async loadAllBranches() {
+    const all = this._branchesAll || [];
+    for (const b of all) {
+      if (!this._branchesLoaded || !this._branchesLoaded.has(b)) await this.ensureBranch(b);
+    }
+    this._partial = false;
+    return true;
+  },
+
   // re-fetch ข้อมูลล่าสุด (หลังแอดมินอัพหนี้ใหม่ → หน้าสรุปเห็นเลขใหม่
   // โดยไม่ต้องรีเฟรชหน้า) — ไม่บล็อก ล้มเหลวเงียบ
   async refresh() {
     try {
-      const key = this._cacheKey();
-      const res = await fetch(API.baseUrl() + '/api/debt-data', { headers: API.headers() });
-      if (!res.ok) return false;
-      const copy = res.clone();
-      const data = await res.json();
-      if (!Array.isArray(data)) return false;
-      const up = res.headers.get('X-Debt-Updated');
-      if (up) this._saveStamp(this._cacheScope() + '|' + up);
-      await this._writeCache(key, copy);
-      this._fromCache = false;
-      this._fill(data, ' (หลังอัพหนี้ใหม่)');
-      console.log(`[DebtDB] Refreshed ${data.length} customers (หลังอัพหนี้ใหม่)`);
-      return true;
+      // 17 พ.ย.69: รีเฟรชเฉพาะสาขาที่โหลดอยู่ (แอดมินไม่ต้องดึงทุกสาขาใหม่ทั้งก้อน)
+      if (this._branchesLoaded && this._branchesLoaded.size) {
+        const list = [...this._branchesLoaded];
+        // ล้างเฉพาะสาขาเหล่านี้จาก memory แล้วโหลดใหม่ (สาขาอื่นที่โหลดไว้ก่อนหน้าคงอยู่)
+        this._branchesLoaded = new Set();
+        for (const b of list) {
+          if (this._byCif) {
+            const rows = [...this._byCif.values()].filter(r => String(r.branch || '').trim() !== b);
+            this._byCif = new Map(rows.map(r => [r.cif, r]));
+          }
+          await this.ensureBranch(b, true);
+        }
+        this._loadedAt = Date.now();
+        return true;
+      }
+      return await this._loadScope('', API.baseUrl() + '/api/debt-data', {}, true);
     } catch (err) {
       console.warn('[DebtDB] refresh failed:', err.message);
       return false;
@@ -2256,26 +2433,47 @@ const DebtSummary = {
     const self = this;
     const data = [...DebtDB._byCif.values()];
 
-    // ===== ตัวกรองสาขา (16 ต.ค.69): ผูกหนี้กับสาขาผ่าน CIF → CustomerDB (ท่าเดียวกับบล็อกเขต)
+    // ===== ตัวกรองสาขา (16 ต.ค.69): ผูกหนี้กับสาขา =====
+    // 17 พ.ย.69: ใช้ป้ายสาขาที่ติดมากับข้อมูลหนี้ก่อน (r.branch) — CustomerDB มีแค่ 10,000 แรก
+    // ทำให้ลูกค้าที่ไม่อยู่ในรายชื่อถูกตัดออกจากยอดรวม (3,126 จาก 3,716 ราย · หาย 394 ล้าน)
     const branchOf = (r) => {
+      const own = String((r && r.branch) || '').trim();
+      if (own) return own;
       const cust = r.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(String(r.cif).trim()) : null;
       return cust && cust.branch ? String(cust.branch).trim() : '';
     };
-    // dropdown เติมจากสาขาที่มีในฐานลูกค้าจริง (ท่าเดียวกับ map-branch-filter)
+    // dropdown เติมจากสาขาที่มีในฐานลูกค้าจริง + สาขาที่คีย์ไว้ทั้งหมดในระบบ (branches:all)
     const brSel = document.getElementById('debt-branch-filter');
+    if (!this._branches) {
+      this._branchesAt = Date.now();
+      try { fetch('/api/branches').then(r => r.json()).then(j => { this._branches = (j && j.branches) || []; this.render(); }).catch(() => {}); } catch { /* ignore */ }
+    }
     if (brSel) {
+      // 17 พ.ย.69: เติมจากทุกแหล่งโดยไม่ต้องรอฐานรายชื่อ — branches:all (สาขาที่คีย์ไว้) + คลังหนี้ + ฐานลูกค้า (ถ้าโหลดแล้ว)
+      const names = {};
+      for (const b of (this._branches || [])) names[String(b.code || '').trim()] = b.name || ('สาขา ' + b.code);
+      const seen = new Set();
+      for (const b of (this._branches || [])) { const c = String(b.code || '').trim(); if (c) seen.add(c); }
+      try { data.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); }); } catch { /* ignore */ }
       if (window.CustomerDB && CustomerDB._loaded) {
-        const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
-        const seen = new Set();
         CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
-        const cur = self.selBranch || 'ALL';
-        brSel.innerHTML = `<option value="ALL">ทุกสาขา</option>` + [...seen].sort().map(b =>
-          `<option value="${b}"${b === cur ? ' selected' : ''}>${names[b] || ('สาขา ' + b)}</option>`).join('');
-        if (cur !== 'ALL' && !seen.has(cur)) self.selBranch = 'ALL';
-        brSel.onchange = () => { self.selBranch = brSel.value || 'ALL'; self.render(); };
-      } else if (window.CustomerDB && !CustomerDB._loaded) {
-        CustomerDB.load().then(() => this.render());
       }
+      const cur = self.selBranch || 'ALL';
+      brSel.innerHTML = `<option value="ALL">ทุกสาขา</option>` + [...seen].sort().map(b =>
+        `<option value="${b}"${b === cur ? ' selected' : ''}>${names[b] || ('สาขา ' + b)}</option>`).join('');
+      if (cur !== 'ALL' && !seen.has(cur)) self.selBranch = 'ALL';
+      brSel.onchange = async () => {
+        self.selBranch = brSel.value || 'ALL';
+        const b = self.selBranch;
+        try {
+          if (b === 'ALL') {
+            if (window.DebtDB && DebtDB.loadAllBranches && DebtDB._partial) await DebtDB.loadAllBranches();
+          } else if (window.DebtDB && DebtDB.ensureBranch) {
+            await DebtDB.ensureBranch(b);
+          }
+        } catch { /* ignore */ }
+        self.render();
+      };
     }
     const B = self.selBranch || 'ALL';
     const fdata = B === 'ALL' ? data : data.filter(r => branchOf(r) === B);
@@ -2284,12 +2482,48 @@ const DebtSummary = {
     const hasGb = fdata.some(r => r.gb === 'GOOD' || r.gb === 'BAD');
 
     // ===== ภาพรวม =====
-    const totalCif = fdata.length;
-    const totalDebt = fdata.reduce((s, r) => s + (+r.total_debt || 0), 0);
+    // 17 พ.ย.69: ตัวเลขหลักยึดจากเซิร์ฟเวอร์ (COUNT/SUM ใน D1) ก่อน — ห้ามขาดแม้โหลดแถวมาไม่ครบ
+    let totalCif = fdata.length;
+    let totalDebt = fdata.reduce((s, r) => s + (+r.total_debt || 0), 0);
+    {
+      const st = this._stats;
+      if (st && st.success) {
+        if (B === 'ALL') {
+          if (typeof st.with_debt === 'number') totalCif = st.with_debt;
+          if (typeof st.debt_total === 'number') totalDebt = st.debt_total;
+        } else {
+          const row = (st.by_branch || []).find(x => String(x.branch) === String(B));
+          if (row) { totalCif = row.with_debt; totalDebt = row.debt_total; }
+        }
+      }
+    }
     const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
     const sub = document.getElementById('debt-summary-sub');
-    if (sub) sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
-      ` · หนี้รวม ${fmt(totalDebt)} บาท` + (B !== 'ALL' ? ` · สาขา ${B}` : '');
+    if (sub) {
+      // 17 พ.ย.69: ตัวเลข "ลูกค้าทั้งหมดของสาขา" มาจากเซิร์ฟเวอร์ (COUNT) — ไม่ต้องโหลดรายชื่อทั้งก้อน
+      let allLine = '';
+      try {
+        const st = this._stats;
+        if (st && st.success) {
+          const b = (B && B !== 'ALL') ? (st.by_branch || []).find(x => String(x.branch) === String(B)) : null;
+          const nAll = b ? b.customers : st.total_customers;
+          if (nAll != null) allLine = ` · ลูกค้าทั้งสาขา ${Number(nAll).toLocaleString('th-TH')} ราย`;
+        }
+      } catch { /* ไม่มีตัวเลขรวมก็ไม่เป็นไร */ }
+      sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
+        ` · หนี้รวม ${fmt(totalDebt)} บาท` + (B !== 'ALL' ? ` · สาขา ${B}` : '') + allLine +
+        ((window.DebtDB && DebtDB._partial) ? ' · ⏳ ทยอยโหลดสาขาอื่น' : '');
+    }
+    // ดึงตัวเลขรวมจากเซิร์ฟเวอร์ครั้งเดียว (ไม่บล็อกการวาด) แล้ววาดใหม่
+    if (!this._stats || (Date.now() - (this._statsAt || 0)) > 300000) {
+      this._statsAt = Date.now();
+      try {
+        fetch(API.baseUrl() + '/api/customers/stats', { headers: API.headers() })
+          .then(r => r.json())
+          .then(j => { if (j && j.success) { this._stats = j; this.render(); } })
+          .catch(() => {});
+      } catch { /* ignore */ }
+    }
 
     // การ์ดภาพรวม
     const ov = document.getElementById('debt-overview-cards');
@@ -2301,21 +2535,35 @@ const DebtSummary = {
       `;
     }
 
-    // ===== แยกตามกลุ่มสี (จาก Customer Indicator via CustomerDB potential) =====
-    // ใช้ debt-data ไม่มี color ตรงๆ -> ใช้ customer list (Storage) หา potential
-    // แต่ summary นี้อิงข้อมูลหนี้เป็นหลัก; เรียงตามชั้นหนี้แทน และให้ block สีใช้จาก Storage
+    // ===== แยกตามกลุ่มสี (เขียว/เหลือง/แดง) =====
+    // แหล่งหลัก: ค่าศักยภาพที่ติดมากับไฟล์ Customer Indicator (r.potential ในคลังการ์ดหนี้)
+    // — อัปไฟล์หนี้รอบใหม่ = สีของทุกสาขา (รวมบ้านสร้าง) ขึ้นทันที ไม่ต้องรอกรอกฐานลูกค้า
+    // แหล่งสำรอง: ฐานลูกค้าเดิม (CustomerDB.potential) สำหรับข้อมูลชุดเก่าที่ยังไม่มีสีในคลังหนี้
     const colorBlock = document.getElementById('debt-color-block');
-    const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
-    const bcust = B === 'ALL' ? customers : customers.filter(c => String(c.branch || '').trim() === B);
     const colorCount = { แดง: 0, เหลือง: 0, เขียว: 0 };
     const colorDebt = { แดง: 0, เหลือง: 0, เขียว: 0 };
-    for (const c of bcust) {
-      const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
-      const p = db ? db.potential : null;
-      if (p && colorCount[p] !== undefined) {
+    let haveDebtColor = false;
+    for (const r of fdata) {
+      const p = String(r.potential || '').trim();
+      if (colorCount[p] !== undefined) {
         colorCount[p]++;
-        const debt = c.cif ? DebtDB.getByCif(c.cif) : null;
-        colorDebt[p] += (debt ? +debt.total_debt || 0 : 0);
+        colorDebt[p] += (+r.total_debt || 0);
+        haveDebtColor = true;
+      }
+    }
+    // 19 พ.ย.69: รายชื่อในเครื่องใช้ทั้งบล็อกสี (สำรอง) และบล็อกสถานะพิกัด —
+    // เดิมประกาศในปีก if (!haveDebtColor) ทำให้ปีกสถานะพิกัดอ้างไม่ได้ (bcust is not defined)
+    const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
+    const bcust = B === 'ALL' ? customers : customers.filter(c => String(c.branch || '').trim() === B);
+    if (!haveDebtColor) {
+      for (const c of bcust) {
+        const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
+        const p = db ? db.potential : null;
+        if (p && colorCount[p] !== undefined) {
+          colorCount[p]++;
+          const debt = c.cif ? DebtDB.getByCif(c.cif) : null;
+          colorDebt[p] += (debt ? +debt.total_debt || 0 : 0);
+        }
       }
     }
     if (colorBlock) {
@@ -2359,21 +2607,21 @@ const DebtSummary = {
       `).join('');
     }
 
-    // ===== แยกตามเขต (zone 1-5 จากฐานลูกค้า ผูกกับหนี้ผ่าน CIF) =====
+    // ===== แยกตามเขต (ใช้ zone ที่ติดมากับข้อมูลหนี้ — ไม่ต้องรอฐานรายชื่อ) =====
     const zoneBlock = document.getElementById('debt-zone-block');
     if (zoneBlock) {
-      if (!window.CustomerDB || !CustomerDB._loaded) {
-        zoneBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
-        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
-      } else {
+      {
         const zoneCount = {};
         const zoneDebt = {};
         const zoneOrder = ['1', '2', '3', '4', '5'];
         for (const r of fdata) {
           if (hasGb && r.gb !== 'GOOD') continue;   // โซนโชว์เฉพาะ Good Bank (ตามไฟล์หนี้)
-          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
-          let z = cust && cust.zone ? String(cust.zone).trim() : '';
-          if (!z) z = 'ไม่ระบุ';   // CIF ไม่มีในฐานลูกค้า หรือ zone ว่าง
+          let z = String((r && r.zone) || '').trim();
+          if (!z && window.CustomerDB && CustomerDB._loaded) {
+            const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+            z = cust && cust.zone ? String(cust.zone).trim() : '';
+          }
+          if (!z) z = 'ไม่ระบุ';
           zoneCount[z] = (zoneCount[z] || 0) + 1;
           zoneDebt[z] = (zoneDebt[z] || 0) + (+r.total_debt || 0);
         }
@@ -2413,22 +2661,14 @@ const DebtSummary = {
     const dueLabel = (self.selMonth && self.selMonth !== 'ALL') ? DebtDB.fmtDate('01/' + self.selMonth) : 'ปีนี้';
     const zdBlock = document.getElementById('debt-zonedue-block');
     if (zdBlock) {
-      if (!window.CustomerDB || !CustomerDB._loaded) {
-        zdBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
-        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
-      } else {
+      {
         const yk = (mmyy) => { const p = String(mmyy).split('/'); return (+p[1]) * 100 + (+p[0]); };
         const FYS = yk('06/2026'), FYE = yk('03/2027');   // ปีบัญชีเดียวกับบล็อกรายเดือน
-        const zc = {}, zfy = {}, zfyD = {}, zm = {}, zmA = {};
-        // ขอบเขตเดือนเกิด 15 เดือนใหม่: เลือกเดือนเดียว → ตรงเดือนนั้น, ทั้งปีบัญชี → มิ.ย.69-มี.ค.70
-        const scopeB15 = (b) => {
-          if (!b) return false;
-          if (self.selMonth && self.selMonth !== 'ALL') return b === self.selMonth;
-          const p = String(b).split('/');
-          return (+p[1]) * 100 + (+p[0]) >= FYS && (+p[1]) * 100 + (+p[0]) <= FYE;
-        };
+        const zc = {}, zfy = {}, zfyD = {};
         const zoneOf = (r) => {
-          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+          const own = String((r && r.zone) || '').trim();
+          if (own) return own;   // ใช้เขตที่ติดมากับข้อมูลหนี้ก่อน (ไม่ต้องพึ่งฐานรายชื่อ)
+          const cust = (window.CustomerDB && CustomerDB._loaded && r.cif) ? CustomerDB.getByCif(String(r.cif).trim()) : null;
           const z = cust && cust.zone ? String(cust.zone).trim() : '';
           return z || 'ไม่ระบุ';
         };
@@ -2446,13 +2686,6 @@ const DebtSummary = {
               zfyD[z] = (zfyD[z] || 0) + (+r.total_debt || 0);
             }
           }
-          // 15 เดือนเกิดใหม่ (b15 จากไฟล์หนี้ — คำนวณ 15-เดือนค้างตั้งแต่ตอนอัพ): นับหนี้รวมทั้งก้อน CIF
-          let new15 = false;
-          for (const c of (r.contracts || [])) { if (scopeB15(c.b15)) { new15 = true; break; } }
-          if (new15) {
-            zm[z] = (zm[z] || 0) + 1;
-            zmA[z] = (zmA[z] || 0) + (+r.total_debt || 0);
-          }
         }
         const zdOrder = ['1', '2', '3', '4', '5'];
         const zdKeys = Object.keys(zc).sort((a, b) => {
@@ -2467,12 +2700,10 @@ const DebtSummary = {
         const gv = (o, k) => (o[k] || 0);
         const totFy = zdKeys.reduce((s, k) => s + gv(zfy, k), 0);
         const totFyD = zdKeys.reduce((s, k) => s + gv(zfyD, k), 0);
-        const totM = zdKeys.reduce((s, k) => s + gv(zm, k), 0);
-        const totMA = zdKeys.reduce((s, k) => s + gv(zmA, k), 0);
         zdBlock.innerHTML = `
-          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${totM.toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(totMA)} บาท</span></div>` +
+          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท</span></div>` +
           zdKeys.map(z => `
-          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${gv(zm, z).toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(gv(zmA, z))} บาท</span></div>
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท</span></div>
         `).join('');
       }
     }
@@ -2558,47 +2789,6 @@ const DebtSummary = {
         <div class="ds-row"><span class="ds-label" style="color:#16a34a">📍 มีพิกัดแล้ว</span><span class="ds-val">${withGeo.toLocaleString('th-TH')} ราย (${pct}%)</span></div>
         <div class="ds-bar"><div class="ds-bar-fill" style="width:${pct}%;background:#16a34a"></div></div>
         <div class="ds-row"><span class="ds-label" style="color:#d00000">⚠️ ยังไม่มีพิกัด</span><span class="ds-val">${withoutGeo.toLocaleString('th-TH')} ราย</span></div>
-      `;
-    }
-
-    // ===== 15 เดือน =====
-    const m15Block = document.getElementById('debt-15m-block');
-    if (m15Block) {
-      let cifM15Y=0, cifM15Amt=0, cifF08=0, cifF09=0, cifF10=0;
-      let totM15Amt=0, totP08=0, totP09=0, totP10=0;
-      let cntM15Y=0, cntM15Amt=0, cntF08=0, cntF09=0, cntF10=0;
-      for (const r of fdata) {
-        let hasY=false, hasAmt=false, hasF08=false, hasF09=false, hasF10=false;
-        for (const c of (r.contracts||[])) {
-          if (c.m15==='Y') cntM15Y++;
-          if ((c.m15_amt||0)>0) cntM15Amt++;
-          if (c.f08==='Y') cntF08++;
-          if (c.f09==='Y') cntF09++;
-          if (c.f10==='Y') cntF10++;
-          if (c.m15==='Y' && !hasY) hasY=true;
-          if ((c.m15_amt||0)>0 && !hasAmt) hasAmt=true;
-          if (c.f08==='Y' && !hasF08) hasF08=true;
-          if (c.f09==='Y' && !hasF09) hasF09=true;
-          if (c.f10==='Y' && !hasF10) hasF10=true;
-        }
-        if (hasY) cifM15Y++;
-        if (hasAmt) cifM15Amt++;
-        if (hasF08) cifF08++;
-        if (hasF09) cifF09++;
-        if (hasF10) cifF10++;
-      }
-      for (const r of fdata) for (const c of (r.contracts||[])) {
-        totM15Amt += (+c.m15_amt||0);
-        totP08 += (+c.p08||0);
-        totP09 += (+c.p09||0);
-        totP10 += (+c.p10||0);
-      }
-      m15Block.innerHTML = `
-        <div class="ds-row"><span class="ds-label">⏳ 15เดือนปัจจุบัน (Y)</span><span class="ds-val">${cifM15Y.toLocaleString('th-TH')} ราย · ${cntM15Y} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label">💸 31มี.ค.70 (ต้องชำระ)</span><span class="ds-val">${cifM15Amt.toLocaleString('th-TH')} ราย · ${cntM15Amt} สัญญา</span></div>
-        <div class="ds-row" style="margin-top:6px"><span class="ds-label" style="color:#7c3aed">🔮 คาด ส.ค.69</span><span class="ds-val">${cifF08.toLocaleString('th-TH')} ราย · ${cntF08} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ก.ย.69</span><span class="ds-val">${cifF09.toLocaleString('th-TH')} ราย · ${cntF09} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ต.ค.69</span><span class="ds-val">${cifF10.toLocaleString('th-TH')} ราย · ${cntF10} สัญญา</span></div>
       `;
     }
   },

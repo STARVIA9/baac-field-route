@@ -122,7 +122,16 @@ const Storage = {
 
   // Returns only non-deleted customers (for UI display)
   getActiveCustomers() {
-    return this.getCustomers().filter(c => !c.deleted);
+    const list = this.getCustomers().filter(c => !c.deleted);
+    // ชั้นป้องกันสุดท้าย (16 พ.ย.69): คนที่ไม่ใช่แอดมินกลาง เห็นเฉพาะสาขาตัวเอง
+    // เหตุผล: ข้อมูลในเครื่อง (IndexedDB) ใช้ร่วมกันทุกบัญชีบนเครื่องเดียว — ถ้าสลับคนใช้แล้วล้างไม่ทัน
+    // รายชื่อสาขาอื่นจะค้างอยู่ · เซิร์ฟเวอร์กรองแล้วชั้นหนึ่ง ที่นี่กรองซ้ำก่อนวาดจอ/คิดเลข
+    try {
+      const isSuper = (typeof Auth !== 'undefined' && Auth.isAdmin) ? Auth.isAdmin() : false;
+      const own = (typeof Auth !== 'undefined' && Auth.getUser) ? String((Auth.getUser() || {}).branch || '').trim() : '';
+      if (!isSuper && own) return list.filter(c => String(c.branch || '').trim() === own);
+    } catch { /* Auth อ่านไม่ได้ = ใช้รายการเดิม */ }
+    return list;
   },
 
   // ===== S2: Dirty tracking — push เฉพาะรายการที่แก้จริง =====
@@ -205,17 +214,26 @@ const Storage = {
   // This replaces the old fragmented static customers-db.json + KV stores with
   // one D1-backed endpoint. Only records with lat/lng render as map markers.
   async importFromStaticDB() {
-    // Pull full customer list from D1 (single source of truth) — limit 10000
-    // ครอบ 9,132 รายทั้งหมด (ค่าเริ่มต้นเซิร์ฟเวอร์ให้แค่ 5,000 → ข้อมูลแหว่ง)
-    let res;
+    // 17 พ.ย.69: ดึงเป็นหน้า ๆ จนครบ — เดิมขอ limit=10000 ครั้งเดียว แต่ฐานมี 11,785 ราย
+    // → เครื่องมีลูกค้าแค่ 10,000 ทำให้เกจพิกัดขึ้น "952/10,000" และลูกค้าที่เหลือหายจากแผนที่
+    let all = [];
     try {
-      res = await API.get('/api/customers?limit=10000');
+      const PAGE = 10000;
+      let offset = 0;
+      for (let i = 0; i < 8; i++) {
+        const r = await API.get(`/api/customers?limit=${PAGE}&offset=${offset}`);
+        if (!r || !r.success) throw new Error('Failed to load customers from D1');
+        const chunk = r.customers || [];
+        all = all.concat(chunk);
+        if (chunk.length < PAGE) break;
+        if (r.total && all.length >= r.total) break;
+        offset += PAGE;
+      }
     } catch (e) {
       console.warn('[Storage] importFromStaticDB: network error', e.message);
       throw new Error('ไม่สามารถโหลดข้อมูลจากเซิร์ฟเวอร์ได้ — กรุณาตรวจสอบอินเทอร์เน็ต');
     }
-    if (!res || !res.success) throw new Error('Failed to load customers from D1');
-    const db = res.customers || [];
+    const db = all;
 
     // Find existing CIFs to avoid duplicates
     const byCif = new Map(this.getActiveCustomers().map(c => [c.cif, c]).filter(([k]) => k));

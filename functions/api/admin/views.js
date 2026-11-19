@@ -2,6 +2,7 @@
 // Admin only. Query: ?viewer=<username>&limit=<n, default 200, max 500>
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
+import { canManageUsers, scopedBranch } from '../../_lib/authz.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -24,12 +25,31 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
-  if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(auth.user)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
   const url = new URL(request.url);
   const viewer = (url.searchParams.get('viewer') || '').trim();
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1), 500);
+
+  // ผู้ดูแลสาขา: เห็นเฉพาะประวัติของคนในสาขาตัวเอง → สร้างรายชื่อ viewer ของสาขาก่อน
+  const scope = scopedBranch(auth.user);
+  if (scope) {
+    let users = [];
+    try {
+      const raw = await env.BFR_KV?.get('users:all');
+      users = raw ? JSON.parse(raw) : [];
+    } catch { users = []; }
+    const names = users
+      .filter(u => !u.deleted && u.branch === scope && (!viewer || u.username === viewer))
+      .map(u => u.username);
+    if (!names.length) return json({ success: true, views: [] });
+    const placeholders = names.map((_, i) => '?' + (i + 2)).join(',');
+    const { results } = await env.BFR_DB.prepare(
+      `SELECT * FROM customer_views WHERE viewer IN (${placeholders}) ORDER BY id DESC LIMIT ?1`
+    ).bind(limit, ...names).all();
+    return json({ success: true, views: results || [] });
+  }
 
   let stmt;
   if (viewer) {

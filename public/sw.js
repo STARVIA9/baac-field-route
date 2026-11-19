@@ -2,9 +2,9 @@
 // Strategy: NETWORK-FIRST for HTML/JS/CSS (always fresh), CACHE-FIRST for tiles/images
 // Enhanced: Full offline support for field work
 
-const CACHE_NAME = "bfr-v20261110a";
-const STATIC_CACHE = "bfr-static-v20261110a";
-const TILE_CACHE = "bfr-tiles-v20260828a";
+const CACHE_NAME = "bfr-v20261115j";
+const STATIC_CACHE = "bfr-static-v20261115j";
+const TILE_CACHE = "bfr-tiles-v20261115a";
 
 const ASSETS = [
   '/',
@@ -17,6 +17,14 @@ const ASSETS = [
   '/css/admin.css',
   '/manifest.json',
   '/version.json',
+  '/js/icons.js',
+  '/js/calendar.js',
+  '/js/today.js',
+  '/lib/leaflet.js',
+  '/lib/leaflet.css',
+  '/lib/leaflet.markercluster.js',
+  '/lib/MarkerCluster.css',
+  '/lib/MarkerCluster.Default.css',
 ];
 
 // Install — cache static assets
@@ -57,8 +65,11 @@ self.addEventListener('fetch', (e) => {
   if (isVersionedStatic) {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+        // ⚠️ cache เฉพาะของจริง (ok) — เดิม cache 404/503 ไว้ ทำให้ไฟล์พังค้างถาวรหลัง deploy
+        if (res && res.ok) {
+          const clone = res.clone();
+          caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+        }
         return res;
       }))
     );
@@ -80,9 +91,11 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          // Update cache with fresh copy
-          const clone = res.clone();
-          caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+          // Update cache with fresh copy (เฉพาะ ok)
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+          }
           return res;
         })
         .catch(() => caches.match(e.request).then(c => c || caches.match('/index.html')))
@@ -138,6 +151,7 @@ self.addEventListener('fetch', (e) => {
       caches.match(e.request).then(cached => {
         if (cached) return cached;
         return fetch(e.request).then(res => {
+          if (!res || !res.ok) return res;   // ไม่ cache tile ที่พัง (429/404/503)
           const clone = res.clone();
           caches.open(TILE_CACHE).then(async (c) => {
             await c.put(e.request, clone);
@@ -163,8 +177,10 @@ self.addEventListener('fetch', (e) => {
       caches.match(e.request).then(cached => {
         // Return cached first, then update in background
         const fetchPromise = fetch(e.request).then(res => {
-          const clone = res.clone();
-          caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(STATIC_CACHE).then(c => c.put(e.request, clone));
+          }
           return res;
         }).catch(() => cached);
         

@@ -20,9 +20,9 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261110a" as="style">
-  <link rel="preload" href="js/vendor.js?v=20261108a" as="script">
-  <link rel="preload" href="js/app.bundle.js?v=20261110a" as="script">
+  <link rel="preload" href="css/app.css?v=12eeb59edf" as="style">
+  <link rel="preload" href="js/vendor.js?v=1b05c04306" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=ded1481aad" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -149,11 +149,11 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261110a">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261110a"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=12eeb59edf">
+  <noscript><link rel="stylesheet" href="css/app.css?v=12eeb59edf"></noscript>
   
   <!-- Non-critical JS (defer) -->
-  <script src="js/icons.js?v=20261110a" defer></script>
+  <script src="js/icons.js?v=56b4148d88" defer></script>
   <script src="lib/leaflet.js" defer></script>
   <script src="lib/leaflet.markercluster.js" defer></script>
 </head>
@@ -548,6 +548,16 @@
 
         <!-- Plan/visit pane (วางแผน + บันทึกเข้าพบในแท็บเดียว) -->
         <div class="sheet-content" id="tab-planvisit">
+          <!-- สรุปแผนสั้น (บนสุด — เห็นทันทีไม่ต้องเลื่อน) -->
+          <div class="plan-quick hidden" id="plan-quick">
+            <div class="pq-top"><b>📊 สรุปแผนนี้</b><button type="button" class="pq-link" id="pq-more">รายละเอียดหนี้ ›</button><span id="pq-count">0 ราย</span></div>
+            <div class="pq-grid">
+              <div class="pq-cell"><span class="pq-num" id="pq-debt">0</span><span class="pq-lbl">หนี้รวม (บาท)</span></div>
+              <div class="pq-cell"><span class="pq-num warn" id="pq-m15">—</span><span class="pq-lbl">ค้าง 15 ด.</span></div>
+              <div class="pq-cell"><span class="pq-num" id="pq-km">—</span><span class="pq-lbl">ระยะทาง (กม.)</span></div>
+              <div class="pq-cell"><span class="pq-num" id="pq-min">—</span><span class="pq-lbl">เวลา (นาที)</span></div>
+            </div>
+          </div>
           <div class="visit-header">
             <h2>📋 บันทึกการเข้าพบ</h2>
             <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
@@ -632,7 +642,7 @@
             </button>
             <button class="route-action-card primary" id="btn-optimize-route" disabled>
               <span class="ra-title">🎯 ให้ระบบจัดลำดับให้สั้นที่สุด</span>
-              <span class="ra-desc">ระบบเลือกลำดับการเยี่ยมให้เอง แล้วคิดระยะทางถนนจริง (ลำดับ 1,2,3 จะถูกจัดใหม่ให้)</span>
+              <span class="ra-desc">ระบบเลือกลำดับให้สั้นที่สุดบนระยะถนนจริง — คิดแม่น้ำ/สะพาน/ทางเดียวให้แล้ว (ลำดับ 1,2,3 จะถูกจัดใหม่)</span>
             </button>
           </div>
           <div class="route-result hidden" id="route-result">
@@ -717,7 +727,7 @@
           </div>
 
           <div class="debt-block">
-            <h3>🎯 แยกตามเขต: ถึงกำหนด + เกิดใหม่ (Good Bank)</h3>
+            <h3>🎯 แยกตามเขต: ถึงกำหนด (Good Bank)</h3>
             <div class="debt-month-picker" style="margin-bottom:8px"><label for="debt-duemonth-filter">📅 ดูถึงกำหนดเดือน:</label> <select id="debt-duemonth-filter" class="sort-select"></select></div>
             <div class="debt-block-body" id="debt-zonedue-block"></div>
           </div>
@@ -732,10 +742,6 @@
             <div class="debt-block-body" id="debt-geo-block"></div>
           </div>
 
-          <div class="debt-block">
-            <h3>⏳ 15 เดือน (ดอกเบี้ยค้าง 15 เดือน)</h3>
-            <div class="debt-block-body" id="debt-15m-block"></div>
-          </div>
         </div>
       </div><!-- /sheet-scroll -->
     </div><!-- /bottom-sheet -->
@@ -1243,6 +1249,17 @@
                   </select>
                 </div>
               </div>
+              <div class="form-row" id="new-role-group" style="display:none">
+                <div class="form-group">
+                  <label for="new-role">สิทธิ์การใช้งาน</label>
+                  <select id="new-role">
+                    <option value="user" selected>พนักงาน (ใช้หน้างาน)</option>
+                    <option value="branch_admin">ผู้ดูแลสาขา (จัดการคนในสาขา)</option>
+                    <option value="admin">แอดมินกลาง (ทุกสาขา)</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-muted" id="admin-scope-hint" style="display:none;text-align:left;font-size:13px;margin:0 0 10px"></p>
               <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
               <p class="login-error" id="admin-user-error"></p>
             </form>
@@ -1329,6 +1346,7 @@
         <div class="admin-tab-pane" id="admin-tab-debt">
           <div class="debt-import-section">
             <h3>📊 อัปเดตสถานะหนี้</h3>
+            <p class="text-muted" id="debt-scope-hint" style="display:none;text-align:left;margin-bottom:8px;color:#0a7c34;font-weight:600"></p>
             <p class="text-muted" style="text-align:left;margin-bottom:12px">
               อัปโหลดไฟล์ Customer Indicator (CSV) เพื่ออัปเดตข้อมูลหนี้ของลูกค้าในระบบ
               <br><small>ไฟล์ CSV จากระบบ BAAC (TIS-620 encoding) — ระบบจะจับคู่ CIF อัตโนมัติ</small>
@@ -1378,6 +1396,14 @@
             </div>
 
             <div id="debt-restore" style="margin-top:12px;font-size:14px"></div>
+
+            <!-- ตรวจความถูกต้องของคลังการ์ดหนี้ vs ฐานข้อมูล (16 พ.ย.69) -->
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e8e8e8">
+              <button type="button" id="debt-verify-btn" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:15px">
+                🔍 ตรวจสอบยอดกับฐานข้อมูล
+              </button>
+              <div id="debt-verify-result" style="margin-top:10px;font-size:14px;line-height:1.8"></div>
+            </div>
           </div>
         </div>
 
@@ -1440,10 +1466,10 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="js/vendor.js?v=20261108a"></script>
-  <script src="js/app.bundle.js?v=20261110a"></script>
-  <script src="js/calendar.js?v=20261031b"></script>
-  <script src="js/today.js?v=20261101h"></script>
+  <script src="js/vendor.js?v=1b05c04306"></script>
+  <script src="js/app.bundle.js?v=ded1481aad"></script>
+  <script src="js/calendar.js?v=ec4f932ed1"></script>
+  <script src="js/today.js?v=749090cd93"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

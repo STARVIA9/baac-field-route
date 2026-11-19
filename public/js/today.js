@@ -209,12 +209,16 @@ const TodayUI = {
     const el = typeof document !== 'undefined' ? document.getElementById('today-filter-count') : null;
     if (!el) return;
     const parts = [];
-    parts.push(f.status === 'has' ? 'มีพิกัดแล้ว' : f.status === 'all' ? 'ทั้งหมด' : 'ยังไม่มีพิกัด');
-    if (f.urgency === 'npl') parts.push('NPL');
-    else if (f.urgency === 'm15') parts.push('15 เดือน');
-    else if (f.urgency === 'due') parts.push('ถึงกำหนด ' + this._dueMonthLabel(f.dueMonth));
-    if (f.zone) parts.push('เขต ' + f.zone);
-    if (f.q) parts.push('ค้นหา');
+    if (f.q) {
+      // โหมดค้นหา: บอกชัดว่าค้นทั้งฐาน ไม่ได้ใช้ตัวกรองสถานะ/เขต
+      parts.push('🔎 ค้นหา “' + f.q + '” ทั้งฐาน');
+    } else {
+      parts.push(f.status === 'has' ? 'มีพิกัดแล้ว' : f.status === 'all' ? 'ทั้งหมด' : 'ยังไม่มีพิกัด');
+      if (f.urgency === 'npl') parts.push('NPL');
+      else if (f.urgency === 'm15') parts.push('15 เดือน');
+      else if (f.urgency === 'due') parts.push('ถึงกำหนด ' + this._dueMonthLabel(f.dueMonth));
+      if (f.zone) parts.push('เขต ' + f.zone);
+    }
     el.textContent = parts.join(' · ') + (typeof count === 'number' ? ' · ' + count + ' ราย' : '');
   },
 
@@ -250,6 +254,21 @@ const TodayUI = {
 
   _matchGps(c, f) {
     const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
+    // ✅ มีคำค้น = โหมดค้นหา: มองทั้งฐานลูกค้า ไม่ตัดด้วยสถานะพิกัด/เขต/ความด่วน
+    // (เดิมค้นชื่อคนที่มีพิกัดแล้ว/ไม่ได้อยู่ในคิววันนี้ จะไม่เจอเลย)
+    if (f.q) {
+      const ex = c.extra || {};
+      const hay = [c.name, c.nickname, c.cif, c.phone, c.address, c.tambon, c.amphoe,
+        ex.moo, ex.tambon, ex.amphoe, ex.province, c.zone ? 'เขต ' + c.zone : '']
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(f.q)) return false;
+      const scoped = this._effectiveBranch(f);
+      if (scoped) {
+        const cb = String(c.branch || '').trim() || String(this._info(c).branch || '').trim();
+        if (cb !== String(scoped)) return false;
+      }
+      return true;
+    }
     if (f.status === 'missing' && hasGps) return false;
     if (f.status === 'has' && !hasGps) return false;
     if (f.zone && String(c.zone == null ? '' : c.zone) !== String(f.zone)) return false;
@@ -257,10 +276,6 @@ const TodayUI = {
     if (branch) {
       const cb = String(c.branch || '').trim() || String(this._info(c).branch || '').trim();
       if (cb !== String(branch)) return false;
-    }
-    if (f.q) {
-      const hay = [c.name, c.nickname, c.cif, c.phone].join(' ').toLowerCase();
-      if (!hay.includes(f.q)) return false;
     }
     if (f.urgency !== 'all') {
       const info = this._info(c);
@@ -334,8 +349,15 @@ const TodayUI = {
     const filtered = this._sortQueue(all.filter((c) => this._matchGps(c, f)));
     this._updateFilterBadge(f, filtered.length);
     if (!filtered.length) {
-      box.innerHTML = '<div class="gps-collect-card"><h3>✅ ไม่มีรายการตรงตัวกรอง</h3>' +
-        '<p class="gps-collect-desc">ลองเปลี่ยนเขต/สถานะ หรือล้างตัวกรองด้านบน</p></div>';
+      const allHave = f.status === 'missing' && counts.missing === 0;
+      box.innerHTML = f.q
+        ? '<div class="gps-collect-card"><h3>🔎 ไม่พบ “' + this.esc(f.q) + '” ในฐานลูกค้า</h3>' +
+          '<p class="gps-collect-desc">ค้นทั้งฐานแล้ว ' + all.length + ' ราย — ลองพิมพ์ CIF, ชื่อบางส่วน, เบอร์ หรือที่อยู่</p></div>'
+        : allHave
+          ? '<div class="gps-collect-card"><h3>🎉 เก็บพิกัดครบแล้ว ' + counts.with + '/' + counts.total + ' ราย</h3>' +
+            '<p class="gps-collect-desc">ไม่มีรายการค้างเก็บ · พิมพ์ชื่อ/CIF/เบอร์/ที่อยู่ด้านบนเพื่อค้นหาลูกค้ารายใดก็ได้</p></div>'
+          : '<div class="gps-collect-card"><h3>✅ ไม่มีรายการตรงตัวกรอง</h3>' +
+            '<p class="gps-collect-desc">ลองเปลี่ยนเขต/สถานะ หรือล้างตัวกรองด้านบน</p></div>';
       return;
     }
     const pct = counts.total ? Math.round((counts.with / counts.total) * 100) : 0;
@@ -344,7 +366,7 @@ const TodayUI = {
     const start = info.start;
     const shown = filtered.slice(start, start + this.PAGE_SIZE);
     const pages = info.pages;
-    const rows = shown.map((c) => this._rowHTML(c, f.status !== 'has')).join('');
+    const rows = shown.map((c) => this._rowHTML(c, !(Number.isFinite(c.lat) && Number.isFinite(c.lng)))).join('');
     const pager = filtered.length > this.PAGE_SIZE
       ? '<div class="gps-pager">' +
           '<button type="button" class="gps-page-btn" data-gps-page="' + (this._page - 1) + '"' + (this._page <= 1 ? ' disabled' : '') + '>‹ ก่อนหน้า</button>' +
@@ -352,9 +374,15 @@ const TodayUI = {
           '<button type="button" class="gps-page-btn" data-gps-page="' + (this._page + 1) + '"' + (this._page >= pages ? ' disabled' : '') + '>ถัดไป ›</button>' +
         '</div>'
       : '<p class="gps-more">แสดงทั้งหมด ' + filtered.length + ' ราย</p>';
+    const title = f.q
+      ? '🔎 ผลค้นหา “' + this.esc(f.q) + '” <span class="gps-count">' + filtered.length + ' ราย</span>'
+      : '📍 คิวเก็บพิกัด <span class="gps-count">เหลือ ' + filtered.length + ' ราย</span>';
+    const desc = f.q
+      ? 'ค้นทั้งฐาน ' + counts.total + ' ราย · มีพิกัดแล้ว ' + counts.with + ' ราย (ไม่จำกัดสถานะ/เขต)'
+      : 'เก็บแล้ว ' + counts.with + '/' + counts.total + ' (' + pct + '%) · เรียงด่วนก่อน NPL → 15 เดือน → ถึงกำหนด';
     box.innerHTML = '<div class="gps-collect-card">' +
-      '<h3>📍 คิวเก็บพิกัด <span class="gps-count">เหลือ ' + filtered.length + ' ราย</span></h3>' +
-      '<p class="gps-collect-desc">เก็บแล้ว ' + counts.with + '/' + counts.total + ' (' + pct + '%) · เรียงด่วนก่อน NPL → 15 เดือน → ถึงกำหนด</p>' +
+      '<h3>' + title + '</h3>' +
+      '<p class="gps-collect-desc">' + desc + '</p>' +
       '<div class="gps-progress"><div class="gps-progress-fill" style="width:' + pct + '%"></div></div>' +
       rows + pager +
       '</div>';

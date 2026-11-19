@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ส่งข้อมูล CI ผ่าน OneDrive ธนาคาร</title>
+<style>
+@font-face{font-family:'Sarabun';src:url(data:font/ttf;base64,__FONT_REGULAR__) format('truetype');font-weight:400;font-style:normal}
+@font-face{font-family:'Sarabun';src:url(data:font/ttf;base64,__FONT_BOLD__) format('truetype');font-weight:700;font-style:normal}
+:root{
+  --green:#0B3D2E; --green2:#14684A; --green3:#1C7A56;
+  --gold:#C9A227; --goldL:#E4C55C;
+  --cream:#F7F5EF; --ink:#16241E; --muted:#5C6B63; --line:#E1E6E2;
+  --blue:#0078D4; --blueD:#0364B8; --blueL:#EAF3FC; --red:#B3392F; --redL:#FBEDEB;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:'Sarabun',sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:A4 landscape;margin:0}
+.page{width:297mm;height:210mm;page-break-after:always;position:relative;overflow:hidden;background:#fff}
+.page:last-child{page-break-after:auto}
+
+/* ---------- header / footer ---------- */
+.hdr{height:14mm;background:linear-gradient(100deg,#0B3D2E 0%,#12513C 62%,#14684A 100%);
+     color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 13mm;font-size:10.5pt}
+.hdr .hleft{display:flex;align-items:center;gap:7px;font-weight:700;letter-spacing:.2px}
+.hdr .hstep{font-weight:400;opacity:.9}
+.hdr .hnum{font-weight:700;font-size:10pt;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+           padding:1.4mm 4mm;border-radius:20px;font-variant-numeric:tabular-nums}
+.body{height:187mm;padding:6.5mm 13mm 0;display:flex;flex-direction:column}
+.ftr{position:absolute;left:0;right:0;bottom:0;height:9mm;padding:0 13mm;display:flex;align-items:center;
+     justify-content:space-between;font-size:8pt;color:#8A968F;border-top:1px solid var(--line);background:#fff}
+.ftr b{color:var(--green2)}
+
+h2.title{font-size:22pt;line-height:1.35;font-weight:700;color:var(--green);letter-spacing:-.2px}
+h2.title .thin{font-weight:400;color:var(--muted);font-size:13pt;display:block;margin-top:1.2mm;letter-spacing:0}
+.rule{width:26mm;height:1.5mm;background:var(--gold);border-radius:2px;margin:3mm 0 0}
+p.lead{font-size:12.5pt;line-height:1.5;color:#33443B}
+
+/* ---------- cover ---------- */
+.cover{background:radial-gradient(120% 120% at 78% 8%, #17624A 0%, #0B3D2E 46%, #072B21 100%)}
+.cover .frame{position:absolute;inset:7mm;border:1px solid rgba(201,162,39,.35);border-radius:2mm}
+.cover-inner{position:absolute;inset:0;padding:12mm 15mm 11mm;display:flex;flex-direction:column;color:#F3EFE3}
+.cover-top{display:flex;justify-content:space-between;align-items:center;font-size:10pt;color:#CFE0D6}
+.brand{display:flex;align-items:center;gap:3mm;font-weight:700;letter-spacing:.4px}
+.brand .dot{width:4.2mm;height:4.2mm;border-radius:50%;background:var(--gold);box-shadow:0 0 0 1.6mm rgba(201,162,39,.18)}
+.cover-main{margin-top:9mm;max-width:196mm}
+.eyebrow{display:inline-block;font-size:10.5pt;letter-spacing:1.2px;color:#E4C55C;border:1px solid rgba(228,197,92,.55);
+         border-radius:20px;padding:1.6mm 5mm;margin-bottom:6mm}
+.cover h1{font-size:32pt;line-height:1.42;font-weight:700;letter-spacing:-.3px}
+.cover h1 .gold{color:#E9C85F}
+.cover p.sub{margin-top:6mm;font-size:13pt;line-height:1.62;color:#D8E4DC;max-width:178mm}
+.cover-cloud{position:absolute;right:16mm;top:100mm;width:84mm;text-align:center}
+.cover-chips{margin-top:9mm;display:flex;gap:3mm}
+.cover-chips span{font-size:9.5pt;color:#E4C55C;border:1px solid rgba(228,197,92,.45);border-radius:20px;padding:1.8mm 4.4mm;letter-spacing:.2px}
+.cover-cloud .cap{margin-top:2mm;font-size:10.5pt;color:#CFE0D6;letter-spacing:.3px}
+.cover-cloud .cap b{color:#fff}
+.cover-foot{position:absolute;left:15mm;right:15mm;bottom:11mm;display:flex;justify-content:space-between;
+            align-items:flex-end;font-size:8.5pt;color:#9FB6A8;border-top:1px solid rgba(255,255,255,.14);padding-top:3mm}
+
+/* ---------- generic cards ---------- */
+.card{background:#fff;border:1px solid var(--line);border-radius:2.5mm;padding:5mm 5.5mm;position:relative}
+.card.soft{background:var(--cream);border-color:#E8E2D2}
+.card .ico{width:15mm;height:15mm;color:var(--green2)}
+.numchip{width:9mm;height:9mm;border-radius:50%;background:var(--green);color:#fff;font-weight:700;
+         display:flex;align-items:center;justify-content:center;font-size:13pt;font-variant-numeric:tabular-nums}
+.band{background:linear-gradient(95deg,#0B3D2E,#17624A);color:#F5F1E4;border-radius:2.5mm;
+      padding:4.2mm 6mm;font-size:13.2pt;display:flex;align-items:center;gap:4mm}
+.band .gold{color:#EBCB66;font-weight:700}
+.band svg{flex:0 0 auto}
+
+/* ---------- p2 ---------- */
+.grid3{display:flex;gap:6mm;margin-top:6mm}
+.grid3 .card{flex:1;min-height:112mm;display:flex;flex-direction:column;gap:3mm}
+.grid3 .ct{font-size:15pt;font-weight:700;line-height:1.4;color:var(--green)}
+.grid3 .cb{font-size:13pt;line-height:1.6;color:#3E4F45}
+.tagbadge{display:inline-flex;align-items:center;gap:2mm;font-size:9pt;font-weight:700;padding:1.2mm 3.4mm;border-radius:20px}
+.tagbadge.red{background:var(--redL);color:var(--red)}
+.tagbadge.blue{background:var(--blueL);color:var(--blueD)}
+.tagbadge.green{background:#E7F3EC;color:#166B4B}
+.tagbadge.gold{background:#FBF3DA;color:#8A6A12}
+
+/* ---------- p3 OneDrive window ---------- */
+.odwrap{display:flex;gap:8mm;margin-top:5mm}
+.odwin{flex:0 0 152mm;display:flex;flex-direction:column;border:1px solid #D6DEE7;border-radius:3mm;overflow:hidden;box-shadow:0 1.5mm 6mm rgba(16,40,30,.10);background:#fff}
+.odtop{background:#F3F6FA;border-bottom:1px solid #E1E8F0;padding:2.2mm 3.5mm;display:flex;align-items:center;gap:3mm}
+.odtop .dots{display:flex;gap:1.3mm}
+.odtop .dots i{width:2.3mm;height:2.3mm;border-radius:50%;background:#C9D3DE;display:block}
+.odtop .odname{font-size:8.5pt;color:#4A5B6B;font-weight:700;display:flex;align-items:center;gap:2mm;white-space:nowrap}
+.odaddr{padding:2.6mm 3.5mm;border-bottom:1px solid #EDF1F6;background:#FAFCFE;font-size:8.6pt;color:#6B7B8B;display:flex;align-items:center;gap:1.6mm}
+.odaddr b{color:#1F3B57;font-weight:700}
+.odbody{padding:2.5mm 0 1.5mm}
+.odcol{font-size:7.2pt;color:#93A2B1;letter-spacing:.4px;padding:0 4mm 1.4mm;text-transform:uppercase}
+.odrow{display:flex;align-items:center;gap:2.6mm;padding:3.9mm 4mm;font-size:10.4pt;border-top:1px solid #F2F5F9}
+.odrow .nm{font-weight:700;color:#20313F}
+.odrow .meta{margin-left:auto;font-size:8pt;color:#7C8B99;font-variant-numeric:tabular-nums;white-space:nowrap}
+.odfoot{background:#F7FAFD;border-top:1px solid #E8EFF6;padding:3mm 4mm;font-size:8.6pt;color:#6B7B8B;line-height:1.45}
+.pillfile{font-size:7.4pt;font-weight:700;background:#E8F1FB;color:#0B5EA8;border-radius:10px;padding:.8mm 2.2mm;white-space:nowrap}
+.odside{flex:1;display:flex;flex-direction:column;gap:3mm;justify-content:space-between}
+.odside .card{flex:1;display:flex;flex-direction:column;justify-content:center;padding:4mm 4.6mm}
+.odside .ch{font-size:10.6pt;font-weight:700;color:var(--green);display:flex;align-items:center;gap:2.4mm;line-height:1.35}
+.odside .cs{font-size:10.2pt;color:#4C5D53;margin-top:1mm;line-height:1.45}
+.truthline{margin-top:9mm;font-size:10.4pt;color:#4C5D53;background:#FBF7EA;border:1px solid #EFE3BF;border-radius:2mm;
+           padding:3.2mm 4.4mm;line-height:1.45}
+.truthline b{color:#7A5E10}
+
+/* ---------- p4 flow ---------- */
+.flow{display:flex;align-items:stretch;gap:0;margin-top:7mm}
+.node{flex:1;min-height:106mm;border:1px solid var(--line);border-radius:3mm;background:#fff;padding:5mm 4.5mm;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2.4mm}
+.node .cap{font-size:9pt;letter-spacing:.6px;color:#8A968F;text-transform:uppercase}
+.node .nm{font-size:14.5pt;font-weight:700;color:var(--green);line-height:1.35}
+.node ul{list-style:none;font-size:10.8pt;line-height:1.5;color:#3E4F45;text-align:left;width:100%;margin-top:1mm}
+.node ul li{padding-left:4.6mm;position:relative}
+.node ul li:before{content:'';position:absolute;left:0;top:2.2mm;width:1.8mm;height:1.8mm;border-radius:50%;background:var(--gold)}
+.node.hub{flex:1.34;background:linear-gradient(180deg,#F3F9FF,#FFFFFF);border:1.6px solid #9CC8EE;
+          box-shadow:0 0 0 2.6mm rgba(0,120,212,.07)}
+.node.hub .nm{color:#0B5EA8}
+.arrow{flex:0 0 17mm;display:flex;align-items:center;justify-content:center;color:#B9C4BD}
+.arrow svg{width:14mm;height:6mm}
+.node > svg{height:21mm;width:auto;align-self:center}
+
+/* ---------- p5 before/after ---------- */
+.ba{display:flex;gap:0;align-items:stretch;margin-top:5mm}
+.panel{flex:1;border:1px solid var(--line);border-radius:2.5mm;overflow:hidden;display:flex;flex-direction:column}
+.panel .ph{font-size:9.6pt;font-weight:700;padding:2.6mm 4mm;display:flex;align-items:center;justify-content:space-between}
+.panel .ph.l{background:var(--redL);color:var(--red)}
+.panel .ph.r{background:#E7F3EC;color:#0F6B48}
+.panel .pb{padding:3mm 4mm;flex:1}
+table.mini{width:100%;border-collapse:collapse;font-size:8.6pt}
+table.mini th{background:#F2F4F3;color:#5A6B61;font-weight:700;text-align:left;padding:1.4mm 1.6mm;border-bottom:1px solid #E1E6E2;font-size:7.6pt}
+table.mini td{padding:1.5mm 1.6mm;border-bottom:1px solid #F0F3F1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.garble{overflow:hidden;font-family:'DejaVu Sans Mono',monospace;font-size:7.6pt;line-height:1.55;color:#6E7A64;word-break:break-all;
+        background:#0F1712;color:#7FA98C;border-radius:1.6mm;padding:3mm;height:100%}
+.garble .hdr1{color:#D9C27A;font-weight:700}
+.midarrow{flex:0 0 22mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4mm;color:var(--green2)}
+.midarrow .btn{font-size:8.6pt;font-weight:700;background:var(--gold);color:#3B2E05;border-radius:20px;padding:1.6mm 3.4mm;white-space:nowrap}
+.ba-notes{display:flex;gap:5mm;margin-top:4mm}
+.ba-notes div{flex:1;background:var(--cream);border:1px solid #EAE4D4;border-radius:2mm;padding:3.2mm 4mm;font-size:10.6pt;line-height:1.45;color:#4C5D53}
+.ba-notes b{color:var(--green)}
+
+/* ---------- p6 steps ---------- */
+.steps{display:flex;gap:5mm;margin-top:5mm}
+.step{flex:1;border:1px solid var(--line);border-radius:3mm;padding:4.6mm 4.2mm;background:#fff;display:flex;flex-direction:column;gap:2.4mm;min-height:100mm}
+.step .top{display:flex;align-items:center;gap:2.6mm}
+.step .n{width:8.6mm;height:8.6mm;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5pt}
+.step .k{font-size:8.4pt;letter-spacing:.8px;color:#93A096;text-transform:uppercase}
+.step .t{font-size:13.2pt;font-weight:700;color:var(--green);line-height:1.38}
+.step .d{font-size:10.4pt;color:#4C5D53;line-height:1.5}
+.step .ic{margin-top:auto;color:var(--green2);align-self:center}
+.step .ic svg{width:17mm;height:17mm}
+.qrstrip{display:flex;align-items:center;gap:6mm;margin-top:4mm;background:var(--cream);border:1px solid #EAE4D4;border-radius:2.5mm;padding:3mm 5mm}
+.qrstrip img{width:34mm;height:34mm;display:block;border-radius:1.4mm;background:#fff;padding:1mm}
+.qrstrip .qt{font-size:10.6pt;line-height:1.5;color:#4C5D53}
+.qrstrip .qt b{color:var(--green)}
+
+/* ---------- p7 ---------- */
+.g4{display:flex;flex-wrap:wrap;gap:4.5mm;margin-top:4.5mm}
+.g4 .card{flex:1 1 calc(50% - 2.25mm);min-height:29mm;display:flex;gap:4mm;align-items:flex-start;padding:3.8mm 4.2mm}
+.g4 .gt{font-size:12.4pt;font-weight:700;color:var(--green);line-height:1.35}
+.g4 .gd{font-size:10.8pt;color:#4C5D53;line-height:1.45;margin-top:.8mm}
+.summary{margin-top:6mm;background:linear-gradient(95deg,#0B3D2E,#17624A);border-radius:3mm;color:#F6F2E6;
+         padding:6mm 7mm;display:flex;align-items:center;justify-content:space-between;gap:6mm}
+.summary .big{font-size:19pt;font-weight:700;line-height:1.4}
+.summary .big .g{color:#EBCB66}
+.summary .side{font-size:9.6pt;color:#CFE0D6;text-align:right;line-height:1.5;max-width:78mm}
+.stats{display:flex;gap:3mm;margin-top:4.5mm}
+.stat{flex:1;background:#fff;border:1px solid var(--line);border-radius:2mm;padding:2.6mm 3mm;text-align:center}
+.stat .v{font-size:15pt;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;line-height:1.2}
+.stat .l{font-size:8.5pt;color:#7C8B84;margin-top:.6mm}
+.disclaimer{margin-top:2.6mm;font-size:8pt;color:#93A096;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ============ 1 COVER ============ -->
+<section class="page cover">
+  <div class="frame"></div>
+  <div class="cover-inner">
+    <div class="cover-top">
+      <div class="brand"><span class="dot"></span> ธ.ก.ส. · BAAC FIELD ROUTE</div>
+      <div>เอกสารนำเสนอผู้บริหาร · พฤศจิกายน 2569</div>
+    </div>
+    <div class="cover-main">
+      <div class="eyebrow">กระบวนการนำส่งข้อมูลลูกค้า (CI)</div>
+      <h1>ส่งข้อมูล CI ถึงแท็บเล็ต<br><span class="gold">ผ่าน OneDrive ธนาคาร</span></h1>
+      <p class="sub">กดครั้งเดียวที่คอมพิวเตอร์ · สแกนครั้งเดียวที่แท็บเล็ต<br>
+      ข้อมูลเดินทางในระบบของธนาคาร และไม่มีใครกลางทางอ่านได้</p>
+      <div class="cover-chips"><span>1 ปุ่ม ที่คอม</span><span>1 QR ที่แท็บเล็ต</span><span>0 เซิร์ฟเวอร์ใหม่</span></div>
+    </div>
+    <div class="cover-cloud">
+      __OD_CLOUD_BIG__
+      <div class="cap"><b>OneDrive</b><br>บัญชีของธนาคาร</div>
+    </div>
+    <div class="cover-foot">
+      <div>ระบบติดตามลูกค้าภาคสนาม · สาขาวังท่าช้าง</div>
+      <div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 TODAY ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 1</span><span class="hstep">· วันนี้ข้อมูลอยู่ที่ไหน และติดตรงไหน</span></div>
+    <div class="hnum">2 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">ข้อมูลอยู่ในมือเราแล้ว — แต่ยัง “เดินทาง” ไม่ถึงหน้างาน
+      <span class="thin">ไฟล์ CI ของสาขาอยู่ใน OneDrive ธนาคารอยู่แล้ว แต่แท็บเล็ตยังเอาไปใช้ไม่ได้โดยตรง</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="ico">__ICO_FOLDER__</div>
+        <div class="ct">ไฟล์ CI วางอยู่ใน OneDrive<br>แบบเปิดอ่านได้</div>
+        <div class="cb">วันนี้ไฟล์ CI ของสาขา 854<br>
+        อยู่ใน OneDrive ธนาคารแล้ว (10.6 MB)<br>
+        แต่ใครเข้าถึงโฟลเดอร์ได้ ก็เปิดเห็นชื่อ<br>
+        และยอดหนี้ของลูกค้าได้ทันที</div>
+        <div style="margin-top:auto"><span class="tagbadge red">● เสี่ยงข้อมูลหลุด</span></div>
+      </div>
+
+      <div class="card">
+        <div class="ico">__ICO_BLOCK__</div>
+        <div class="ct">ช่องทางเดิม ๆ ถูกปิด<br>แทบทั้งหมด</div>
+        <div class="cb">ห้ามต่อ USB · เปิด hotspot ก็ไม่ได้<br>
+        ส่งทางแชทหรืออีเมลก็ไม่ได้<br>
+        เพราะเป็นข้อมูลลูกค้า<br>
+        และไม่ควรให้พิมพ์รหัสยาว ๆ</div>
+        <div style="margin-top:auto"><span class="tagbadge gold">● ข้อจำกัดของธนาคาร</span></div>
+      </div>
+
+      <div class="card">
+        <div class="ico">__ICO_TARGET__</div>
+        <div class="ct">เป้าหมาย: เจ้าหน้าที่เปิดแท็บเล็ต<br>แล้วเห็นข้อมูลทันที</div>
+        <div class="cb">ไม่ต้องรอไอที · ไม่ต้องมีอุปกรณ์เพิ่ม<br>
+        ไม่ต้องติดตั้งเซิร์ฟเวอร์<br>
+        และข้อมูลต้องไม่หลุด แม้เครื่อง<br>
+        หรือโฟลเดอร์จะตกไปอยู่ในมือคนอื่น</div>
+        <div style="margin-top:auto"><span class="tagbadge green">● สิ่งที่ต้องได้</span></div>
+      </div>
+    </div>
+
+    <div class="band" style="margin-top:8mm">
+      __ICO_ARROW_RIGHT__
+      <div>ช่องทางที่เหลืออยู่ — และธนาคาร<span class="gold">มีให้เราอยู่แล้ว</span> — คือ <span class="gold">OneDrive ธนาคาร</span></div>
+    </div>
+  </div>
+  <div class="ftr"><div>ระบบติดตามลูกค้าภาคสนาม · <b>BAAC Field Route</b></div><div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+<!-- ============ 3 ONEDRIVE HERO ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 2</span><span class="hstep">· OneDrive ธนาคาร คือรางส่งข้อมูลของเรา</span></div>
+    <div class="hnum">3 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">ทำไมต้อง OneDrive ธนาคาร
+      <span class="thin">เพราะมันคือระบบที่สาขาใช้อยู่ทุกวัน ไม่ใช่คลาวด์ส่วนตัว และไม่ต้องสร้างระบบใหม่ให้ไอทีต้องดูแล</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="odwrap">
+      <div class="odwin">
+        <div class="odtop">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <div class="odname">__OD_CLOUD_SM__ OneDrive — Bank for Agriculture and Agricultural Cooperatives</div>
+        </div>
+        <div class="odaddr">
+          <span>OneDrive</span> <span>›</span> <span>งานติดตามลูกค้า</span> <span>›</span> <b>CI_สาขา 854</b>
+        </div>
+        <div class="odbody">
+          <div class="odcol">ชื่อ · สถานะ · ขนาด</div>
+          <div class="odrow">
+            __ICO_FOLDER_SM__
+            <span class="nm">CI_สาขา_854</span>
+            <span class="meta">โฟลเดอร์</span>
+          </div>
+          <div class="odrow">
+            __ICO_LOCK_SM__
+            <span class="nm">CI_0854_20261115.bfrpack</span>
+            <span class="pillfile">ซองล็อก</span>
+            <span class="meta">1,536 ไบต์</span>
+          </div>
+          <div class="odrow">
+            __ICO_LOCK_SM__
+            <span class="nm">CI_0854_20261101.bfrpack</span>
+            <span class="pillfile">ซองล็อก</span>
+            <span class="meta">สำรอง</span>
+          </div>
+          <div class="odrow">
+            __ICO_SHIELD_SM__
+            <span class="nm" style="font-weight:400;color:#5C6B63">แก้ไขล่าสุด วันนี้ 08:41 · ซิงก์แล้ว</span>
+            <span class="meta">สถานะ</span>
+          </div>
+          <div class="odrow">
+            __ICO_FOLDER_SM__
+            <span class="nm">สำรองรายเดือน</span>
+            <span class="meta">โฟลเดอร์</span>
+          </div>
+          <div class="odrow">
+            __ICO_SHIELD_SM__
+            <span class="nm" style="font-weight:400;color:#5C6B63">แชร์เฉพาะผู้มีสิทธิ์ของสาขา</span>
+            <span class="meta">สิทธิ์การเข้าถึง</span>
+          </div>
+        </div>
+        <div class="odfoot">ไฟล์ที่วางในโฟลเดอร์นี้เป็น <b>ซองล็อก</b> — เปิดดูได้แต่เป็นตัวอักษรที่อ่านไม่ออก แม้จะเป็นผู้ดูแลระบบ</div>
+      </div>
+
+      <div class="odside">
+        <div class="card soft">
+          <div class="ch">__ICO_BANK__ บัญชีของธนาคาร ไม่ใช่คลาวด์ส่วนตัว</div>
+          <div class="cs">เป็นพื้นที่ของธนาคารที่ผูกกับบัญชีผู้ใช้ของเจ้าหน้าที่ ไม่ใช่พื้นที่ฝากไฟล์ทั่วไป</div>
+        </div>
+        <div class="card soft">
+          <div class="ch">__ICO_USERS__ ทุกสาขามีอยู่แล้ว</div>
+          <div class="cs">ไม่ต้องซื้ออุปกรณ์ ไม่ต้องติดตั้งโปรแกรมใหม่ และไม่ต้องให้ไอทีเปิดช่องทางเพิ่ม</div>
+        </div>
+        <div class="card soft">
+          <div class="ch">__ICO_PLUG__ เชื่อมคอมกับแท็บเล็ตได้ทันที</div>
+          <div class="cs">คอมสาขาวางไฟล์ · แท็บเล็ตเปิดรับไฟล์เดียวกัน — โดยไม่ต้องต่อสายหรืออยู่ใน Wi-Fi เดียวกัน</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="truthline">
+      <b>ของจริงวันนี้:</b> ไฟล์ CI ของสาขา 854 ขนาด 10.6 MB อยู่ใน OneDrive ธนาคารแล้ว — ภาพในหน้าต่างเป็นไฟล์ตัวอย่าง 12 ราย (1,536 ไบต์) ให้เห็นหน้าตาของซองล็อก ส่วน CI ชุดเต็มจะใหญ่ตามจำนวนลูกค้าจริง
+    </div>
+  </div>
+  <div class="ftr"><div>OneDrive = ช่องทางของธนาคาร · <b>ไม่ต้องมีเซิร์ฟเวอร์ใหม่</b></div><div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+<!-- ============ 4 FLOW ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 3</span><span class="hstep">· เส้นทางเดียว 3 จุด</span></div>
+    <div class="hnum">4 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">ข้อมูลเดินทาง 3 จุด — ไม่มีจุดที่สี่
+      <span class="thin">คอมสาขา → OneDrive ธนาคาร → แท็บเล็ต · ทุกจุดใช้บัญชีธนาคารเดียวกัน</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="flow">
+      <div class="node">
+        <div class="cap">จุดที่ 1</div>
+        __ICO_PC__
+        <div class="nm">คอมพิวเตอร์สาขา</div>
+        <ul>
+          <li>เลือกไฟล์ CI แล้วกด “ล็อกและส่ง” 1 ครั้ง</li>
+          <li>ไฟล์ถูกแปลงเป็นซองล็อกทันที</li>
+          <li>ไม่ต้องติดตั้งโปรแกรมเพิ่ม</li>
+        </ul>
+      </div>
+
+      <div class="arrow">__ARROW__</div>
+
+      <div class="node hub">
+        <div class="cap">จุดที่ 2 · ศูนย์กลาง</div>
+        __OD_CLOUD_MD__
+        <div class="nm">OneDrive ธนาคาร</div>
+        <ul>
+          <li>เก็บเฉพาะซองล็อก — อ่านไม่ออก</li>
+          <li>เป็นพื้นที่ของธนาคาร ไม่ใช่เซิร์ฟเวอร์ใหม่</li>
+          <li>ไม่มีข้อมูลออกนอกระบบธนาคาร</li>
+        </ul>
+      </div>
+
+      <div class="arrow">__ARROW__</div>
+
+      <div class="node">
+        <div class="cap">จุดที่ 3</div>
+        __ICO_TABLET__
+        <div class="nm">แท็บเล็ตเจ้าหน้าที่</div>
+        <ul>
+          <li>เปิดแอป แล้วสแกน QR 1 ครั้ง</li>
+          <li>ปลดล็อกในเครื่อง ใช้งานได้ทันที</li>
+          <li>ลบซองทิ้งเมื่อเสร็จ</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="band" style="margin-top:9mm">
+      __ICO_SHIELD_W__
+      <div>ทุกจุดล็อกอินด้วย<span class="gold">บัญชีธนาคารเดียวกัน</span> — ไม่มีข้อมูลเดินผ่านเซิร์ฟเวอร์อื่น และไม่ต้องพึ่งไอทีเปิดช่องทาง</div>
+    </div>
+  </div>
+  <div class="ftr"><div>3 จุด · 1 บัญชีธนาคาร · <b>0 เซิร์ฟเวอร์ใหม่</b></div><div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+<!-- ============ 5 BEFORE / AFTER ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 4</span><span class="hstep">· ใส่ซองล็อกก่อนวางบน OneDrive</span></div>
+    <div class="hnum">5 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">วางไฟล์บน OneDrive ทั้งที — ต้องวางเป็น “ซองล็อก”
+      <span class="thin">แอดมินสาขากดปุ่มเดียว ไฟล์รายชื่อลูกค้ากลายเป็นไฟล์ที่เปิดอ่านไม่ออก</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="ba">
+      <div class="panel">
+        <div class="ph l"><span>ก่อน · ไฟล์ CI ธรรมดา</span><span>เปิดอ่านได้</span></div>
+        <div class="pb">
+          <table class="mini">
+            <tr><th>เขต</th><th>ชื่อ-สกุล</th><th>CIF</th><th>หนี้คงเหลือ</th></tr>
+            <tr><td>11</td><td>นาย ทองดี ใจกว้าง</td><td>4600001</td><td>125,000</td></tr>
+            <tr><td>11</td><td>นาง สมศรี มีสุข</td><td>4600002</td><td>48,000</td></tr>
+            <tr><td>12</td><td>นาย ประหยัด ขยันดี</td><td>4600003</td><td>210,000</td></tr>
+            <tr><td>13</td><td>นาง บุญมี ทองแท้</td><td>4600004</td><td>96,000</td></tr>
+            <tr><td>13</td><td>นาย สมชาย กล้าแข็ง</td><td>4600005</td><td>340,000</td></tr>
+          </table>
+          <div style="margin-top:3mm;font-size:9.4pt;color:#7A3A34;line-height:1.45">
+            ใครเข้าถึงโฟลเดอร์ได้ = เห็นชื่อ ยอดหนี้ และขั้นหนี้ของลูกค้าทันที
+          </div>
+        </div>
+      </div>
+
+      <div class="midarrow">
+        <div class="btn">กด 1 ปุ่ม</div>
+        __ARROW__
+        <div style="font-size:8.2pt;color:#7C8B84">ใช้เวลาไม่กี่วินาที</div>
+      </div>
+
+      <div class="panel">
+        <div class="ph r"><span>หลัง · ซองล็อก (.bfrpack)</span><span>อ่านไม่ออก</span></div>
+        <div class="pb">
+          <div class="garble"><span class="hdr1">BFR1</span> 27 3E 9A C4 0F 7B E1 55 D8 2C 60 AF 11 9D 4E 83<br>
+          7C 05 B2 EE 48 D1 36 9F 0A 74 C7 5B 22 8E F3 69<br>
+          03 AD 91 5C E7 2B 78 C0 44 1F D6 8A 35 9B 62 FE<br>
+          0F 3A 9C E1 7B 22 D4 88 5E 01 AF C3 76 9B 2D E8<br>
+          4F 11 AC 63 B7 05 E9 2E 7C 8D 14 6A F0 3B 97 C2<br>
+          5E A8 31 D7 4B 09 66 F3 8C 27 B1 5D AA 40 79 CE<br>
+          91 6C 2E B5 7F D0 43 1A E6 8B 54 CD 07 9F 32 6D<br>
+          B0 47 1E 85 FC 39 A2 6B D9 10 78 C5 4E 93 2A EF<br>
+          63 0C 57 B1 8E 24 DA 71 3F C6 09 5B 97 E2 14 8D<br>
+          µ§¶Ž¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞß<br>
+          ŒœŠšŸŽžƒˆ˜–—‘’‚“”„†‡•…‰′″‹›⁄€₣₤₧₩₪₫</div>
+          <div style="margin-top:3mm;font-size:9.4pt;color:#14684A;line-height:1.45">
+            ไม่มีชื่อ ไม่มี CIF ไม่มีพิกัดให้อ่าน — ไม่มีกุญแจก็กู้คืนไม่ได้
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ba-notes" style="margin-top:5mm">
+      <div><b>วางได้อย่างสบายใจ</b><br>แม้โฟลเดอร์ถูกแชร์หรือถูกเข้าถึง ข้อมูลข้างในยังอ่านไม่ออก</div>
+      <div><b>กุญแจไม่อยู่ในไฟล์</b><br>กุญแจถูกสร้างใหม่ทุกไฟล์ และส่งให้แท็บเล็ตทาง QR เท่านั้น</div>
+      <div><b>ย้อนกลับได้</b><br>ไฟล์ต้นฉบับยังอยู่ที่คอมสาขา ลบซองบน OneDrive ได้ทุกเมื่อ</div>
+    </div>
+  </div>
+  <div class="ftr"><div>ไฟล์ตัวอย่าง 12 ราย · 1,232 ไบต์ → ซองล็อก 1,536 ไบต์</div><div>ข้อมูลตัวอย่างทั้งหมด · ใช้เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+<!-- ============ 6 TABLET STEPS ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 5</span><span class="hstep">· ฝั่งแท็บเล็ต 4 ขั้น</span></div>
+    <div class="hnum">6 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">บนแท็บเล็ต — 4 ขั้น และไม่ต้องพิมพ์อะไรเลย
+      <span class="thin">สแกน QR แทนการพิมพ์รหัสยาว ๆ · ข้อมูลถูกใช้ในเครื่อง และไม่เหลือไฟล์อ่านได้ค้างไว้</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="top"><div class="n">1</div><div class="k">SCAN</div></div>
+        <div class="t">สแกน QR</div>
+        <div class="d">กล้องแท็บเล็ตสแกน QR จากหน้าจอคอม — ได้กุญแจโดยไม่ต้องพิมพ์</div>
+        <div class="ic">__ICO_QR__</div>
+      </div>
+      <div class="step">
+        <div class="top"><div class="n">2</div><div class="k">UNLOCK</div></div>
+        <div class="t">เปิดซองในหน่วยความจำ</div>
+        <div class="d">ข้อมูลถูกปลดล็อกในหน่วยความจำชั่วคราว ไม่ถูกเขียนเป็นไฟล์ที่อ่านได้</div>
+        <div class="ic">__ICO_KEY__</div>
+      </div>
+      <div class="step">
+        <div class="top"><div class="n">3</div><div class="k">STORE</div></div>
+        <div class="t">เก็บแบบล็อกไว้ในเครื่อง</div>
+        <div class="d">ข้อมูลในเครื่องยังถูกเข้ารหัส เปิดได้เฉพาะผ่านแอปของเรา</div>
+        <div class="ic">__ICO_DB__</div>
+      </div>
+      <div class="step">
+        <div class="top"><div class="n">4</div><div class="k">CLEAN</div></div>
+        <div class="t">ลบซองทิ้ง</div>
+        <div class="d">ลบไฟล์ซองทั้งบนแท็บเล็ตและบน OneDrive — ไม่มีอะไรค้างให้ตามเก็บ</div>
+        <div class="ic">__ICO_TRASH__</div>
+      </div>
+    </div>
+
+    <div class="qrstrip" style="margin-top:5mm">
+      <img src="__QR_SRC__" alt="QR ตัวอย่าง">
+      <div class="qt">
+        <b>QR ตัวอย่าง</b> — สแกนแล้วได้กุญแจ + ลิงก์ไฟล์<br>
+        อายุ <b>15 นาที</b> ใช้ได้ครั้งเดียว · ไม่ส่งกุญแจทางแชทหรืออีเมล<br>
+        พลาดหรือหมดอายุ? กดสร้าง QR ใหม่ได้ทันที — <b>ไม่ต้องแปลงไฟล์ใหม่</b>
+      </div>
+    </div>
+  </div>
+  <div class="ftr"><div>1 สแกน · ไม่ต้องพิมพ์รหัส · <b>ไม่มีไฟล์อ่านได้ตกค้าง</b></div><div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+<!-- ============ 7 TRUST ============ -->
+<section class="page">
+  <div class="hdr">
+    <div class="hleft"><span>ขั้นที่ 6</span><span class="hstep">· ทำไมวางใจได้ และสรุป</span></div>
+    <div class="hnum">7 / 7</div>
+  </div>
+  <div class="body">
+    <h2 class="title">ความปลอดภัย 4 ข้อที่ตอบผู้บริหารได้
+      <span class="thin">ทุกข้อเกิดในระบบธนาคาร ไม่ได้ฝากไว้กับบุคคลใดบุคคลหนึ่ง</span>
+    </h2>
+    <div class="rule"></div>
+
+    <div class="g4">
+      <div class="card"><div class="numchip">1</div><div><div class="gt">บน OneDrive เป็นซองล็อก</div>
+        <div class="gd">แม้ผู้มีสิทธิ์เปิดโฟลเดอร์ เห็นก็แต่ตัวอักษรที่อ่านไม่ออก</div></div></div>
+      <div class="card"><div class="numchip">2</div><div><div class="gt">กุญแจไม่เดินทางเป็นข้อความ</div>
+        <div class="gd">ส่งด้วย QR อายุ 15 นาที ใช้ครั้งเดียว ไม่ผ่านแชทหรืออีเมล</div></div></div>
+      <div class="card"><div class="numchip">3</div><div><div class="gt">เครื่องหาย = เปลี่ยนกุญแจได้</div>
+        <div class="gd">ออกเครื่องนั้นจากสาขา แล้วสร้างกุญแจใหม่ให้เครื่องที่เหลือ</div></div></div>
+      <div class="card"><div class="numchip">4</div><div><div class="gt">ไม่มีไฟล์อ่านได้ตกค้าง</div>
+        <div class="gd">ลบซองทั้งแท็บเล็ตและ OneDrive · ข้อมูลในเครื่องยังเข้ารหัส</div></div></div>
+    </div>
+
+    <div class="summary">
+      <div class="big">กด <span class="g">1 ครั้ง</span> · สแกน <span class="g">1 ครั้ง</span><br>ข้อมูลถึงทั้งสาขา</div>
+      <div class="side">และไม่มีใครกลางทางอ่านได้<br>แม้แต่ผู้ดูแลระบบหรือผู้ที่เข้าถึงโฟลเดอร์</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v">1 คน</div><div class="l">แอดมินสาขา</div></div>
+      <div class="stat"><div class="v">1 ปุ่ม</div><div class="l">ที่คอมพิวเตอร์</div></div>
+      <div class="stat"><div class="v">1 QR</div><div class="l">ที่แท็บเล็ต</div></div>
+      <div class="stat"><div class="v">15 นาที</div><div class="l">อายุกุญแจ</div></div>
+      <div class="stat"><div class="v">~4 MB</div><div class="l">ต่อ CI 1 ชุด</div></div>
+      <div class="stat"><div class="v">0</div><div class="l">เซิร์ฟเวอร์ใหม่</div></div>
+    </div>
+
+    <div class="disclaimer">ภาพและตัวเลขเป็นตัวอย่างเพื่ออธิบายกระบวนการที่ออกแบบไว้ — ยังไม่ขึ้นใช้งานจริง</div>
+  </div>
+  <div class="ftr"><div>ระบบติดตามลูกค้าภาคสนาม · <b>BAAC Field Route</b></div><div>ภาพและข้อมูลเป็นตัวอย่าง เพื่ออธิบายกระบวนการ</div></div>
+</section>
+
+</body>
+</html>

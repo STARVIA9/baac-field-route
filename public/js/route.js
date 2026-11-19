@@ -40,7 +40,7 @@ const Route = {
     const btnAutoPlan = document.getElementById('btn-auto-plan');
     if (btnAutoPlan) btnAutoPlan.addEventListener('click', () => this.autoPlanFromFilters());
     const btnOptimize = document.getElementById('btn-optimize-route');
-    if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true));
+    if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true, { focusSummary: true }));
     // ออกจากโหมดโฟกัสเส้นทาง (โชว์เลขกลุ่มพิกัดทั้งหมดเหมือนเดิม)
     const btnShowAll = document.getElementById('btn-route-show-all');
     if (btnShowAll) btnShowAll.addEventListener('click', () => {
@@ -172,6 +172,96 @@ const Route = {
     e.target.classList.remove('dragging');
   },
 
+  // ===== จัดลำดับจุดเยี่ยมให้สั้นที่สุดบน "ระยะทางถนนจริง" =====
+  // ใช้ OSRM /table (distance matrix) + Held-Karp DP (≤12 จุด) หรือ NN+2-opt (>12)
+  // ต่างจาก TSP.plan เดิมที่ Uses haversine (เส้นตรง) → มักอ้อมเพราะแม่น้ำ/สะพาน/ทางเดียว
+  async optimizeOrder(start, orderedIds, end) {
+    const customers = Storage.getActiveCustomers();
+    const stops = orderedIds.map(id => customers.find(c => c.id === id)).filter(Boolean);
+    if (stops.length < 3) return stops.map(s => s.id); // 1-2 จุด ไม่ต้องจัดใหม่
+
+    const isOpen = end && (Math.abs(end.lat - start.lat) > 1e-9 || Math.abs(end.lng - start.lng) > 1e-9);
+    const endPt = isOpen ? { lat: end.lat, lng: end.lng } : { lat: start.lat, lng: start.lng };
+    const pts = [{ lat: start.lat, lng: start.lng }, ...stops.map(c => ({ lat: c.lat, lng: c.lng })), endPt];
+    const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
+    const url = `https://router.project-osrm.org/table/v1/driving/${coords}?annotations=distance`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code !== 'Ok' || !Array.isArray(data.distances)) throw new Error('OSRM table ไม่พร้อม');
+    const m = data.distances;
+    const n = stops.length;          // 0 = start, 1..n = stops, n+1 = end
+    const endIdx = n + 1;
+
+    const orderCost = (ids) => {
+      let prev = 0, total = 0;
+      for (const id of ids) { const k = stops.findIndex(s => s.id === id) + 1; total += m[prev][k]; prev = k; }
+      return total + m[prev][endIdx];
+    };
+
+    let best = null;
+    if (n <= 12) {
+      // Held-Karp: optimal order with fixed start/end
+      const size = 1 << n;
+      const dp = Array.from({ length: size }, () => new Float64Array(n).fill(Infinity));
+      const par = Array.from({ length: size }, () => new Int8Array(n).fill(-1));
+      for (let j = 0; j < n; j++) dp[1 << j][j] = m[0][j + 1];
+      for (let mask = 1; mask < size; mask++) {
+        for (let j = 0; j < n; j++) {
+          if (!(mask & (1 << j)) || dp[mask][j] === Infinity) continue;
+          const cur = dp[mask][j];
+          for (let k = 0; k < n; k++) {
+            if (mask & (1 << k)) continue;
+            const nm = mask | (1 << k);
+            const cand = cur + m[j + 1][k + 1];
+            if (cand < dp[nm][k]) { dp[nm][k] = cand; par[nm][k] = j; }
+          }
+        }
+      }
+      let bestJ = -1, bestCost = Infinity;
+      for (let j = 0; j < n; j++) {
+        const cand = dp[size - 1][j] + m[j + 1][endIdx];
+        if (cand < bestCost) { bestCost = cand; bestJ = j; }
+      }
+      const seq = [];
+      let mask = size - 1, j = bestJ;
+      while (j >= 0) {
+        seq.unshift(stops[j].id);
+        const pj = par[mask][j];
+        mask &= ~(1 << j);
+        j = pj;
+      }
+      best = seq;
+    } else {
+      // มากกว่า 12 จุด: nearest-neighbor บนเมทริกซ์ + 2-opt
+      const left = stops.map((s, i) => i);
+      const seq = []; let prev = 0;
+      while (left.length) {
+        let bi = 0, bd = Infinity;
+        left.forEach((idx, i) => { const d = m[prev][idx + 1]; if (d < bd) { bd = d; bi = i; } });
+        const idx = left.splice(bi, 1)[0];
+        seq.push(stops[idx].id); prev = idx + 1;
+      }
+      const cost = (arr) => orderCost(arr);
+      let bestArr = seq, bestD = cost(seq), improved = true, guard = 0;
+      while (improved && guard++ < 200) {
+        improved = false;
+        for (let i = 0; i < bestArr.length - 1; i++) {
+          for (let k = i + 1; k < bestArr.length; k++) {
+            const cand = [...bestArr.slice(0, i), ...bestArr.slice(i, k + 1).reverse(), ...bestArr.slice(k + 1)];
+            const d = cost(cand);
+            if (d < bestD - 1) { bestArr = cand; bestD = d; improved = true; }
+          }
+        }
+      }
+      best = bestArr;
+    }
+
+    // กันแย่กว่าเดิม: ถ้าลำดับที่ผู้ใช้ตั้งไว้สั้นกว่า ให้คงลำดับเดิม
+    const origIds = stops.map(s => s.id);
+    if (orderCost(origIds) <= orderCost(best)) return origIds;
+    return best;
+  },
+
   // ===== Calculate route using OSRM =====
   // start: {lat, lng} — required start point
   // orderedCustomerIds: array of customer IDs in visit order (already sorted)
@@ -207,7 +297,7 @@ const Route = {
 
     try {
       // OSRM public API
-      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false&continue_straight=false`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -615,7 +705,7 @@ const Route = {
       if (sheet) sheet.classList.add('open');
       Utils.toast(`✅ หยิบ ${picked.length} รายจาก ${withGps.length} หมุดแล้ว — กำลังจัดลำดับให้สั้นสุด…`);
       // จัดลำดับสั้นสุด + คำนวณเส้นทางถนนจริงทันที
-      if (typeof App !== 'undefined' && App.calculateRoute) App.calculateRoute(true);
+      if (typeof App !== 'undefined' && App.calculateRoute) App.calculateRoute(true, { focusSummary: true });
     } catch (e) {
       if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('จัดแผนไม่ได้ ลองอีกทีค่ะ', 'error');
     }

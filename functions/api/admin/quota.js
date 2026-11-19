@@ -1,8 +1,9 @@
-// Quota dashboard — GET /api/admin/quota (admin only)
+// Quota dashboard — GET /api/admin/quota (แอดมินกลาง + ผู้ดูแลสาขา อ่านได้)
 // โควต้าเขียน D1 วันนี้ (กันล็อก 100,000 แถว/วัน) — อ่านอย่างเดียว ไม่นับโควต้า
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { getWriteBudget } from '../../_lib/shared.js';
+import { canManageUsers } from '../../_lib/authz.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -59,7 +60,7 @@ export async function onRequestGet(context) {
   if (!__secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }, 500);
   const payload = await verifyHS256(token, __secret);
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
-  if (payload.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(payload)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
 
   const force = new URL(request.url).searchParams.get('force') === '1';
   const [quota, health] = await Promise.all([getWriteBudget(env), getHealth(env, force)]);

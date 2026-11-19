@@ -5,6 +5,7 @@
 // a no-op merge since D1 already has the coords — but the endpoint stays valid).
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
+import { toBaacCode } from '../_lib/branches.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -24,10 +25,14 @@ export async function onRequestGet(context) {
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
 
   if (env.BFR_DB) {
-    // D1 source of truth: all active customers with coords
-    const { results } = await env.BFR_DB.prepare(
-      `SELECT cif, name, lat, lng, updated_at FROM customers WHERE deleted=0 AND lat IS NOT NULL AND lng IS NOT NULL`
-    ).all();
+    // D1 source of truth: active customers with coords — ล็อกสาขาให้คนที่ไม่ใช่แอดมินกลาง (16 พ.ย.69)
+    // เดิมคืนพิกัด+ชื่อของทุกสาขาให้ทุกคนที่ล็อกอินได้ = เห็นข้อมูลข้ามสาขา
+    const ownBaac = payload.role === 'admin' ? '' : String(toBaacCode(payload.branch) || '').trim();
+    const sqlBase = `SELECT cif, name, lat, lng, updated_at FROM customers WHERE deleted=0 AND lat IS NOT NULL AND lng IS NOT NULL`;
+    const stmt = ownBaac
+      ? env.BFR_DB.prepare(sqlBase + ' AND branch = ?1').bind(ownBaac)
+      : env.BFR_DB.prepare(sqlBase);
+    const { results } = await stmt.all();
     const overlay = {};
     for (const r of results || []) {
       overlay[String(r.cif)] = {

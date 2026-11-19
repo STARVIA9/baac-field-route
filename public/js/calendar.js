@@ -92,23 +92,69 @@ const WorkCalendar = {
   // ===== แถบแจ้งเตือนใต้หัวเว็บ + ตัวเลขบนแท็บปฏิทิน =====
   refreshAlert() {
     const counts = this.dueCounts();
+    const entries = this.entries().filter((e) => e.cls === 'due' || e.cls === 'overdue');
     const total = counts.due + counts.overdue;
     const banner = typeof document !== 'undefined' ? document.getElementById('promise-alert') : null;
+
     if (banner) {
-      if (total > 0) {
+      const amount = entries.reduce((s, e) => s + (Number(e.promiseAmount) || 0), 0);
+      const sig = [this.todayStr(), counts.due, counts.overdue, amount].join('|');
+      let dismissed = '';
+      try { dismissed = sessionStorage.getItem('bfr_pa_dismiss') || ''; } catch (e) { /* ignore */ }
+
+      if (total > 0 && dismissed !== sig) {
+        // ข้อความสื่อความหมาย: ขึ้น "เลยกำหนด" ก่อน และบอกยอดเงินที่ต้องตาม
+        const head = counts.overdue > 0
+          ? 'เลยกำหนด ' + counts.overdue + ' ราย' + (counts.due ? ' · วันนี้ ' + counts.due + ' ราย' : '')
+          : 'ถึงกำหนดวันนี้ ' + counts.due + ' ราย';
+        banner.innerHTML =
+          '<span class="pa-ico" aria-hidden="true">🔔</span>' +
+          '<div class="pa-text"><b>' + head + '</b><span>' +
+            (amount > 0 ? 'ยอดนัด ' + this.fmtAmount(amount) : 'จากปฏิทินนัดติดตาม') +
+          '</span></div>' +
+          '<button type="button" class="pa-btn" data-pa-open>เปิดปฏิทิน</button>' +
+          '<button type="button" class="pa-close" data-pa-close aria-label="ปิดการแจ้งเตือน">×</button>';
+        banner.setAttribute('aria-live', 'polite');
+        banner.dataset.sig = sig;
         banner.classList.remove('hidden');
-        banner.innerHTML = '🔔 วันนี้มีนัดชำระ ' + counts.due + ' ราย · เลยกำหนด ' + counts.overdue + ' ราย <span class="promise-alert-go">เปิดปฏิทิน ›</span> <button type="button" class="promise-alert-close" aria-label="ปิด">×</button>';
+        this._placeAlert(banner);
       } else {
-        banner.classList.add('hidden');
-        banner.innerHTML = '';
+        this._hideAlert(banner);
       }
     }
+
     const badge = typeof document !== 'undefined' ? document.getElementById('cal-tab-badge') : null;
     if (badge) {
       badge.textContent = total;
       badge.classList.toggle('hidden', total === 0);
     }
     return counts;
+  },
+
+  // วางแถบใต้หัวเว็บจริง (ไม่ทับ) + ดันแผงตัวกรองลง
+  _placeAlert(banner) {
+    const header = document.querySelector('.app-header');
+    const bottom = header ? header.getBoundingClientRect().bottom : 0;
+    banner.style.setProperty('--pa-top', Math.round(bottom + 8) + 'px');
+    const h = banner.offsetHeight || 64;
+    document.documentElement.style.setProperty('--pa-space', (h + 14) + 'px');
+    document.body.classList.add('alert-open');
+    if (!this._paResize) {
+      this._paResize = () => {
+        const b = document.getElementById('promise-alert');
+        if (b && !b.classList.contains('hidden')) this._placeAlert(b);
+      };
+      window.addEventListener('resize', this._paResize);
+      window.addEventListener('orientationchange', this._paResize);
+    }
+  },
+
+  _hideAlert(banner) {
+    if (!banner) return;
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    document.body.classList.remove('alert-open');
+    document.documentElement.style.setProperty('--pa-space', '0px');
   },
 
   // ===== บันทึกผลติดตาม (เขียนกลับเรคอร์ดเข้าพบเดิม) =====
@@ -287,12 +333,15 @@ const WorkCalendar = {
     const banner = document.getElementById('promise-alert');
     if (banner) {
       banner.addEventListener('click', (e) => {
-        if (e.target.closest('.promise-alert-close')) {
+        if (e.target.closest('[data-pa-close]')) {
           e.stopPropagation();
-          banner.classList.add('hidden');
+          try { sessionStorage.setItem('bfr_pa_dismiss', banner.dataset.sig || '1'); } catch (err) { /* ignore */ }
+          this._hideAlert(banner);
           return;
         }
-        if (typeof App !== 'undefined' && App.switchSheetTab) App.switchSheetTab('calendar');
+        if (e.target.closest('[data-pa-open]') || e.target === banner) {
+          if (typeof App !== 'undefined' && App.switchSheetTab) App.switchSheetTab('calendar');
+        }
       });
     }
     this.refreshAlert();

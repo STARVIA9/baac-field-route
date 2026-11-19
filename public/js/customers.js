@@ -68,6 +68,17 @@ const Customers = {
         maxNativeZoom: 19,
       }),
     };
+    // แจ้งเตือนเมื่อโหลด tile ไม่ได้ (เน็ตหลุด/OSM บล็อก) — เดิมเงียบ ทำให้เห็นแผนที่ว่างโดยไม่รู้สาเหตุ
+    let _tileErrAt = 0;
+    const _onTileErr = () => {
+      const now = Date.now();
+      if (now - _tileErrAt < 10000) return;
+      _tileErrAt = now;
+      if (window.Utils && Utils.toast) Utils.toast('⚠️ โหลดแผนที่ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วซูมใหม่', 'error');
+    };
+    this._baseLayers.roadmap.on('tileerror', _onTileErr);
+    this._baseLayers.satellite.on('tileerror', _onTileErr);
+
     this._baseLayers.roadmap.addTo(this.map);
     this._currentBaseLayer = 'roadmap';
 
@@ -846,6 +857,15 @@ const Customers = {
   _listScrollHandler: null,
 
   renderList() {
+    // 17 พ.ย.69: ฐานรายชื่อโหลดเมื่อจำเป็น (ไม่โหลดตอนเปิดแอป) — เปิดแท็บนี้ครั้งแรกจึงดึง แล้ววาดใหม่
+    if (typeof CustomerDB !== 'undefined' && !CustomerDB._loaded && !this._ensureTried) {
+      this._ensureTried = true;
+      const list0 = document.getElementById('customers-list');
+      if (list0) list0.innerHTML = '<div style="padding:16px;color:#666">กำลังโหลดฐานรายชื่อ...</div>';
+      CustomerDB.ensure().then(() => { this._ensureTried = false; try { this.renderList(); } catch (e) {} })
+        .catch(() => { this._ensureTried = false; });
+      return;
+    }
     const list = document.getElementById('customers-list');
     let customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
@@ -978,7 +998,7 @@ const Customers = {
     this._renderedListOffset = end;
   },
 
-  // T2: พาไปพิกัดลูกค้าบนแผนที่ (ปุ่ม 📍 ในการ์ด)
+  // T2: พาไปพิกัดลูกค้าบนแผนที่ (ปุ่ม 📍 ในการ์ด) — เด้งการ์ดลูกหนี้+ข้อมูลหนี้ที่จุดพิกัดด้วย
   locateCustomer(id) {
     const c = this._filteredCustomers.find(x => x.id === id) ||
               Storage.getActiveCustomers().find(x => x.id === id);
@@ -989,13 +1009,43 @@ const Customers = {
     }
     // พับ bottom sheet ลง → เห็นแผนที่เต็มจอ
     if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
-    // เดินทางไปพิกัด + เปิด popup marker
-    if (this.map) {
-      this.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
-      setTimeout(() => {
-        const m = this.markers[c.id];
-        if (m) this.map.openPopup(m);
-      }, 900);
+    if (!this.map) return;
+    this.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
+    setTimeout(() => this.showCustomerCard(c), 900);
+  },
+
+  // เปิดการ์ดลูกหนี้ที่จุดพิกัดเสมอ — ไม่พึ่ง marker เดิม (หมุดอาจถูกตัวกรองตัด/ยังไม่ถูกวาดบนแผนที่)
+  showCustomerCard(c) {
+    if (!this.map || !c) return;
+    const lat = Number(c.lat), lng = Number(c.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    if (this._tempPin) { try { this.map.removeLayer(this._tempPin); } catch (e) {} this._tempPin = null; }
+    if (this._cardPopup) { try { this.map.closePopup(this._cardPopup); } catch (e) {} this._cardPopup = null; }
+    // หมุดชั่วคราววงกลมเขียว ให้เห็นชัดว่าจุดพิกัดอยู่ตรงไหน
+    const pin = L.circleMarker([lat, lng], { radius: 10, color: '#0a8f3c', weight: 3, fillColor: '#0a8f3c', fillOpacity: 0.35, interactive: false }).addTo(this.map);
+    this._tempPin = pin;
+    // วางการ์ดให้พ้นแถบแจ้งเตือน/แผงด้านบน และไม่จมใต้แถบล่าง (คำนวณจากความสูงจอจริง)
+    const vh = window.innerHeight || 844;
+    const padTop = Math.min(260, Math.round(vh * 0.30));
+    const padBottom = Math.min(160, Math.round(vh * 0.17));
+    const maxH = Math.max(280, vh - padTop - padBottom - 24);
+    const pop = L.popup({ maxWidth: 320, maxHeight: maxH, autoPan: true, autoPanPaddingTopLeft: [10, padTop], autoPanPaddingBottomRight: [56, padBottom], closeButton: false, className: 'cust-card-popup' })
+      .setLatLng([lat, lng]).setContent(this.popupHTML(c)).openOn(this.map);
+    this._cardPopup = pop;
+    // ซ่อนปุ่มควบคุมแผนที่ชั่วคราวระหว่างเปิดการ์ด กันปุ่มทับข้อมูล (คืนค่าเมื่อปิดการ์ด)
+    try { document.body.classList.add('card-open'); } catch (e) {}
+    pop.on('remove', () => {
+      this._cardPopup = null;
+      try { document.body.classList.remove('card-open'); } catch (e) {}
+      if (this._tempPin === pin) { try { this.map.removeLayer(pin); } catch (e) {} this._tempPin = null; }
+    });
+    // ข้อมูลหนี้ยังโหลดไม่เสร็จ → เติมการ์ดให้เองเมื่อโหลดเสร็จ
+    if (typeof DebtDB !== 'undefined' && !DebtDB._loaded && DebtDB.load) {
+      DebtDB.load().then(() => {
+        if (this._cardPopup && this.map && this.map.hasLayer(this._cardPopup)) {
+          try { this._cardPopup.setContent(this.popupHTML(c)); } catch (e) {}
+        }
+      }).catch(() => {});
     }
   },
 
@@ -1233,6 +1283,10 @@ const Customers = {
       if (tabSel) tabSel.value = v;
       this._branchFilter = v || '';
       this._lastMarkerHash = null;            // force rebuild
+      // 17 พ.ย.69: เลือกสาขาไหน = โหลดข้อมูลหนี้สาขานั้น (แอดมินทยอยโหลดทีละสาขา)
+      if (v && window.DebtDB && DebtDB.ensureBranch) {
+        DebtDB.ensureBranch(v).then(() => { this._lastMarkerHash = null; this.renderAll(); }).catch(() => {});
+      }
       this.renderAll();                       // renderMarkers + list
     };
     for (const s of [sel, tabSel]) {
@@ -1241,7 +1295,7 @@ const Customers = {
         s.addEventListener('change', onChange);
       }
     }
-    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
+    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง', '10': 'ปราจีนบุรี', '327': 'ศรีมหาโพธิ', '486': 'ประจันตคาม', '715': 'นาดี' };
     const seen = new Set();
     if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && CustomerDB._byCif) {
       CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });

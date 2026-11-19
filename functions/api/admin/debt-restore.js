@@ -30,6 +30,14 @@ export async function onRequestGet(context) {
   const updated = await env.BFR_KV.get('debt:updated');
   let current = 0;
   try { current = JSON.parse((await env.BFR_KV.get('debt:data')) || '[]').length; } catch (e) { current = 0; }
+  if (!current) {
+    // คลังรวมถูกข้าม (ใหญ่เกิน) → นับจากคีย์แยกสาขา
+    try {
+      const rawIdx = await env.BFR_KV.get('debt:index');
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      current = (Array.isArray(idx) ? idx : []).reduce((n, x) => n + (Number(x.count) || 0), 0);
+    } catch { current = 0; }
+  }
   return json({ success: true, backups, current, updated });
 }
 
@@ -50,6 +58,24 @@ export async function onRequestPost(context) {
   const cur = await env.BFR_KV.get('debt:data');
   if (cur) await env.BFR_KV.put('debt:data:backup:pre-restore-' + new Date().toISOString().slice(0, 10), cur);
   await env.BFR_KV.put('debt:data', raw);
+  // 16 พ.ย.69: เขียนคีย์แยกสาขาตามไปด้วย — ไม่งั้นเครื่องพนักงานอ่านคีย์เก่าไม่ตรงกับที่กู้คืน
+  try {
+    const byBranch = new Map();
+    const none = [];
+    for (const r of rows) {
+      const b = String((r && r.branch) || '').trim();
+      if (!b) { none.push(r); continue; }
+      if (!byBranch.has(b)) byBranch.set(b, []);
+      byBranch.get(b).push(r);
+    }
+    for (const [b, list] of byBranch) await env.BFR_KV.put('debt:data:b:' + b, JSON.stringify(list));
+    if (none.length) await env.BFR_KV.put('debt:data:b:_none', JSON.stringify(none));
+    const index = [...byBranch.entries()].map(([b, list]) => ({ branch: b, count: list.length }));
+    if (none.length) index.push({ branch: '_none', count: none.length });
+    await env.BFR_KV.put('debt:index', JSON.stringify(index));
+  } catch (e) {
+    console.warn('restore branch keys failed:', e.message);
+  }
   await env.BFR_KV.put('debt:updated', new Date().toISOString());
   return json({ success: true, restored: rows.length, from: date });
 }

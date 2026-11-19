@@ -256,6 +256,24 @@ const Auth = {
     return user && user.role === 'admin';
   },
 
+  // ===== ผู้ดูแลสาขา (branch_admin) — จัดการได้เฉพาะคนในสาขาตัวเอง =====
+  isBranchAdmin() {
+    const user = this.getUser();
+    return user && user.role === 'branch_admin';
+  },
+
+  // เข้าเมนู "จัดการระบบ" ได้หรือไม่ (แอดมินกลาง หรือ ผู้ดูแลสาขา)
+  canManage() {
+    const user = this.getUser();
+    return !!user && (user.role === 'admin' || user.role === 'branch_admin');
+  },
+
+  // รหัสสาขาที่ผูกอยู่ (ใช้ล็อก dropdown ของผู้ดูแลสาขา)
+  myBranch() {
+    const user = this.getUser();
+    return (user && user.branch) || '';
+  },
+
   // true = เข้าด้วย PIN (admin PIN / staff PIN) — ไม่มีรหัสผ่านให้เปลี่ยน (16 ต.ค.69)
   // หมายเหตุ: staff ที่ตั้งรหัสครั้งแรกแล้ว login ใหม่จะได้ loginMethod=password เอง
   isPinSession() {

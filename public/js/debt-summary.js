@@ -17,26 +17,47 @@ const DebtSummary = {
     const self = this;
     const data = [...DebtDB._byCif.values()];
 
-    // ===== ตัวกรองสาขา (16 ต.ค.69): ผูกหนี้กับสาขาผ่าน CIF → CustomerDB (ท่าเดียวกับบล็อกเขต)
+    // ===== ตัวกรองสาขา (16 ต.ค.69): ผูกหนี้กับสาขา =====
+    // 17 พ.ย.69: ใช้ป้ายสาขาที่ติดมากับข้อมูลหนี้ก่อน (r.branch) — CustomerDB มีแค่ 10,000 แรก
+    // ทำให้ลูกค้าที่ไม่อยู่ในรายชื่อถูกตัดออกจากยอดรวม (3,126 จาก 3,716 ราย · หาย 394 ล้าน)
     const branchOf = (r) => {
+      const own = String((r && r.branch) || '').trim();
+      if (own) return own;
       const cust = r.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(String(r.cif).trim()) : null;
       return cust && cust.branch ? String(cust.branch).trim() : '';
     };
-    // dropdown เติมจากสาขาที่มีในฐานลูกค้าจริง (ท่าเดียวกับ map-branch-filter)
+    // dropdown เติมจากสาขาที่มีในฐานลูกค้าจริง + สาขาที่คีย์ไว้ทั้งหมดในระบบ (branches:all)
     const brSel = document.getElementById('debt-branch-filter');
+    if (!this._branches) {
+      this._branchesAt = Date.now();
+      try { fetch('/api/branches').then(r => r.json()).then(j => { this._branches = (j && j.branches) || []; this.render(); }).catch(() => {}); } catch { /* ignore */ }
+    }
     if (brSel) {
+      // 17 พ.ย.69: เติมจากทุกแหล่งโดยไม่ต้องรอฐานรายชื่อ — branches:all (สาขาที่คีย์ไว้) + คลังหนี้ + ฐานลูกค้า (ถ้าโหลดแล้ว)
+      const names = {};
+      for (const b of (this._branches || [])) names[String(b.code || '').trim()] = b.name || ('สาขา ' + b.code);
+      const seen = new Set();
+      for (const b of (this._branches || [])) { const c = String(b.code || '').trim(); if (c) seen.add(c); }
+      try { data.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); }); } catch { /* ignore */ }
       if (window.CustomerDB && CustomerDB._loaded) {
-        const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
-        const seen = new Set();
         CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
-        const cur = self.selBranch || 'ALL';
-        brSel.innerHTML = `<option value="ALL">ทุกสาขา</option>` + [...seen].sort().map(b =>
-          `<option value="${b}"${b === cur ? ' selected' : ''}>${names[b] || ('สาขา ' + b)}</option>`).join('');
-        if (cur !== 'ALL' && !seen.has(cur)) self.selBranch = 'ALL';
-        brSel.onchange = () => { self.selBranch = brSel.value || 'ALL'; self.render(); };
-      } else if (window.CustomerDB && !CustomerDB._loaded) {
-        CustomerDB.load().then(() => this.render());
       }
+      const cur = self.selBranch || 'ALL';
+      brSel.innerHTML = `<option value="ALL">ทุกสาขา</option>` + [...seen].sort().map(b =>
+        `<option value="${b}"${b === cur ? ' selected' : ''}>${names[b] || ('สาขา ' + b)}</option>`).join('');
+      if (cur !== 'ALL' && !seen.has(cur)) self.selBranch = 'ALL';
+      brSel.onchange = async () => {
+        self.selBranch = brSel.value || 'ALL';
+        const b = self.selBranch;
+        try {
+          if (b === 'ALL') {
+            if (window.DebtDB && DebtDB.loadAllBranches && DebtDB._partial) await DebtDB.loadAllBranches();
+          } else if (window.DebtDB && DebtDB.ensureBranch) {
+            await DebtDB.ensureBranch(b);
+          }
+        } catch { /* ignore */ }
+        self.render();
+      };
     }
     const B = self.selBranch || 'ALL';
     const fdata = B === 'ALL' ? data : data.filter(r => branchOf(r) === B);
@@ -45,12 +66,48 @@ const DebtSummary = {
     const hasGb = fdata.some(r => r.gb === 'GOOD' || r.gb === 'BAD');
 
     // ===== ภาพรวม =====
-    const totalCif = fdata.length;
-    const totalDebt = fdata.reduce((s, r) => s + (+r.total_debt || 0), 0);
+    // 17 พ.ย.69: ตัวเลขหลักยึดจากเซิร์ฟเวอร์ (COUNT/SUM ใน D1) ก่อน — ห้ามขาดแม้โหลดแถวมาไม่ครบ
+    let totalCif = fdata.length;
+    let totalDebt = fdata.reduce((s, r) => s + (+r.total_debt || 0), 0);
+    {
+      const st = this._stats;
+      if (st && st.success) {
+        if (B === 'ALL') {
+          if (typeof st.with_debt === 'number') totalCif = st.with_debt;
+          if (typeof st.debt_total === 'number') totalDebt = st.debt_total;
+        } else {
+          const row = (st.by_branch || []).find(x => String(x.branch) === String(B));
+          if (row) { totalCif = row.with_debt; totalDebt = row.debt_total; }
+        }
+      }
+    }
     const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
     const sub = document.getElementById('debt-summary-sub');
-    if (sub) sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
-      ` · หนี้รวม ${fmt(totalDebt)} บาท` + (B !== 'ALL' ? ` · สาขา ${B}` : '');
+    if (sub) {
+      // 17 พ.ย.69: ตัวเลข "ลูกค้าทั้งหมดของสาขา" มาจากเซิร์ฟเวอร์ (COUNT) — ไม่ต้องโหลดรายชื่อทั้งก้อน
+      let allLine = '';
+      try {
+        const st = this._stats;
+        if (st && st.success) {
+          const b = (B && B !== 'ALL') ? (st.by_branch || []).find(x => String(x.branch) === String(B)) : null;
+          const nAll = b ? b.customers : st.total_customers;
+          if (nAll != null) allLine = ` · ลูกค้าทั้งสาขา ${Number(nAll).toLocaleString('th-TH')} ราย`;
+        }
+      } catch { /* ไม่มีตัวเลขรวมก็ไม่เป็นไร */ }
+      sub.textContent = `ลูกค้า ${totalCif.toLocaleString('th-TH')} ราย · ${fdata.reduce((s,r)=>s+(+r.num_contracts||0),0).toLocaleString('th-TH')} สัญญา` +
+        ` · หนี้รวม ${fmt(totalDebt)} บาท` + (B !== 'ALL' ? ` · สาขา ${B}` : '') + allLine +
+        ((window.DebtDB && DebtDB._partial) ? ' · ⏳ ทยอยโหลดสาขาอื่น' : '');
+    }
+    // ดึงตัวเลขรวมจากเซิร์ฟเวอร์ครั้งเดียว (ไม่บล็อกการวาด) แล้ววาดใหม่
+    if (!this._stats || (Date.now() - (this._statsAt || 0)) > 300000) {
+      this._statsAt = Date.now();
+      try {
+        fetch(API.baseUrl() + '/api/customers/stats', { headers: API.headers() })
+          .then(r => r.json())
+          .then(j => { if (j && j.success) { this._stats = j; this.render(); } })
+          .catch(() => {});
+      } catch { /* ignore */ }
+    }
 
     // การ์ดภาพรวม
     const ov = document.getElementById('debt-overview-cards');
@@ -62,21 +119,35 @@ const DebtSummary = {
       `;
     }
 
-    // ===== แยกตามกลุ่มสี (จาก Customer Indicator via CustomerDB potential) =====
-    // ใช้ debt-data ไม่มี color ตรงๆ -> ใช้ customer list (Storage) หา potential
-    // แต่ summary นี้อิงข้อมูลหนี้เป็นหลัก; เรียงตามชั้นหนี้แทน และให้ block สีใช้จาก Storage
+    // ===== แยกตามกลุ่มสี (เขียว/เหลือง/แดง) =====
+    // แหล่งหลัก: ค่าศักยภาพที่ติดมากับไฟล์ Customer Indicator (r.potential ในคลังการ์ดหนี้)
+    // — อัปไฟล์หนี้รอบใหม่ = สีของทุกสาขา (รวมบ้านสร้าง) ขึ้นทันที ไม่ต้องรอกรอกฐานลูกค้า
+    // แหล่งสำรอง: ฐานลูกค้าเดิม (CustomerDB.potential) สำหรับข้อมูลชุดเก่าที่ยังไม่มีสีในคลังหนี้
     const colorBlock = document.getElementById('debt-color-block');
-    const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
-    const bcust = B === 'ALL' ? customers : customers.filter(c => String(c.branch || '').trim() === B);
     const colorCount = { แดง: 0, เหลือง: 0, เขียว: 0 };
     const colorDebt = { แดง: 0, เหลือง: 0, เขียว: 0 };
-    for (const c of bcust) {
-      const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
-      const p = db ? db.potential : null;
-      if (p && colorCount[p] !== undefined) {
+    let haveDebtColor = false;
+    for (const r of fdata) {
+      const p = String(r.potential || '').trim();
+      if (colorCount[p] !== undefined) {
         colorCount[p]++;
-        const debt = c.cif ? DebtDB.getByCif(c.cif) : null;
-        colorDebt[p] += (debt ? +debt.total_debt || 0 : 0);
+        colorDebt[p] += (+r.total_debt || 0);
+        haveDebtColor = true;
+      }
+    }
+    // 19 พ.ย.69: รายชื่อในเครื่องใช้ทั้งบล็อกสี (สำรอง) และบล็อกสถานะพิกัด —
+    // เดิมประกาศในปีก if (!haveDebtColor) ทำให้ปีกสถานะพิกัดอ้างไม่ได้ (bcust is not defined)
+    const customers = typeof Storage !== 'undefined' ? Storage.getActiveCustomers() : [];
+    const bcust = B === 'ALL' ? customers : customers.filter(c => String(c.branch || '').trim() === B);
+    if (!haveDebtColor) {
+      for (const c of bcust) {
+        const db = c.cif && window.CustomerDB && CustomerDB._loaded ? CustomerDB.getByCif(c.cif) : null;
+        const p = db ? db.potential : null;
+        if (p && colorCount[p] !== undefined) {
+          colorCount[p]++;
+          const debt = c.cif ? DebtDB.getByCif(c.cif) : null;
+          colorDebt[p] += (debt ? +debt.total_debt || 0 : 0);
+        }
       }
     }
     if (colorBlock) {
@@ -120,21 +191,21 @@ const DebtSummary = {
       `).join('');
     }
 
-    // ===== แยกตามเขต (zone 1-5 จากฐานลูกค้า ผูกกับหนี้ผ่าน CIF) =====
+    // ===== แยกตามเขต (ใช้ zone ที่ติดมากับข้อมูลหนี้ — ไม่ต้องรอฐานรายชื่อ) =====
     const zoneBlock = document.getElementById('debt-zone-block');
     if (zoneBlock) {
-      if (!window.CustomerDB || !CustomerDB._loaded) {
-        zoneBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
-        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
-      } else {
+      {
         const zoneCount = {};
         const zoneDebt = {};
         const zoneOrder = ['1', '2', '3', '4', '5'];
         for (const r of fdata) {
           if (hasGb && r.gb !== 'GOOD') continue;   // โซนโชว์เฉพาะ Good Bank (ตามไฟล์หนี้)
-          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
-          let z = cust && cust.zone ? String(cust.zone).trim() : '';
-          if (!z) z = 'ไม่ระบุ';   // CIF ไม่มีในฐานลูกค้า หรือ zone ว่าง
+          let z = String((r && r.zone) || '').trim();
+          if (!z && window.CustomerDB && CustomerDB._loaded) {
+            const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+            z = cust && cust.zone ? String(cust.zone).trim() : '';
+          }
+          if (!z) z = 'ไม่ระบุ';
           zoneCount[z] = (zoneCount[z] || 0) + 1;
           zoneDebt[z] = (zoneDebt[z] || 0) + (+r.total_debt || 0);
         }
@@ -174,22 +245,14 @@ const DebtSummary = {
     const dueLabel = (self.selMonth && self.selMonth !== 'ALL') ? DebtDB.fmtDate('01/' + self.selMonth) : 'ปีนี้';
     const zdBlock = document.getElementById('debt-zonedue-block');
     if (zdBlock) {
-      if (!window.CustomerDB || !CustomerDB._loaded) {
-        zdBlock.innerHTML = '<div class="ds-note">กำลังโหลดฐานข้อมูลลูกค้า...</div>';
-        if (window.CustomerDB && !CustomerDB._loaded) CustomerDB.load().then(() => this.render());
-      } else {
+      {
         const yk = (mmyy) => { const p = String(mmyy).split('/'); return (+p[1]) * 100 + (+p[0]); };
         const FYS = yk('06/2026'), FYE = yk('03/2027');   // ปีบัญชีเดียวกับบล็อกรายเดือน
-        const zc = {}, zfy = {}, zfyD = {}, zm = {}, zmA = {};
-        // ขอบเขตเดือนเกิด 15 เดือนใหม่: เลือกเดือนเดียว → ตรงเดือนนั้น, ทั้งปีบัญชี → มิ.ย.69-มี.ค.70
-        const scopeB15 = (b) => {
-          if (!b) return false;
-          if (self.selMonth && self.selMonth !== 'ALL') return b === self.selMonth;
-          const p = String(b).split('/');
-          return (+p[1]) * 100 + (+p[0]) >= FYS && (+p[1]) * 100 + (+p[0]) <= FYE;
-        };
+        const zc = {}, zfy = {}, zfyD = {};
         const zoneOf = (r) => {
-          const cust = r.cif ? CustomerDB.getByCif(String(r.cif).trim()) : null;
+          const own = String((r && r.zone) || '').trim();
+          if (own) return own;   // ใช้เขตที่ติดมากับข้อมูลหนี้ก่อน (ไม่ต้องพึ่งฐานรายชื่อ)
+          const cust = (window.CustomerDB && CustomerDB._loaded && r.cif) ? CustomerDB.getByCif(String(r.cif).trim()) : null;
           const z = cust && cust.zone ? String(cust.zone).trim() : '';
           return z || 'ไม่ระบุ';
         };
@@ -207,13 +270,6 @@ const DebtSummary = {
               zfyD[z] = (zfyD[z] || 0) + (+r.total_debt || 0);
             }
           }
-          // 15 เดือนเกิดใหม่ (b15 จากไฟล์หนี้ — คำนวณ 15-เดือนค้างตั้งแต่ตอนอัพ): นับหนี้รวมทั้งก้อน CIF
-          let new15 = false;
-          for (const c of (r.contracts || [])) { if (scopeB15(c.b15)) { new15 = true; break; } }
-          if (new15) {
-            zm[z] = (zm[z] || 0) + 1;
-            zmA[z] = (zmA[z] || 0) + (+r.total_debt || 0);
-          }
         }
         const zdOrder = ['1', '2', '3', '4', '5'];
         const zdKeys = Object.keys(zc).sort((a, b) => {
@@ -228,12 +284,10 @@ const DebtSummary = {
         const gv = (o, k) => (o[k] || 0);
         const totFy = zdKeys.reduce((s, k) => s + gv(zfy, k), 0);
         const totFyD = zdKeys.reduce((s, k) => s + gv(zfyD, k), 0);
-        const totM = zdKeys.reduce((s, k) => s + gv(zm, k), 0);
-        const totMA = zdKeys.reduce((s, k) => s + gv(zmA, k), 0);
         zdBlock.innerHTML = `
-          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${totM.toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(totMA)} บาท</span></div>` +
+          <div class="ds-row ds-total"><span class="ds-label">📊 รวมทุกเขต</span><span class="ds-val">📅 ${dueLabel} ${totFy.toLocaleString('th-TH')} ราย · ${fmt(totFyD)} บาท</span></div>` +
           zdKeys.map(z => `
-          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท<br>⏳ เกิดใหม่ ${dueLabel} ${gv(zm, z).toLocaleString('th-TH')} ราย · หนี้รวม ${fmt(gv(zmA, z))} บาท</span></div>
+          <div class="ds-row"><span class="ds-label">🗺️ ${z === 'ไม่ระบุ' ? 'ไม่ระบุเขต' : 'เขต ' + z}</span><span class="ds-val">📅 ${dueLabel} ${gv(zfy, z).toLocaleString('th-TH')} ราย · ${fmt(gv(zfyD, z))} บาท</span></div>
         `).join('');
       }
     }
@@ -319,47 +373,6 @@ const DebtSummary = {
         <div class="ds-row"><span class="ds-label" style="color:#16a34a">📍 มีพิกัดแล้ว</span><span class="ds-val">${withGeo.toLocaleString('th-TH')} ราย (${pct}%)</span></div>
         <div class="ds-bar"><div class="ds-bar-fill" style="width:${pct}%;background:#16a34a"></div></div>
         <div class="ds-row"><span class="ds-label" style="color:#d00000">⚠️ ยังไม่มีพิกัด</span><span class="ds-val">${withoutGeo.toLocaleString('th-TH')} ราย</span></div>
-      `;
-    }
-
-    // ===== 15 เดือน =====
-    const m15Block = document.getElementById('debt-15m-block');
-    if (m15Block) {
-      let cifM15Y=0, cifM15Amt=0, cifF08=0, cifF09=0, cifF10=0;
-      let totM15Amt=0, totP08=0, totP09=0, totP10=0;
-      let cntM15Y=0, cntM15Amt=0, cntF08=0, cntF09=0, cntF10=0;
-      for (const r of fdata) {
-        let hasY=false, hasAmt=false, hasF08=false, hasF09=false, hasF10=false;
-        for (const c of (r.contracts||[])) {
-          if (c.m15==='Y') cntM15Y++;
-          if ((c.m15_amt||0)>0) cntM15Amt++;
-          if (c.f08==='Y') cntF08++;
-          if (c.f09==='Y') cntF09++;
-          if (c.f10==='Y') cntF10++;
-          if (c.m15==='Y' && !hasY) hasY=true;
-          if ((c.m15_amt||0)>0 && !hasAmt) hasAmt=true;
-          if (c.f08==='Y' && !hasF08) hasF08=true;
-          if (c.f09==='Y' && !hasF09) hasF09=true;
-          if (c.f10==='Y' && !hasF10) hasF10=true;
-        }
-        if (hasY) cifM15Y++;
-        if (hasAmt) cifM15Amt++;
-        if (hasF08) cifF08++;
-        if (hasF09) cifF09++;
-        if (hasF10) cifF10++;
-      }
-      for (const r of fdata) for (const c of (r.contracts||[])) {
-        totM15Amt += (+c.m15_amt||0);
-        totP08 += (+c.p08||0);
-        totP09 += (+c.p09||0);
-        totP10 += (+c.p10||0);
-      }
-      m15Block.innerHTML = `
-        <div class="ds-row"><span class="ds-label">⏳ 15เดือนปัจจุบัน (Y)</span><span class="ds-val">${cifM15Y.toLocaleString('th-TH')} ราย · ${cntM15Y} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label">💸 31มี.ค.70 (ต้องชำระ)</span><span class="ds-val">${cifM15Amt.toLocaleString('th-TH')} ราย · ${cntM15Amt} สัญญา</span></div>
-        <div class="ds-row" style="margin-top:6px"><span class="ds-label" style="color:#7c3aed">🔮 คาด ส.ค.69</span><span class="ds-val">${cifF08.toLocaleString('th-TH')} ราย · ${cntF08} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ก.ย.69</span><span class="ds-val">${cifF09.toLocaleString('th-TH')} ราย · ${cntF09} สัญญา</span></div>
-        <div class="ds-row"><span class="ds-label" style="color:#7c3aed">🔮 คาด ต.ค.69</span><span class="ds-val">${cifF10.toLocaleString('th-TH')} ราย · ${cntF10} สัญญา</span></div>
       `;
     }
   },

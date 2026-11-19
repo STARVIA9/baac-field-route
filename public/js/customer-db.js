@@ -16,10 +16,22 @@ const CustomerDB = {
       const doLoad = async () => {
         try {
           // Security: read from authed API instead of public static JSON
-          const res = await fetch(API.baseUrl() + '/api/customers?limit=10000', { headers: API.headers() });
-          if (!res.ok) throw new Error('Failed to load customer database');
-          const payload = await res.json();
-          this._data = Array.isArray(payload.customers) ? payload.customers : [];
+          // 17 พ.ย.69: ดึงเป็นหน้า ๆ จนครบ — เดิมขอ limit=10000 ครั้งเดียว แต่ฐานมี 11,785 ราย
+          // → ลูกค้าที่เหลือหลุดจากฐานรายชื่อ ทำให้หน้าสรุปหนี้ตัดยอดทิ้ง (ยอดขาด ~394 ล้าน)
+          const PAGE = 10000;
+          let all = [];
+          let offset = 0;
+          for (let page = 0; page < 6; page++) {
+            const res = await fetch(API.baseUrl() + `/api/customers?limit=${PAGE}&offset=${offset}`, { headers: API.headers() });
+            if (!res.ok) throw new Error('Failed to load customer database');
+            const payload = await res.json();
+            const chunk = Array.isArray(payload.customers) ? payload.customers : [];
+            all = all.concat(chunk);
+            if (chunk.length < PAGE) break;
+            offset += PAGE;
+            if (payload.total && all.length >= payload.total) break;
+          }
+          this._data = all;
           // Build CIF index
           this._byCif = new Map();
           for (const r of this._data) {
@@ -27,6 +39,7 @@ const CustomerDB = {
           }
           this._loaded = true;
           console.log(`[CustomerDB] Loaded ${this._data.length} customers`);
+          try { document.dispatchEvent(new CustomEvent('customerdb:loaded')); } catch { /* ignore */ }
         } catch (err) {
           console.warn('[CustomerDB] Load failed:', err.message);
           this._data = [];
@@ -43,6 +56,13 @@ const CustomerDB = {
       }
     });
     return this._loadPromise;
+  },
+
+  // โหลดเมื่อจำเป็น (17 พ.ย.69): เปิดแอปไม่ต้องโหลดฐานรายชื่อทั้งก้อน (11,785 แถว ~6MB)
+  // ค่อยโหลดตอนผู้ใช้เปิดแท็บลูกค้า/ค้นหา/เปิดการ์ด — ตัวเลขสรุปใช้ข้อมูลหนี้ + /api/customers/stats แทน
+  ensure() {
+    if (this._loaded) return Promise.resolve(this._data || []);
+    return this.load();
   },
 
   // Search by CIF or name (fuzzy, returns top N results)

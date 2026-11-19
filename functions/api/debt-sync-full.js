@@ -34,10 +34,22 @@ export async function onRequestPost(context) {
     if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
     // อ่านข้อมูลหนี้จาก KV (source of truth — static public file ถูกเอาออกเพื่อความปลอดภัย)
+    // 16 พ.ย.69: อ่านคลังรวมก่อน; ถ้าไม่มี (หรือถูกข้ามเพราะใหญ่เกิน) → รวมจากคีย์แยกสาขา
+    let data = [];
     const raw = await env.BFR_KV.get('debt:data');
-    if (!raw) throw new Error('ยังไม่มีข้อมูลหนี้ในระบบ — อัปโหลดไฟล์ Customer Indicator ก่อน (/api/debt-import)');
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data)) throw new Error('debt data ต้องเป็น array');
+    if (raw) {
+      data = JSON.parse(raw);
+    } else {
+      const rawIdx = await env.BFR_KV.get('debt:index');
+      const idx = rawIdx ? JSON.parse(rawIdx) : [];
+      for (const x of (Array.isArray(idx) ? idx : [])) {
+        const part = await env.BFR_KV.get('debt:data:b:' + x.branch);
+        if (!part) continue;
+        const rows = JSON.parse(part);
+        if (Array.isArray(rows)) data.push(...rows);
+      }
+    }
+    if (!Array.isArray(data) || data.length === 0) throw new Error('ยังไม่มีข้อมูลหนี้ในระบบ — อัปโหลดไฟล์ Customer Indicator ก่อน (/api/debt-import)');
 
     const now = new Date().toISOString();
     const statements = [];

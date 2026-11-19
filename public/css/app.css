@@ -1083,6 +1083,9 @@ body {
   animation: syncPulse 1.5s ease-in-out infinite;
 }
 
+/* ป้าย sync ลอย (z 9999) เคยทับปุ่มใน modal — ซ่อนตอนมี modal เปิด */
+body:has(.modal:not(.hidden)) #sync-badge { display: none !important; }
+
 @keyframes syncPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -2752,7 +2755,9 @@ body:has(.bottom-sheet.sheet-full) #map-debt-filter { display: none; }
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* 1250 = เหนือ map-debt-filter (700) + promise-alert (1200) — เดิม 200 ทำให้การ์ดตัวกรองแผนที่ทับหัว modal
+     (แผงจัดการระบบ/ตั้ง PIN ถูกบังตอนอยู่แท็บแผนที่) · ยังต่ำกว่าแผงปักหมุด (10000) และ toast (99999) */
+  z-index: 1250;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -5266,71 +5271,67 @@ body.field-big .mdf-select { font-size: 16px; min-height: 48px; }
 body.field-big #customer-search, body.field-big #map-search, body.field-big #route-search { font-size: 17px; min-height: 48px; }
 body.field-big .fab { width: 56px; height: 56px; }
 body.field-big .route-action-card { font-size: 17px; }
+/* ===== แจ้งเตือนนัดติดตาม (redesign 15 พ.ย.69) — อยู่ในโฟลว์ใต้หัวเว็บ ไม่ทับเนื้อหา ===== */
 #promise-alert {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 68px);
+  top: var(--pa-top, calc(env(safe-area-inset-top, 0px) + 104px));
   left: 12px;
   right: 12px;
-  z-index: 800;
+  z-index: 1200;                 /* เหนือปุ่มลอย (1100) — เดิม 800 ทำให้ปุ่มทับ */
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--md-error-container) 0%, var(--md-tertiary-container) 100%);
-  border: 1px solid var(--md-outline-variant);
-  border-left: 4px solid var(--md-error);
-  color: var(--md-on-error-container);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, .18);
-  cursor: pointer;
-  animation: promiseAlertIn .35s cubic-bezier(.2, .8, .2, 1);
-  transition: opacity .2s, transform .2s;
+  background: linear-gradient(135deg, #FFE7E1 0%, #FFF4D8 100%);
+  border: 1px solid #F2C4B4;
+  border-left: 4px solid #D93A2B;
+  color: #450D05;
+  font-size: 16px;               /* วัย 50+ อ่านชัด (เดิม 13.5px) */
+  line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  animation: promiseAlertIn .3s cubic-bezier(.2, .8, .2, 1);
 }
 #promise-alert.hidden { display: none !important; }
-#promise-alert .promise-alert-go {
-  margin-left: auto;
-  color: var(--md-primary);
-  font-weight: 700;
-  white-space: nowrap;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: background .15s;
+@media (min-width: 768px) {
+  #promise-alert { left: 50%; right: auto; transform: translateX(-50%); width: 460px; }
 }
-#promise-alert .promise-alert-go:hover { background: var(--md-primary-container); color: var(--md-on-primary-container); }
-#promise-alert .promise-alert-close {
-  margin-left: 6px;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, .08);
-  color: var(--md-on-error-container);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  flex: none;
-  transition: background .15s;
+#promise-alert .pa-ico { font-size: 20px; flex: none; }
+#promise-alert .pa-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+#promise-alert .pa-text b { font-size: 17px; font-weight: 700; }
+#promise-alert .pa-text span { font-size: 15px; opacity: .9; white-space: nowrap; }
+#promise-alert .pa-btn {
+  min-height: 44px; padding: 0 14px; border: 0; border-radius: 10px;
+  background: #0A8F3C; color: #fff; font-size: 15px; font-weight: 700;
+  white-space: nowrap; flex: none; cursor: pointer;
 }
-#promise-alert .promise-alert-close:hover { background: rgba(0, 0, 0, .16); }
-@media (prefers-color-scheme: dark) {
-  #promise-alert .promise-alert-close { background: rgba(255, 255, 255, .12); color: var(--md-on-error-container); }
-  #promise-alert .promise-alert-close:hover { background: rgba(255, 255, 255, .2); }
+#promise-alert .pa-btn:active { background: #076b2d; }
+#promise-alert .pa-close {
+  width: 44px; height: 44px; flex: none; border: 1px solid rgba(0, 0, 0, .18); border-radius: 50%;
+  background: rgba(0, 0, 0, .10); color: #450D05; font-size: 20px; font-weight: 700; line-height: 1; cursor: pointer;
+}
+#promise-alert .pa-close:active { background: rgba(0, 0, 0, .14); }
+#promise-alert button:focus-visible { outline: 3px solid #0A8F3C; outline-offset: 2px; }
+/* ดันแผงตัวกรองบนแผนที่ลง เมื่อมีแถบแจ้งเตือน (ไม่ให้ทับกัน) */
+body.alert-open .map-debt-filter { top: calc(74px + var(--pa-space, 0px)) !important; }
+@media (min-width: 768px) {
+  body.alert-open .map-debt-filter { top: calc(10px + var(--pa-space, 0px)) !important; }
 }
 @keyframes promiseAlertIn {
-  from { transform: translateY(-16px) scale(.96); }
-  to   { transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-color-scheme: dark) {
   #promise-alert {
-    background: linear-gradient(135deg, rgba(242,184,181,.16) 0%, rgba(245,230,163,.16) 100%);
-    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    background: linear-gradient(135deg, rgba(217,58,43,.22) 0%, rgba(120,90,20,.28) 100%);
+    border-color: rgba(255,255,255,.18); color: #FFF3EE;
   }
+  #promise-alert .pa-close { background: rgba(255,255,255,.14); color: #FFF3EE; }
 }
-@media (max-width: 480px) {
-  #promise-alert { left: 8px; right: 8px; padding: 11px 14px; font-size: 13.5px; }
+@media (max-width: 380px) {
+  #promise-alert { padding: 9px 10px; gap: 8px; }
+  #promise-alert .pa-text b { font-size: 15px; }
+  #promise-alert .pa-btn { padding: 0 10px; font-size: 14px; }
 }
 
 /* ===== ปฏิทินงาน — Google Calendar style (M3 tokens, scoped #sheet-calendar) 31 ต.ค.69 ===== */
@@ -5608,3 +5609,35 @@ details.adv-settings > summary { min-height: 52px; display: flex; align-items: c
 }
 .gps-page-btn:disabled { opacity: .4; cursor: default; }
 .gps-pager-info { flex: 1; text-align: center; font-size: 12px; line-height: 1.35; color: #5b6b5b; }
+
+/* เปิดการ์ดลูกหนี้บนแผนที่ → ซ่อนปุ่มควบคุมชั่วคราว กันปุ่มทับข้อมูล */
+body.card-open .leaflet-control,body.card-open .map-fab{opacity:0!important;pointer-events:none!important;transition:opacity .15s}
+
+/* ===== สรุปแผนสั้น บนสุดของแท็บวางแผน (15 พ.ย.69) ===== */
+.plan-quick{position:sticky;top:6px;z-index:6;margin:10px 12px 2px;padding:10px 12px 11px;border-radius:14px;
+  background:linear-gradient(135deg,#0f5132 0%,#166534 100%);color:#fff;
+  box-shadow:0 6px 16px rgba(15,81,50,.22)}
+.plan-quick.hidden{display:none}
+.pq-top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.pq-top b{font-weight:600;letter-spacing:.2px}
+.pq-top span{font-size:13px;opacity:.9}
+.pq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.pq-cell{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.pq-num{font-size:18px;font-weight:700;color:#fde68a;font-variant-numeric:tabular-nums}
+.pq-num.warn{color:#fecaca}
+.pq-lbl{font-size:13px;opacity:.88;margin-top:3px}
+@media(max-width:380px){.pq-num{font-size:16px}.pq-lbl{font-size:12px}}
+
+/* มือถือ: แผงครึ่งจอ → ปุ่มซูมทับการ์ดสรุปแผน ให้ซ่อนปุ่มซูม (ยังใช้ pinch ได้) */
+@media (max-width: 767px) {
+  /* แผงยกขึ้น (half/full) → ซ่อนปุ่มลอยบนแผนที่ทั้งหมด กันทับการ์ดสรุป/แท็บ */
+  body:has(.bottom-sheet.sheet-half) .map-fab,
+  body:has(.bottom-sheet.sheet-full) .map-fab { display: none; }
+}
+
+/* ปุ่ม "รายละเอียดหนี้" ในสรุปแผน + เอฟเฟกต์ตอนเลื่อนมาโชว์ */
+.pq-link{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;
+  font-size:12.5px;padding:3px 9px;border-radius:999px;margin-left:auto;margin-right:8px;line-height:1.4}
+.pq-link:active{background:rgba(255,255,255,.28)}
+.plan-quick.flash{animation:pqFlash 1.4s ease-out}
+@keyframes pqFlash{0%{box-shadow:0 0 0 0 rgba(253,230,138,.9)}70%{box-shadow:0 0 0 14px rgba(253,230,138,0)}100%{box-shadow:0 6px 16px rgba(15,81,50,.22)}}

@@ -139,7 +139,9 @@ export async function onRequestGet(context) {
     paramIdx++;
   }
 
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '5000', 10) || 5000, 10000);
+  // 17 พ.ย.69: default = เพดานสูงสุด (10,000/หน้า) — ผู้เรียกที่ต้องการครบต้องวน offset ต่อ
+  // (storage.js + customer-db.js วนจนครบแล้ว — เพดานนี้กันคำขอเดียวดึงทั้งตาราง)
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '10000', 10) || 10000, 10000);
   const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
   params.push(limit, offset);
 
@@ -188,15 +190,17 @@ export async function onRequestPost(context) {
 
   const createdBy = auth.user.username || auth.user.sub || 'unknown';
 
+  // 16 พ.ย.69: ลูกค้าใหม่ต้องมีป้ายสาขา — พนักงานได้สาขาตัวเองเสมอ (กันแถวไร้สาขา/ข้ามสาขา)
+  const ownBranch = auth.user.role === 'admin' ? String(body.branch || '').trim() : String(toBaacCode(auth.user.branch) || '').trim();
   try {
     await env.BFR_DB.prepare(
-      `INSERT INTO customers (cif, name, nickname, phone, address, risk_level, debt_type, zone, customer_class, potential, photo, created_by, deleted, created_at, updated_at, lat, lng)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, ?13, ?13, ?14, ?15)`
+      `INSERT INTO customers (cif, name, nickname, phone, address, risk_level, debt_type, zone, customer_class, potential, photo, created_by, deleted, created_at, updated_at, lat, lng, branch)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, ?13, ?13, ?14, ?15, ?16)`
     ).bind(
       cif, body.name || '', body.nickname || '', body.phone || '', body.address || '',
       body.riskLevel || 'unclassified', body.debtType || null,
       body.zone || '', body.customerClass || '', body.potential || '', body.photo || '',
-      createdBy, now, lat, lng
+      createdBy, now, lat, lng, ownBranch
     ).run();
   } catch (e) {
     return json({ success: false, error: 'Insert failed: ' + e.message }, 500);
@@ -221,6 +225,14 @@ export async function onRequestPut(context) {
 
   const existing = await q(env, 'SELECT * FROM customers WHERE cif=?1', cif);
   if (existing.length === 0) return json({ success: false, error: 'Customer not found' }, 404);
+
+  // 16 พ.ย.69: ห้ามแก้ลูกค้าต่างสาขา
+  if (auth.user.role !== 'admin') {
+    const own = String(toBaacCode(auth.user.branch) || '').trim();
+    if (String(existing[0].branch || '').trim() !== own) {
+      return json({ success: false, error: 'Customer not found' }, 404);
+    }
+  }
 
   let body;
   try { body = await request.json(); } catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
@@ -295,6 +307,14 @@ export async function onRequestDelete(context) {
 
   const existing = await q(env, 'SELECT * FROM customers WHERE cif=?1', cif);
   if (existing.length === 0) return json({ success: false, error: 'Customer not found' }, 404);
+
+  // 16 พ.ย.69: ห้ามลบ/กู้คืนลูกค้าต่างสาขา
+  if (auth.user.role !== 'admin') {
+    const own = String(toBaacCode(auth.user.branch) || '').trim();
+    if (String(existing[0].branch || '').trim() !== own) {
+      return json({ success: false, error: 'Customer not found' }, 404);
+    }
+  }
 
   // restore if :cif/restore path
   const isRestore = segs[3] === 'restore';

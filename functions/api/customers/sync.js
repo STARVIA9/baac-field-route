@@ -4,6 +4,7 @@
 // Kept for backward-compat with legacy clients; new clients use /api/customers.
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
+import { toBaacCode } from '../../_lib/branches.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -34,6 +35,8 @@ function rowToCustomer(r) {
     lng: r.lng != null ? Number(r.lng) : null,
     riskLevel: r.risk_level || 'unclassified',
     debtType: r.debt_type || null,
+    branch: r.branch || '',
+    zone: r.zone || '',
     createdBy: r.created_by || 'AutoImport:StaticDB',
     deleted: !!r.deleted,
     createdAt: r.created_at || '',
@@ -63,6 +66,10 @@ export async function onRequestPost(context) {
 
   if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
 
+  // 16 พ.ย.69: ล็อกสาขา (endpoint เก่า แต่ยังเปิดอยู่ — ห้ามให้เขียน/อ่านข้ามสาขา)
+  const isSuper = auth.user.role === 'admin';
+  const ownBaac = isSuper ? '' : String(toBaacCode(auth.user.branch) || '').trim();
+
   // Upsert incoming customers into D1
   const now = new Date().toISOString();
   for (const c of customers) {
@@ -70,7 +77,11 @@ export async function onRequestPost(context) {
     if (!cif) continue;
     const deleted = c.deleted ? 1 : 0;
     try {
-      const exists = await env.BFR_DB.prepare('SELECT cif FROM customers WHERE cif = ?1').bind(cif).first();
+      const exists = await env.BFR_DB.prepare('SELECT cif, branch FROM customers WHERE cif = ?1').bind(cif).first();
+      if (!isSuper) {
+        const rb = String((exists && exists.branch) || '').trim();
+        if ((exists && rb !== ownBaac) || (!exists && !ownBaac)) continue; // ข้ามของสาขาอื่น
+      }
       if (exists) {
         await env.BFR_DB.prepare(
           `UPDATE customers SET
@@ -90,18 +101,22 @@ export async function onRequestPost(context) {
           deleted, now, cif).run();
       } else {
         await env.BFR_DB.prepare(
-          `INSERT INTO customers (cif, name, phone, address, risk_level, lat, lng, deleted, created_by, created_at, updated_at)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)`
+          `INSERT INTO customers (cif, name, phone, address, risk_level, lat, lng, deleted, created_by, created_at, updated_at, branch)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11)`
         ).bind(cif, c.name || '', c.phone || '', c.address || '',
           c.riskLevel || 'unclassified',
           (c.lat != null && Number.isFinite(Number(c.lat))) ? Number(c.lat) : null,
           (c.lng != null && Number.isFinite(Number(c.lng))) ? Number(c.lng) : null,
-          deleted, c.createdBy || 'user', now).run();
+          deleted, c.createdBy || 'user', now, ownBaac || '').run();
       }
     } catch (e) { console.warn('customers/sync failed', cif, e.message); }
   }
 
-  const { results } = await env.BFR_DB.prepare('SELECT * FROM customers WHERE deleted=0').all();
+  const { results } = await env.BFR_DB.prepare(
+    ownBaac
+      ? 'SELECT * FROM customers WHERE deleted=0 AND branch=?1'
+      : 'SELECT * FROM customers WHERE deleted=0'
+  ).bind(...(ownBaac ? [ownBaac] : [])).all();
   const all = (results || []).map(rowToCustomer);
   return json({ success: true, count: all.length, customers: all });
 }
@@ -112,7 +127,12 @@ export async function onRequestGet(context) {
   if (auth.error) return json({ success: false, error: auth.error }, 401);
 
   if (!env.BFR_DB) return json({ success: false, error: 'D1 not configured' }, 500);
-  const { results } = await env.BFR_DB.prepare('SELECT * FROM customers WHERE deleted=0').all();
+  const ownBaac = auth.user.role === 'admin' ? '' : String(toBaacCode(auth.user.branch) || '').trim();
+  const { results } = await env.BFR_DB.prepare(
+    ownBaac
+      ? 'SELECT * FROM customers WHERE deleted=0 AND branch=?1'
+      : 'SELECT * FROM customers WHERE deleted=0'
+  ).bind(...(ownBaac ? [ownBaac] : [])).all();
   const customers = (results || []).map(rowToCustomer);
   return json({ success: true, count: customers.length, customers });
 }

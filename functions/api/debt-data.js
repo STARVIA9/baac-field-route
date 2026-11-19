@@ -58,7 +58,89 @@ export async function onRequestGet(context) {
   try { debtUpdated = env.BFR_KV ? await env.BFR_KV.get('debt:updated') : null; } catch {}
   const debtStamp = debtUpdated ? debtUpdated + '|' + DEBT_CACHE_VER : null;
 
-  // 1) แหล่งหลัก: KV (ฉบับล่าสุดจาก /api/debt-import — รายสัญญาครบ)
+  // 17 พ.ย.69: แอดมินขอดึงทีละสาขาได้ (?branch=854) → เปิดแอปไม่ต้องโหลดทุกสาขา (~10MB)
+  const reqBranch = String(new URL(request.url).searchParams.get('branch') || '').trim();
+  const wantAllExplicit = new URL(request.url).searchParams.get('all') === '1';
+  if (payload.role === 'admin' && reqBranch && env.BFR_KV) {
+    try {
+      const raw = await env.BFR_KV.get('debt:data:b:' + reqBranch);
+      if (raw) {
+        let rows = JSON.parse(raw);
+        if (!Array.isArray(rows)) rows = [];
+        return new Response(JSON.stringify(rows), {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            'X-Debt-Source': 'kv-branch',
+            'X-Debt-Branch': reqBranch,
+            ...(debtStamp ? { 'X-Debt-Updated': debtStamp } : {}),
+          },
+        });
+      }
+      return new Response(JSON.stringify([]), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'X-Debt-Source': 'kv-branch-empty',
+          'X-Debt-Branch': reqBranch,
+        },
+      });
+    } catch (e) { console.warn('debt:data branch read failed:', e.message); }
+  }
+
+  // 1) แหล่งหลัก: KV แยกคีย์ตามสาขา (16 พ.ย.69) → ก้อนเล็ก โหลดเร็วบนมือถือ
+  //    - ผู้ใช้ทั่วไป/ผู้ดูแลสาขา: อ่านคีย์ของสาขาตัวเองคีย์เดียว
+  //    - แอดมินกลาง: รวมทุกคีย์ตามสารบัญ debt:index
+  if (env.BFR_KV) {
+    if (wantBranch) {
+      try {
+        const raw = await env.BFR_KV.get('debt:data:b:' + wantBranch);
+        if (raw) {
+          let rows = JSON.parse(raw);
+          if (!Array.isArray(rows)) rows = [];
+          return new Response(JSON.stringify(rows), {
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              'Cache-Control': 'no-cache',
+              'X-Debt-Source': 'kv-branch',
+              ...(debtStamp ? { 'X-Debt-Updated': debtStamp } : {}),
+            },
+          });
+        }
+      } catch (e) { console.warn('debt:data:b read failed:', e.message); }
+    } else {
+      try {
+        const rawIdx = await env.BFR_KV.get('debt:index');
+        if (rawIdx) {
+          const idx = JSON.parse(rawIdx);
+          if (Array.isArray(idx) && idx.length) {
+            const chunks = await Promise.all(idx.map(x =>
+              env.BFR_KV.get('debt:data:b:' + x.branch).catch(() => null)));
+            const merged = [];
+            for (const raw of chunks) {
+              if (!raw) continue;
+              try {
+                const rows = JSON.parse(raw);
+                if (Array.isArray(rows)) merged.push(...rows);
+              } catch { /* ข้ามก้อนเสีย */ }
+            }
+            if (merged.length) {
+              return new Response(JSON.stringify(merged), {
+                headers: {
+                  'Content-Type': 'application/json; charset=utf-8',
+                  'Cache-Control': 'no-cache',
+                  'X-Debt-Source': 'kv-branch-all',
+                  ...(debtStamp ? { 'X-Debt-Updated': debtStamp } : {}),
+                },
+              });
+            }
+          }
+        }
+      } catch (e) { console.warn('debt:index read failed:', e.message); }
+    }
+  }
+
+  // 2) แหล่งรอง: KV คลังรวม (ของเดิม — ก้อนเดียวทุกสาขา)
   if (env.BFR_KV) {
     try {
       const raw = await env.BFR_KV.get('debt:data');

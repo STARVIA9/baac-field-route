@@ -232,7 +232,7 @@ export async function onRequestPost(context) {
 
   // Sync incoming customers into D1 (single source of truth)
   const byUser = auth.user.username || auth.user.sub || auth.user.name || 'unknown';
-  const customersSynced = await syncCustomersToD1(env, body.customers || [], byUser);
+  const customersSynced = await syncCustomersToD1(env, body.customers || [], byUser, auth.user);
   // หมายเหตุ: ไม่เรียก touchCustomers() แล้ว — ไม่มีใครอ่าน meta:customers-updated
   // การเปลี่ยนข้อมูลลูกค้าตรวจได้จาก MAX(updated_at) ใน D1 อยู่แล้ว (ประหยัด 1 write/ครั้ง)
 
@@ -560,8 +560,11 @@ async function d1GpsCount(env, baacCode) {
 }
 
 // Upsert incoming customers into D1 (soft-delete honored)
-async function syncCustomersToD1(env, incoming, byUser) {
+async function syncCustomersToD1(env, incoming, byUser, user) {
   if (!env.BFR_DB || !Array.isArray(incoming) || incoming.length === 0) return 0;
+  // 16 พ.ย.69: กันเขียนข้ามสาขา — เครื่องพนักงานแก้ได้เฉพาะลูกค้าสาขาตัวเอง
+  const isSuper = !user || user.role === 'admin';
+  const ownBaac = isSuper ? '' : String(toBaacCode(user.branch) || '').trim();
   let synced = 0;
   let conflicts = 0;
   for (const c of incoming) {
@@ -572,8 +575,15 @@ async function syncCustomersToD1(env, incoming, byUser) {
 
     // Check existence (+ S1: conflict guard — compare updated_at)
     const exists = await env.BFR_DB.prepare(
-      'SELECT cif, updated_at, lat, lng FROM customers WHERE cif = ?1'
+      'SELECT cif, updated_at, lat, lng, branch FROM customers WHERE cif = ?1'
     ).bind(cif).first();
+
+    // ล็อกสาขา: แถวเดิมต่างสาขา = ห้ามแตะ · แถวใหม่ต้องรู้สาขาผู้ส่ง
+    if (!isSuper) {
+      const rowBranch = String((exists && exists.branch) || '').trim();
+      if (exists && rowBranch !== ownBaac) { conflicts++; continue; }
+      if (!exists && !ownBaac) { conflicts++; continue; }
+    }
 
     // S1: Server row is NEWER than what this device has → skip push (don't clobber)
     // Client wins only if its updatedAt >= server's (last-write-wins)
@@ -610,14 +620,14 @@ async function syncCustomersToD1(env, incoming, byUser) {
         ).run();
       } else {
         await env.BFR_DB.prepare(
-          `INSERT INTO customers (cif, name, nickname, phone, address, risk_level, debt_type, lat, lng, deleted, created_by, created_at, updated_at)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)`
+          `INSERT INTO customers (cif, name, nickname, phone, address, risk_level, debt_type, lat, lng, deleted, created_by, created_at, updated_at, branch)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)`
         ).bind(
           cif, c.name || '', c.nickname || '', c.phone || '', c.address || '',
           c.riskLevel || 'unclassified', c.debtType ?? null,
           (c.lat != null && Number.isFinite(Number(c.lat))) ? Number(c.lat) : null,
           (c.lng != null && Number.isFinite(Number(c.lng))) ? Number(c.lng) : null,
-          deleted, c.createdBy || 'user', now
+          deleted, c.createdBy || 'user', now, ownBaac || ''
         ).run();
       }
       // ประวัติพิกัด: บันทึกเมื่อพิกัดเปลี่ยน (ข้ามรายที่เท่าเดิม)

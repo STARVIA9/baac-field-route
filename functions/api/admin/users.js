@@ -1,13 +1,14 @@
 // Admin user management — /api/admin/users
-// GET: list all users (admin only)
-// POST: create user (admin only)
-// PUT: update user (admin only)
-// DELETE: delete user (admin only)
+// GET: list users        — แอดมินกลางเห็นทุกสาขา · ผู้ดูแลสาขาเห็นเฉพาะสาขาตัวเอง
+// POST: create user      — ผู้ดูแลสาขาสร้างได้เฉพาะสาขาตัวเอง และได้แค่ role user
+// PUT: update user       — ตั้ง/เปลี่ยน PIN, ชื่อ, role, สาขา (ตามสิทธิ์)
+// DELETE: soft-delete    — ผู้ดูแลสาขาลบได้เฉพาะพนักงานทั่วไปในสาขาตัวเอง
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
 import { hashPassword, verifyPassword } from '../../_lib/crypto.js';
 import { encryptPin, decryptPin } from '../../_lib/pin-vault.js';
 import { BRANCHES as DEFAULT_BRANCHES } from '../../_lib/branches.js';
+import { isSuper, canManageUsers, sameBranch, scopedBranch, canAssignRole, ROLE_USER, ROLE_BRANCH_ADMIN, ROLE_ADMIN } from '../../_lib/authz.js';
 
 const KV_KEY = 'users:all';
 const BRANCHES_KV_KEY = 'branches:all';
@@ -41,12 +42,12 @@ function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-// ===== GET /api/admin/users — list all users =====
+// ===== GET /api/admin/users — list users in scope =====
 export async function onRequestGet(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
-  if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(auth.user)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
   const raw = await env.BFR_KV.get(KV_KEY);
@@ -58,8 +59,11 @@ export async function onRequestGet(context) {
   // Return safe view (no password hashes)
   // + ถอด PIN จากตู้ (pinEnc) ให้แอดมินดูได้ — ของเก่าที่ยังไม่มีซองได้ null (17 ต.ค.69)
   const vault = (() => { try { return jwtSecret(env, request); } catch { return null; } })();
+  const scope = scopedBranch(auth.user);
   const safeUsers = [];
   for (const u of users.filter(x => !x.deleted)) {
+    // ผู้ดูแลสาขา: เห็นเฉพาะคนในสาขาตัวเอง (กรองฝั่งเซิร์ฟเวอร์เท่านั้น)
+    if (scope && u.branch !== scope) continue;
     let pin = null;
     if (u.pinEnc && vault) {
       try { pin = await decryptPin(u.pinEnc, vault); } catch { pin = null; }
@@ -77,7 +81,7 @@ export async function onRequestGet(context) {
     });
   }
 
-  return json({ success: true, users: safeUsers });
+  return json({ success: true, users: safeUsers, scope });
 }
 
 // ===== POST /api/admin/users — create user =====
@@ -85,14 +89,20 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
-  if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(auth.user)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
   let body;
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { username, pin, displayName, role, branch } = body;
+  const { username, pin, displayName, role } = body;
+  let { branch } = body;
+
+  // ผู้ดูแลสาขา: ล็อกสาขาตัวเอง (ไม่สนค่าที่ส่งมา) + สร้างได้แค่ role user
+  if (!isSuper(auth.user)) {
+    branch = scopedBranch(auth.user);
+  }
 
   // PIN อย่างเดียว (17 ต.ค.69 — เลิกรหัสผ่านตามพ่อสั่ง)
   if (!username || !displayName || !branch || !pin) {
@@ -109,6 +119,11 @@ export async function onRequestPost(context) {
   const branches = await loadBranches(env.BFR_KV);
   if (!branches.find(b => b.code === branch)) {
     return json({ success: false, error: `สาขา "${branch}" ไม่ถูกต้อง` }, 400);
+  }
+
+  const wantedRole = role || ROLE_USER;
+  if (!canAssignRole(auth.user, wantedRole)) {
+    return json({ success: false, error: 'คุณไม่มีสิทธิ์ตั้งสิทธิ์นี้' }, 403);
   }
 
   // Check duplicate username
@@ -147,7 +162,7 @@ export async function onRequestPost(context) {
     pinEnc,
     pwdVersion: 1, // เปลี่ยนรหัส/PIN → bump → กุญแจเก่าต่ออายุไม่ได้ (16 ต.ค.69)
     displayName,
-    role: role === 'admin' ? 'admin' : 'user',
+    role: wantedRole,
     branch,
     createdAt: new Date().toISOString(),
     deleted: false,
@@ -167,14 +182,15 @@ export async function onRequestPut(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
-  if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(auth.user)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
   let body;
   try { body = await request.json(); }
   catch { return json({ success: false, error: 'Invalid JSON' }, 400); }
 
-  const { id, pin, clearPin, displayName, role, branch } = body;
+  const { id, pin, clearPin, displayName } = body;
+  let { role, branch } = body;
   if (!id) return json({ success: false, error: 'ต้องระบุ user id' }, 400);
 
   const raw = await env.BFR_KV.get(KV_KEY);
@@ -182,12 +198,39 @@ export async function onRequestPut(context) {
   const idx = users.findIndex(u => u.id === id && !u.deleted);
   if (idx < 0) return json({ success: false, error: 'ไม่พบผู้ใช้' }, 404);
 
+  const target = users[idx];
+  const actor = auth.user;
+  const self = actor.sub === id;
+
+  // ===== ขอบเขตสิทธิ์ =====
+  if (!sameBranch(actor, target)) {
+    return json({ success: false, error: 'ผู้ใช้นี้อยู่ต่างสาขา — จัดการไม่ได้' }, 403);
+  }
+  if (!isSuper(actor)) {
+    if (target.role === ROLE_ADMIN) {
+      return json({ success: false, error: 'แก้ไขแอดมินกลางไม่ได้' }, 403);
+    }
+    // ผู้ดูแลสาขาแก้บัญชีผู้ดูแลสาขาคนอื่นไม่ได้ (ตัวเองได้)
+    if (target.role === ROLE_BRANCH_ADMIN && !self) {
+      return json({ success: false, error: 'แก้ไขผู้ดูแลสาขาคนอื่นไม่ได้' }, 403);
+    }
+    // ผู้ดูแลสาขาเปลี่ยน role/สาขาใครไม่ได้เลย (แม้ตัวเอง — กันยกระดับสิทธิ์)
+    role = undefined;
+    branch = undefined;
+  }
+
   // Update fields
-  if (displayName) users[idx].displayName = displayName;
-  if (role) users[idx].role = role === 'admin' ? 'admin' : 'user';
+  if (displayName) target.displayName = displayName;
+  if (role) {
+    if (!canAssignRole(actor, role)) return json({ success: false, error: 'คุณไม่มีสิทธิ์ตั้งสิทธิ์นี้' }, 403);
+    target.role = role;
+  }
   if (branch) {
     const branchList = await loadBranches(env.BFR_KV);
-    if (branchList.find(b => b.code === branch)) users[idx].branch = branch;
+    if (!branchList.find(b => b.code === branch)) {
+      return json({ success: false, error: `สาขา "${branch}" ไม่ถูกต้อง` }, 400);
+    }
+    target.branch = branch;
   }
   // (รหัสผ่านเลิกใช้แล้ว 17 ต.ค.69 — ส่ง password มาถูกเฉย)
   // ตั้ง/เปลี่ยน PIN staff — เช็คซ้ำยกเว้นตัวเอง, clearPin=true = ปิด login ด้วย PIN
@@ -199,15 +242,18 @@ export async function onRequestPut(context) {
         return json({ success: false, error: 'PIN นี้มีคนใช้แล้ว กรุณาใช้เลขอื่น' }, 409);
       }
     }
-    users[idx].pinHash = await hashPassword(pin);
+    target.pinHash = await hashPassword(pin);
     try {
       const vault = jwtSecret(env, request);
-      users[idx].pinEnc = vault ? await encryptPin(pin, vault) : null;
-    } catch { users[idx].pinEnc = null; }
-    users[idx].pwdVersion = (users[idx].pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
+      target.pinEnc = vault ? await encryptPin(pin, vault) : null;
+    } catch { target.pinEnc = null; }
+    target.pwdVersion = (target.pwdVersion || 1) + 1; // กุญแจเก่าต่ออายุไม่ได้
   } else if (clearPin) {
-    delete users[idx].pinHash;
-    delete users[idx].pinEnc;
+    if (!isSuper(actor) && !self) {
+      return json({ success: false, error: 'ปิด PIN ของคนอื่นไม่ได้' }, 403);
+    }
+    delete target.pinHash;
+    delete target.pinEnc;
   }
 
   await env.BFR_KV.put(KV_KEY, JSON.stringify(users));
@@ -220,7 +266,7 @@ export async function onRequestDelete(context) {
   const { request, env } = context;
   const auth = await authCheck(request, env);
   if (auth.error) return json({ success: false, error: auth.error }, 401);
-  if (auth.user.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(auth.user)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
   let body;
@@ -240,8 +286,17 @@ export async function onRequestDelete(context) {
   const idx = users.findIndex(u => u.id === id && !u.deleted);
   if (idx < 0) return json({ success: false, error: 'ไม่พบผู้ใช้' }, 404);
 
-  users[idx].deleted = true;
-  users[idx].deletedAt = new Date().toISOString();
+  const target = users[idx];
+  if (!sameBranch(auth.user, target)) {
+    return json({ success: false, error: 'ผู้ใช้นี้อยู่ต่างสาขา — ลบไม่ได้' }, 403);
+  }
+  // ผู้ดูแลสาขา: ลบได้เฉพาะพนักงานทั่วไป (ไม่แตะแอดมิน/ผู้ดูแลสาขาคนอื่น)
+  if (!isSuper(auth.user) && target.role !== ROLE_USER) {
+    return json({ success: false, error: 'ลบได้เฉพาะพนักงานทั่วไป' }, 403);
+  }
+
+  target.deleted = true;
+  target.deletedAt = new Date().toISOString();
   await env.BFR_KV.put(KV_KEY, JSON.stringify(users));
 
   return json({ success: true });

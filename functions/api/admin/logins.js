@@ -2,6 +2,7 @@
 // อ่านจาก KV loginlog:all ที่ login.js เขียนไว้ตอนล็อกอินสำเร็จ (เก็บ 100 รายการล่าสุด)
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../../_lib/jwt.js';
+import { canManageUsers, scopedBranch } from '../../_lib/authz.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -18,7 +19,7 @@ export async function onRequestGet(context) {
   if (!secret) return json({ success: false, error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ' }, 500);
   const payload = await verifyHS256(token, secret);
   if (!payload) return json({ success: false, error: 'Invalid token' }, 401);
-  if (payload.role !== 'admin') return json({ success: false, error: 'ต้องเป็น Admin เท่านั้น' }, 403);
+  if (!canManageUsers(payload)) return json({ success: false, error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }, 403);
   if (!env.BFR_KV) return json({ success: false, error: 'KV not configured' }, 500);
 
   const url = new URL(request.url);
@@ -28,5 +29,8 @@ export async function onRequestGet(context) {
     const raw = await env.BFR_KV.get('loginlog:all');
     list = raw ? JSON.parse(raw) : [];
   } catch { list = []; }
+  // ผู้ดูแลสาขาเห็นเฉพาะประวัติของคนในสาขาตัวเอง
+  const scope = scopedBranch(payload);
+  if (scope) list = list.filter(e => String(e.branch || '') === scope);
   return json({ success: true, logins: list.slice(-limit).reverse() });
 }

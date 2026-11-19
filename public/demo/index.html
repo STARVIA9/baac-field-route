@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<base href="/">
-<!-- DEMO: base บังคับ asset สัมพัทธ์ (js/css/lib/icons) ชี้ไฟล์จริงที่ root -->
+  <base href="/">
+  <!-- DEMO: base บังคับ asset สัมพัทธ์ (js/css/lib/icons) ชี้ไฟล์จริงที่ root -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0a8f3c">
@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>เส้นทางทองคำ - Golden Route · วางแผนเส้นทางอัจฉริยะ (เว็บตัวอย่าง)</title>
+  <meta name="robots" content="noindex">
   <!-- Font: preconnect + non-blocking load (was @import in CSS = render-blocking) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,11 +18,14 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"></noscript>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="css/app.css?v=20261101c" as="style">
-  <link rel="preload" href="js/app.bundle.js?v=20261031g" as="script">
+  <link rel="preload" href="css/app.css?v=12eeb59edf" as="style">
+  <link rel="preload" href="js/vendor.js?v=1b05c04306" as="script">
+  <link rel="preload" href="js/app.bundle.js?v=ded1481aad" as="script">
   
   <!-- Critical CSS inline for above-the-fold content -->
   <style>
@@ -148,11 +152,11 @@
   <link rel="stylesheet" href="lib/MarkerCluster.css" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="lib/MarkerCluster.Default.css" media="print" onload="this.media='all'">
   <!-- app.css MUST be blocking: #map size + layout depends on it (async caused blank map on first load) -->
-  <link rel="stylesheet" href="css/app.css?v=20261101c">
-  <noscript><link rel="stylesheet" href="css/app.css?v=20261101c"></noscript>
+  <link rel="stylesheet" href="css/app.css?v=12eeb59edf">
+  <noscript><link rel="stylesheet" href="css/app.css?v=12eeb59edf"></noscript>
   
   <!-- Non-critical JS (defer) -->
-  <script src="js/icons.js?v=20261018d" defer></script>
+  <script src="js/icons.js?v=56b4148d88" defer></script>
   <script src="lib/leaflet.js" defer></script>
   <script src="lib/leaflet.markercluster.js" defer></script>
 </head>
@@ -359,6 +363,9 @@
     <!-- Full-screen map container (Leaflet) -->
     <div id="map"></div>
 
+    <!-- แจ้งเตือนนัดชำระ: โผล่ใต้หัวเว็บเฉพาะเมื่อมีนัดถึงกำหนด/เลยกำหนด กดแล้วเปิดปฏิทิน -->
+    <div id="promise-alert" class="promise-alert hidden" role="alert" title="เปิดปฏิทินงาน"></div>
+
     <!-- Debt filter bar (floating over map) — includes search + filters in one panel -->
     <div class="map-debt-filter mdf-collapsed" id="map-debt-filter">
       <!-- Row 0: Search bar (always visible — collapsed state shows only this row) -->
@@ -403,7 +410,7 @@
           <option value="only">ดูเฉพาะ อสม.</option>
         </select>
       </div>
-      <!-- Row 3 -->
+      <!-- Row 3: 15 เดือน + กันสำรอง (29 ต.ค.69 — พ่อสั่งเพิ่มกล่องสำรอง 1/100 มุมซ้าย) -->
       <div class="mdf-row">
         <select id="debt-15m-filter" class="mdf-select" title="กรอง 15 เดือน">
           <option value="">หนี้ทั้งหมด</option>
@@ -411,14 +418,17 @@
           <option value="none">✓ ไม่มี 15 เดือน</option>
         </select>
         <select id="debt-reserve-filter" class="mdf-select" title="กรองกันสำรองหนี้">
-          <option value="">สำรองทั้งหมด</option>
+          <option value="">🛡️ สำรองทั้งหมด</option>
           <option value="1">🛡️ สำรอง 1%</option>
           <option value="100">🛡️ สำรอง 100%</option>
           <option value="none">✓ ไม่มีสำรอง</option>
         </select>
-        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด">✕ ล้างตัวกรอง</button>
       </div>
-      <!-- Row 4: จำนวนรายที่จะออก (28 ต.ค.69 — sync กับเว็บหลัก) -->
+      <!-- Row 3b: ล้างตัวกรองเต็มแถว -->
+      <div class="mdf-row">
+        <button class="mdf-reset" id="debt-filter-reset" title="ล้างตัวกรองทั้งหมด" style="grid-column:1/-1">✕ ล้างตัวกรอง</button>
+      </div>
+      <!-- Row 4: จำนวนรายที่จะออก (28 ต.ค.69) -->
       <div class="mdf-row mdf-plan-row">
         <span class="mdf-label">ออกครั้งละ</span>
         <select id="auto-plan-count" class="mdf-select" title="เลือกจำนวนรายที่จะออก">
@@ -428,7 +438,7 @@
           <option value="20">20 ราย</option>
         </select>
       </div>
-      <!-- Row 5: ปุ่มโกลเด้นรูทเต็มแถว (28 ต.ค.69 — sync กับเว็บหลัก) -->
+      <!-- Row 5: ปุ่มโกลเด้นรูทเต็มแถว (28 ต.ค.69 — พ่อสั่ง: ทองเรียบพรีเมียม) -->
       <button class="mdf-plan" id="btn-auto-plan" title="เอาตัวกรองตอนนี้ + จับพิกัดที่มี + จัดแผนเลย">🧭 จัดแผน Golden Route</button>
     </div>
 
@@ -450,19 +460,56 @@
 
       <!-- Sheet section tabs (fixed, don't scroll) -->
       <div class="sheet-tabs">
-        <button class="sheet-tab active" data-sheet="plan"><i data-lucide="map" class="icon"></i> วางแผน</button>
-        <button class="sheet-tab" data-sheet="visit"><i data-lucide="clipboard-check" class="icon"></i> เข้าพบ</button>
+        <button class="sheet-tab active" data-sheet="today"><i data-lucide="home" class="icon"></i> งานวันนี้</button>
+        <button class="sheet-tab" data-sheet="planvisit"><i data-lucide="map" class="icon"></i> วางแผน/เข้าพบ</button>
+        <button class="sheet-tab" data-sheet="calendar"><i data-lucide="calendar" class="icon"></i> ปฏิทิน<span id="cal-tab-badge" class="cal-badge hidden">0</span></button>
         <button class="sheet-tab" data-sheet="customers"><i data-lucide="users" class="icon"></i> ลูกค้า</button>
         <button class="sheet-tab" data-sheet="debtsummary"><i data-lucide="wallet" class="icon"></i> สรุปหนี้</button>
       </div>
 
       <div class="sheet-scroll">
 
-        <!-- Route pane ("วันนี้" — shows queued customers) -->
-        <div class="sheet-content" id="sheet-route">
-          <div class="today-visits" id="today-visits">
-            <p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน</strong> เพื่อสร้างเส้นทาง</p>
+        <!-- Today pane (งานวันนี้ — default landing) -->
+        <div class="sheet-content active" id="sheet-today">
+          <div class="today-header">
+            <h2>🏠 งานวันนี้</h2>
+            <p class="today-desc">คิวเก็บพิกัด + นัดชำระวันนี้ — กรองเขตแล้วออกไปเก็บพิกัดได้เลย</p>
           </div>
+          <details class="today-filter-card" id="today-filter-card" open>
+            <summary>🎛️ ตัวกรองคิวเก็บพิกัด <span class="today-filter-count" id="today-filter-count">ยังไม่มีพิกัด</span></summary>
+            <div class="today-filters">
+              <select id="gps-status" class="mdf-select">
+                <option value="missing">📍 ยังไม่มีพิกัด</option>
+                <option value="has">✅ มีพิกัดแล้ว</option>
+                <option value="all">ทั้งหมด</option>
+              </select>
+              <select id="gps-urgency" class="mdf-select">
+                <option value="all">🔥 ด่วนทั้งหมด</option>
+                <option value="npl">🔴 NPL ก่อน</option>
+                <option value="m15">⏳ 15 เดือนก่อน</option>
+                <option value="due">📅 ถึงกำหนดเดือน</option>
+              </select>
+              <select id="gps-due-month" class="mdf-select" title="เดือนที่ถึงกำหนดในปีบัญชี">
+                <option value="">ทุกเดือนในปีบัญชี</option>
+              </select>
+              <select id="gps-zone" class="mdf-select">
+                <option value="">ทุกเขต</option>
+                <option value="1">เขต 1</option>
+                <option value="2">เขต 2</option>
+                <option value="3">เขต 3</option>
+                <option value="4">เขต 4</option>
+                <option value="5">เขต 5</option>
+              </select>
+              <select id="gps-branch" class="mdf-select hidden">
+                <option value="">ทุกสาขา</option>
+              </select>
+              <input type="search" id="gps-search" class="mdf-select gps-search" placeholder="🔍 ชื่อ / CIF / เบอร์โทร" autocomplete="off">
+            </div>
+          </details>
+          <div id="gps-collect"></div>
+          <button type="button" class="today-golden-btn" id="today-golden-btn">🧭 จัดแผนด้วย Golden Route</button>
+          <h3 class="cal-section-title">🔔 นัดชำระวันนี้ + เลยกำหนด</h3>
+          <div id="today-promise"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
         </div>
 
         <!-- Customers pane (copied from old #tab-customers, keeps ID) -->
@@ -502,8 +549,40 @@
           </div>
         </div>
 
-        <!-- Plan pane (default active) -->
-        <div class="sheet-content active" id="tab-route">
+        <!-- Plan/visit pane (วางแผน + บันทึกเข้าพบในแท็บเดียว) -->
+        <div class="sheet-content" id="tab-planvisit">
+          <!-- สรุปแผนสั้น (บนสุด — เห็นทันทีไม่ต้องเลื่อน) -->
+          <div class="plan-quick hidden" id="plan-quick">
+            <div class="pq-top"><b>📊 สรุปแผนนี้</b><button type="button" class="pq-link" id="pq-more">รายละเอียดหนี้ ›</button><span id="pq-count">0 ราย</span></div>
+            <div class="pq-grid">
+              <div class="pq-cell"><span class="pq-num" id="pq-debt">0</span><span class="pq-lbl">หนี้รวม (บาท)</span></div>
+              <div class="pq-cell"><span class="pq-num warn" id="pq-m15">—</span><span class="pq-lbl">ค้าง 15 ด.</span></div>
+              <div class="pq-cell"><span class="pq-num" id="pq-km">—</span><span class="pq-lbl">ระยะทาง (กม.)</span></div>
+              <div class="pq-cell"><span class="pq-num" id="pq-min">—</span><span class="pq-lbl">เวลา (นาที)</span></div>
+            </div>
+          </div>
+          <div class="visit-header">
+            <h2>📋 บันทึกการเข้าพบ</h2>
+            <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
+          </div>
+          <div class="visit-stats">
+            <div class="visit-stat visit-stat-pending">
+              <span class="visit-stat-num" id="visit-pending">0</span>
+              <span class="visit-stat-label">รอเยี่ยม</span>
+            </div>
+            <div class="visit-stat visit-stat-visited">
+              <span class="visit-stat-num" id="visit-completed">0</span>
+              <span class="visit-stat-label">เยี่ยมแล้ว</span>
+            </div>
+            <div class="visit-stat visit-stat-skipped">
+              <span class="visit-stat-num" id="visit-skipped">0</span>
+              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
+            </div>
+          </div>
+          <div class="visit-list" id="visit-list">
+            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
+          </div>
+          <hr class="pane-divider">
           <div class="route-header">
             <h2>🧭 วางแผนเส้นทาง</h2>
             <p class="route-desc">ค้นหาลูกค้า → กดเพิ่ม → เรียงลำดับ (ลาก/กด ▲▼) → คำนวณเส้นทาง</p>
@@ -520,7 +599,11 @@
             <div class="route-chips" id="route-chips">
               <p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>
             </div>
+            <!-- สรุปหนี้สำหรับแผน (หนี้ที่จะได้ตาม + ผลงาน) -->
+            <div class="route-debt-summary hidden" id="route-debt-summary"></div>
           </div>
+          <details class="adv-settings">
+            <summary>⚙️ ตั้งค่าขั้นสูง: จุดเริ่ม-สิ้นสุด · รถ · ถนน</summary>
           <div class="route-start">
             <label>📍 จุดเริ่มต้น</label>
             <select id="route-start-mode">
@@ -554,6 +637,7 @@
             </select>
           </div>
 <div class="road-classification">            <label>🛣️ จำแนกถนน <span class="hint">(ใช้คำนวณความเร็ว)</span></label>            <select id="road-classification">              <option value="auto">🚗 อัตโนมัติ (จาก OpenStreetMap)</option>              <option value="highway">🛣️ ถนนหลัก (Highway)</option>              <option value="road">🛤️ ถนนรอง (Road)</option>              <option value="village">🏘️ ถนนใน (Village Road)</option>              <option value="dirt">🚜 ถนนลูกรัง (Dirt Road)</option>            </select>          </div>
+          </details>
           <div class="route-actions-col">
             <button class="route-action-card" id="btn-calculate-route" disabled>
               <span class="ra-title">🧮 คำนวณเส้นทาง — ตามลำดับที่เรียงไว้</span>
@@ -561,7 +645,7 @@
             </button>
             <button class="route-action-card primary" id="btn-optimize-route" disabled>
               <span class="ra-title">🎯 ให้ระบบจัดลำดับให้สั้นที่สุด</span>
-              <span class="ra-desc">ระบบเลือกลำดับการเยี่ยมให้เอง แล้วคิดระยะทางถนนจริง (ลำดับ 1,2,3 จะถูกจัดใหม่ให้)</span>
+              <span class="ra-desc">ระบบเลือกลำดับให้สั้นที่สุดบนระยะถนนจริง — คิดแม่น้ำ/สะพาน/ทางเดียวให้แล้ว (ลำดับ 1,2,3 จะถูกจัดใหม่)</span>
             </button>
           </div>
           <div class="route-result hidden" id="route-result">
@@ -593,40 +677,32 @@
               <button class="btn-secondary" id="btn-save-route">
                 💾 บันทึกเส้นทางนี้
               </button>
+              <button class="btn-secondary" id="btn-route-show-all">
+                🔍 ดูหมุดทั้งหมด
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Visit pane (copied from old #tab-visit, keeps ID) -->
-        <div class="sheet-content" id="tab-visit">
-          <div class="visit-header">
-            <h2>📋 บันทึกการเข้าพบ</h2>
-            <p class="visit-desc">แตะที่รายชื่อเพื่อเปิดการ์ดบันทึก</p>
+        <!-- Calendar pane (นัดรับปากชำระจากบันทึกเข้าพบ) -->
+        <div class="sheet-content" id="sheet-calendar">
+          <div class="cal-header">
+            <h2>📅 ปฏิทินงาน — นัดชำระ</h2>
+            <p class="cal-desc">นัดจากบันทึก “รับปากจ่าย/นัดใหม่” ในแท็บเข้าพบ · กดวันเพื่อดูรายชื่อ กด ✅ ชำระแล้ว หรือ 📅 เลื่อนนัดได้เลย</p>
           </div>
-          <div class="visit-guide">
-            <span class="visit-guide-step"><b>1</b> ดูรายชื่อในเส้นทาง</span>
-            <span class="visit-guide-arrow">→</span>
-            <span class="visit-guide-step"><b>2</b> แตะปุ่ม <b class="visit-guide-btn">📝 บันทึก</b></span>
-            <span class="visit-guide-arrow">→</span>
-            <span class="visit-guide-step"><b>3</b> เลือกผล + กดบันทึก</span>
+          <div class="cal-summary" id="cal-summary"></div>
+          <h3 class="cal-section-title">🔔 ต้องติดตาม (วันนี้ + เลยกำหนด)</h3>
+          <div id="cal-follow-list"><p class="empty-state">กำลังโหลด...</p></div>
+          <div class="cal-nav">
+            <button type="button" class="cal-nav-btn" id="cal-prev" aria-label="เดือนก่อน">‹</button>
+            <span class="cal-title" id="cal-title">ปฏิทิน</span>
+            <button type="button" class="cal-nav-btn" id="cal-next" aria-label="เดือนถัดไป">›</button>
+            <button type="button" class="cal-today-btn" id="cal-today-btn">วันนี้</button>
           </div>
-          <div class="visit-stats">
-            <div class="visit-stat visit-stat-pending">
-              <span class="visit-stat-num" id="visit-pending">0</span>
-              <span class="visit-stat-label">รอเยี่ยม</span>
-            </div>
-            <div class="visit-stat visit-stat-visited">
-              <span class="visit-stat-num" id="visit-completed">0</span>
-              <span class="visit-stat-label">เยี่ยมแล้ว</span>
-            </div>
-            <div class="visit-stat visit-stat-skipped">
-              <span class="visit-stat-num" id="visit-skipped">0</span>
-              <span class="visit-stat-label">ข้าม/ไม่อยู่</span>
-            </div>
-          </div>
-          <div class="visit-list" id="visit-list">
-            <p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้</p>
-          </div>
+          <div class="cal-week"><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span></div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <h3 class="cal-section-title" id="cal-agenda-title">นัดวันนี้</h3>
+          <div id="cal-agenda"><p class="empty-state">ไม่มีนัดชำระวันนี้</p></div>
         </div>
 
         <!-- Debt summary pane (ภาพรวมหนี้ทั้งสาขา) -->
@@ -654,7 +730,7 @@
           </div>
 
           <div class="debt-block">
-            <h3>🎯 แยกตามเขต: ถึงกำหนด + เกิดใหม่ (Good Bank)</h3>
+            <h3>🎯 แยกตามเขต: ถึงกำหนด (Good Bank)</h3>
             <div class="debt-month-picker" style="margin-bottom:8px"><label for="debt-duemonth-filter">📅 ดูถึงกำหนดเดือน:</label> <select id="debt-duemonth-filter" class="sort-select"></select></div>
             <div class="debt-block-body" id="debt-zonedue-block"></div>
           </div>
@@ -669,10 +745,6 @@
             <div class="debt-block-body" id="debt-geo-block"></div>
           </div>
 
-          <div class="debt-block">
-            <h3>⏳ 15 เดือน (ดอกเบี้ยค้าง 15 เดือน)</h3>
-            <div class="debt-block-body" id="debt-15m-block"></div>
-          </div>
         </div>
       </div><!-- /sheet-scroll -->
     </div><!-- /bottom-sheet -->
@@ -798,8 +870,7 @@
         <div class="visit-sections">
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">1</span><div><label>ผลการเข้าพบ *</label><p class="step-hint">แตะเลือก 1 ข้อที่ตรงที่สุด</p></div></div>
-          <!-- Quick status buttons -->
-          <p class="qs-group-title">✅ เจอตัวแล้ว — เลือกผลที่คุย</p>
+          <!-- Quick status buttons: 3 ปุ่มหลัก + ผลอื่นพับไว้ -->
           <div class="quick-status-grid grid-3col">
             <button type="button" class="quick-status-btn quick-status-visited" data-status="visited" onclick="Visit.setQuickStatus('visited')">
               <span class="qs-icon">✅</span>
@@ -817,29 +888,31 @@
               <span class="qs-desc">พบแล้ว ยังไม่มีจ่าย</span>
             </button>
           </div>
-          <p class="qs-group-title">📅 ไม่เจอ / เลื่อนนัด</p>
-          <div class="quick-status-grid grid-2col">
-            <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
-              <span class="qs-icon">❌</span>
-              <span class="qs-label">ไม่พบ</span>
-              <span class="qs-desc">ไปแล้วไม่เจอตัว</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
-              <span class="qs-icon">🚪</span>
-              <span class="qs-label">ไม่อยู่</span>
-              <span class="qs-desc">บ้านปิด / ออกไปนา</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
-              <span class="qs-icon">📅</span>
-              <span class="qs-label">นัดใหม่</span>
-              <span class="qs-desc">นัดพบ / นัดจ่ายใหม่</span>
-            </button>
-            <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
-              <span class="qs-icon">🚫</span>
-              <span class="qs-label">ไม่จ่าย</span>
-              <span class="qs-desc">บ่ายเบี่ยง / ปฏิเสธ</span>
-            </button>
-          </div>
+          <details class="qs-more">
+            <summary>🔁 ไปแล้วไม่เจอ / ผลอื่น (แตะเพื่อเปิด)</summary>
+            <div class="quick-status-grid grid-2col">
+              <button type="button" class="quick-status-btn quick-status-noanswer" data-status="no_answer" onclick="Visit.setQuickStatus('no_answer')">
+                <span class="qs-icon">❌</span>
+                <span class="qs-label">ไม่พบ</span>
+                <span class="qs-desc">ไปแล้วไม่เจอตัว</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-nothome" data-status="not_home" onclick="Visit.setQuickStatus('not_home')">
+                <span class="qs-icon">🚪</span>
+                <span class="qs-label">ไม่อยู่</span>
+                <span class="qs-desc">บ้านปิด / ออกไปนา</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-reschedule" data-status="reschedule" onclick="Visit.setQuickStatus('reschedule')">
+                <span class="qs-icon">📅</span>
+                <span class="qs-label">นัดใหม่</span>
+                <span class="qs-desc">นัดพบ / นัดจ่ายใหม่</span>
+              </button>
+              <button type="button" class="quick-status-btn quick-status-notinterested" data-status="not_interested" onclick="Visit.setQuickStatus('not_interested')">
+                <span class="qs-icon">🚫</span>
+                <span class="qs-label">ไม่จ่าย</span>
+                <span class="qs-desc">บ่ายเบี่ยง / ปฏิเสธ</span>
+              </button>
+            </div>
+          </details>
           <select name="status" required class="hidden" id="visit-status-select">
             <option value="visited">✅ พบลูกค้า - คุยเรื่องหนี้แล้ว</option>
             <option value="interested">🤝 รับปากจ่าย</option>
@@ -853,6 +926,27 @@
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">2</span><div><label>หมายเหตุ</label><p class="step-hint">จดยอด + วัน + วิธีจ่าย เช่น จ่ายเท่าไหร่ วันไหน โอนหรือเงินสด</p></div></div>
           <textarea name="note" rows="3" placeholder="เช่น รับปากจ่าย 5,000 วันที่ 20 ก.ย. โอน / รอขายข้าวก่อน"></textarea>
+        </div>
+        <div class="form-row visit-section hidden" id="visit-promise-section">
+          <div class="visit-step-head"><span class="step-num">📅</span><div><label>วันนัดชำระ *</label><p class="step-hint">วันที่ลูกค้ารับปากจะชำระ — จะไปขึ้นในเมนูปฏิทินและแจ้งเตือนเมื่อถึงวัน</p></div></div>
+          <p class="visit-promise-status hidden" id="visit-promise-status"></p>
+          <div class="form-row-2">
+            <div>
+              <label>วันที่รับปากชำระ *</label>
+              <input type="date" id="visit-promise-date" name="promiseDate">
+            </div>
+            <div>
+              <label>ยอดที่รับปาก (บาท)</label>
+              <input type="number" id="visit-promise-amount" name="promiseAmount" min="0" step="any" inputmode="decimal" placeholder="เช่น 5000">
+            </div>
+          </div>
+          <div class="promise-chips">
+            <span class="promise-chips-label">ลัด:</span>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(1)">พรุ่งนี้</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(3)">+3 วัน</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseOffset(7)">+7 วัน</button>
+            <button type="button" class="chip-btn" onclick="Visit.setPromiseMonthEnd()">สิ้นเดือน</button>
+          </div>
         </div>
         <div class="form-row visit-section">
           <div class="visit-step-head"><span class="step-num">3</span><div><label>📍 พิกัด GPS</label><p class="step-hint">ยืนกลางแจ้งแล้วกดปุ่ม 1 ครั้ง</p></div></div>
@@ -977,14 +1071,9 @@
         </section>
 
         <section class="help-startmode">
-          <h4>🏠 เริ่มวันใหม่ — ป๊อบอัพ "วันนี้ทำอะไร?"</h4>
-          <p>หลังเข้าระบบ เว็บจะถามก่อน 1 ครั้ง เลือกแล้วพาไปหน้านั้นเลย:</p>
-          <ul class="help-list">
-            <li>📍 <b>ดูลูกค้า / เก็บพิกัด</b> → ไปแท็บลูกค้า</li>
-            <li>🧭 <b>ออกพื้นที่</b> → ไปแท็บวางแผน</li>
-            <li>📊 <b>ดูสรุป</b> → ไปแท็บสรุปหนี้</li>
-          </ul>
-          <small>💡 ติ๊ก "จำไว้ ไม่ถามอีก" ได้ · เปิดซ้ำทีหลังจากเมนู ⋮ → <b>🏠 เริ่มตรงนี้ (เลือกงาน)</b></small>
+          <h4>🏠 เริ่มวันใหม่ — หน้า "งานวันนี้"</h4>
+          <p>หลังเข้าระบบจะเจองานวันนี้ทันที ไม่ต้องเลือกอะไรก่อน: <b>นัดชำระวันนี้/เลยกำหนด</b> · <b>ตามหนี้ตามประเภท</b> (ถึงกำหนด/15 เดือน/สำรอง/NPL/เขต/สาขา) · <b>คิวเก็บพิกัด</b> (สาขาที่ยังไม่มีพิกัด)</p>
+          <small>💡 อยากข้ามไปหน้าไหนเร็วๆ กดเมนู ⋮ → <b>🏠 เริ่มตรงนี้ (เลือกงาน)</b></small>
         </section>
 
         <section class="help-quickstart">
@@ -1163,6 +1252,17 @@
                   </select>
                 </div>
               </div>
+              <div class="form-row" id="new-role-group" style="display:none">
+                <div class="form-group">
+                  <label for="new-role">สิทธิ์การใช้งาน</label>
+                  <select id="new-role">
+                    <option value="user" selected>พนักงาน (ใช้หน้างาน)</option>
+                    <option value="branch_admin">ผู้ดูแลสาขา (จัดการคนในสาขา)</option>
+                    <option value="admin">แอดมินกลาง (ทุกสาขา)</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-muted" id="admin-scope-hint" style="display:none;text-align:left;font-size:13px;margin:0 0 10px"></p>
               <button type="submit" class="btn-primary" id="btn-add-user">สร้างผู้ใช้</button>
               <p class="login-error" id="admin-user-error"></p>
             </form>
@@ -1249,6 +1349,7 @@
         <div class="admin-tab-pane" id="admin-tab-debt">
           <div class="debt-import-section">
             <h3>📊 อัปเดตสถานะหนี้</h3>
+            <p class="text-muted" id="debt-scope-hint" style="display:none;text-align:left;margin-bottom:8px;color:#0a7c34;font-weight:600"></p>
             <p class="text-muted" style="text-align:left;margin-bottom:12px">
               อัปโหลดไฟล์ Customer Indicator (CSV) เพื่ออัปเดตข้อมูลหนี้ของลูกค้าในระบบ
               <br><small>ไฟล์ CSV จากระบบ BAAC (TIS-620 encoding) — ระบบจะจับคู่ CIF อัตโนมัติ</small>
@@ -1298,6 +1399,14 @@
             </div>
 
             <div id="debt-restore" style="margin-top:12px;font-size:14px"></div>
+
+            <!-- ตรวจความถูกต้องของคลังการ์ดหนี้ vs ฐานข้อมูล (16 พ.ย.69) -->
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e8e8e8">
+              <button type="button" id="debt-verify-btn" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:15px">
+                🔍 ตรวจสอบยอดกับฐานข้อมูล
+              </button>
+              <div id="debt-verify-result" style="margin-top:10px;font-size:14px;line-height:1.8"></div>
+            </div>
           </div>
         </div>
 
@@ -1360,9 +1469,11 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- Bundled JS: vendor (utils+auth+api+storage+fuel+customer-db+debt-db+debt-summary) + app bundle -->
-  <script src="/demo/demo-mock.js?v=demo3"></script>
-<script src="js/vendor.js?v=20261029a"></script>
-  <script src="js/app.bundle.js?v=20261031g"></script>
+  <script src="/demo/demo-mock.js?v=ab516655"></script>
+  <script src="js/vendor.js?v=1b05c04306"></script>
+  <script src="js/app.bundle.js?v=ded1481aad"></script>
+  <script src="js/calendar.js?v=ec4f932ed1"></script>
+  <script src="js/today.js?v=749090cd93"></script>
 
   <script>
     // ===== Landing page scroll reveal =====

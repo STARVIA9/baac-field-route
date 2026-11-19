@@ -37,6 +37,8 @@ const COL_P08 = 134;              // ยอดขั้นต่ำ ส.ค.69
 const COL_P09 = 135;              // ยอดขั้นต่ำ ก.ย.69
 const COL_P10 = 136;              // ยอดขั้นต่ำ ต.ค.69
 const COL_COMMITMENT = 102;       // วันที่สิ้นสุดสัญญา
+const COL_POTENTIAL = 14;         // ศักยภาพรายคน (เขียว/เหลือง/แดง) — หัวตารางจริงก่อน ถ้าไม่เจอใช้ตำแหน่งนี้
+const COL_POTENTIAL_CONTRACT = 15; // ศักยภาพรายสัญญา (เขียว/เหลือง/แดง)
 
 // ระดับชั้นหนี้ (สำหรับเปรียบเทียบ — สูงกว่า = สำคัญกว่า)
 // รองรับทั้งข้อความไทย ("ปกติ") และรหัสตัวเลข ("1"-"5") จากไฟล์จริง WEEKLY 34
@@ -110,12 +112,28 @@ function gbFlag(v) {
   if (s === 'GOOD BANK') return 'GOOD';
   return '';
 }
+
+// กลุ่มสีศักยภาพลูกหนี้ (เขียว/เหลือง/แดง) — ฟีดเข้าบล็อก "แยกตามกลุ่มสี" ของแท็บสรุปข้อมูล
+// เดิมระบบไม่อ่านคอลัมน์นี้เลย → สาขาที่อัพใหม่ (เช่น บ้านสร้าง 291) ไม่มีสีขึ้นในหน้าสรุป
+const COLOR_RANK = { 'เขียว': 1, 'เหลือง': 2, 'แดง': 3 };
+function colorOf(v) {
+  const s = String(v || '').trim();
+  return COLOR_RANK[s] ? s : '';
+}
+function worstColor(a, b) {
+  return (COLOR_RANK[a] || 0) >= (COLOR_RANK[b] || 0) ? (a || b) : b;
+}
 function parseCSV(text) {
   const lines = text.split('\n').filter(line => line.trim());
   if (lines.length < 3) return { rows: [], fileMY: null };
 
   // แถว0 = หัวรายงาน, แถว1 = ชื่อคอลัมน์, แถว2+ = ข้อมูล
   const fileMY = fileMonthYear(lines[0]);
+  // ตำแหน่งคอลัมน์สี: หาจากหัวตารางจริง (ไฟล์แต่ละสาขาอาจเลื่อนคอลัมน์) — ไม่เจอจึงใช้ค่ามาตรฐาน
+  const hdr = splitCsvLine(lines[1] || '');
+  const findCol = (re, fallback) => { const i = hdr.findIndex(h => re.test(h)); return i >= 0 ? i : fallback; };
+  const colPot = findCol(/ศักยภาพรายคน/, COL_POTENTIAL);
+  const colPotC = findCol(/ศักยภาพรายสัญญา/, COL_POTENTIAL_CONTRACT);
   const results = [];
 
   for (let i = 2; i < lines.length; i++) {
@@ -152,6 +170,8 @@ function parseCSV(text) {
       p09: parseAmt(cols[COL_P09]),
       p10: parseAmt(cols[COL_P10]),
       commitmentDate: cols[COL_COMMITMENT] || '',
+      potential: colorOf(cols[colPot]),
+      potentialC: colorOf(cols[colPotC]),
     });
   }
 
@@ -182,11 +202,13 @@ function groupByCIF(contracts) {
     let subsidy = '';
     let reserve = '';
     let recognition = '';
+    let pot = '';   // กลุ่มสีศักยภาพ (เอารุนแรงสุดในสัญญาทั้งหมด) — ฟีดบล็อกสีในแท็บสรุป
 
     const contracts = items.map(c => {
       const t = tierNum(c.debtClass);
       if (t > maxTier) maxTier = t;
       totalDebt += c.debtBalance || 0;
+      pot = worstColor(pot, worstColor(c.potential || '', c.potentialC || ''));
       const dk = dueKey(c.nextDue);
       if (dk < earliestKey) { earliestKey = dk; earliestDue = c.nextDue; }
       if (c.overdue15m === 'Y') has15Y = true;
@@ -204,6 +226,7 @@ function groupByCIF(contracts) {
         reserve: c.reservePct,
         rec: c.recognition,
         sub: c.subsidy,
+        pot: c.potential || '',
         m15: c.overdue15m || 'N',
         m15_amt: c.overdue15mAmt || 0,
         mc: c.marketCode || '',
@@ -226,6 +249,7 @@ function groupByCIF(contracts) {
       nextDue: earliestDue,
       subsidy,
       commitmentDate: items[0].commitmentDate || '',
+      potential: pot,
     };
 
     debtRows.push({
@@ -235,6 +259,7 @@ function groupByCIF(contracts) {
       zone: (summaries[cif] && summaries[cif].zone) || '',
       commitment_date: (summaries[cif] && summaries[cif].commitmentDate) || '',
       gb: (summaries[cif] && summaries[cif].gb) || '',
+      potential: (summaries[cif] && summaries[cif].potential) || '',
       num_contracts: items.length,
       max_tier: maxTier,
       earliest_due: earliestDue,
@@ -247,7 +272,8 @@ function groupByCIF(contracts) {
 }
 
 import { extractBearerToken, verifyHS256, jwtSecret } from '../_lib/jwt.js';
-import { extractBaacCode } from '../_lib/branches.js';
+import { extractBaacCode, toBaacCode, BRANCHES } from '../_lib/branches.js';
+import { canManageUsers } from '../_lib/authz.js';
 import { trackWrites, getWriteBudget } from '../_lib/shared.js';
 
 // ชื่อช่องภาษาไทย (โชว์บนจอ preview ว่าแต่ละช่องเปลี่ยนกี่ราย)
@@ -272,6 +298,8 @@ function debtDiff(cur, s) {
   if (str(cur.next_due) !== str(s.nextDue)) out.push('next_due');
   if (str(cur.subsidy) !== str(s.subsidy)) out.push('subsidy');
   if (str(cur.commitment_date) !== str(s.commitmentDate)) out.push('commitment_date');
+  // สีศักยภาพ: อัปเดตเมื่อไฟล์มีค่า (ไฟล์เก่าที่ไม่มีคอลัมน์สีต้องไม่ลบสีเดิมทิ้ง)
+  if (str(s.potential) && str(cur.potential) !== str(s.potential)) out.push('potential');
   return out;
 }
 
@@ -297,7 +325,21 @@ export async function onRequestPost(context) {
   if (!__secret) return new Response(JSON.stringify({ error: 'เซิร์ฟเวอร์ยังไม่ได้ตั้งรหัสลับ (BFR_JWT_SECRET)' }), { status: 500 });
   const payload = await verifyHS256(token, __secret);
   if (!payload) return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
-  if (payload.role !== 'admin') return new Response(JSON.stringify({ error: 'ต้องเป็น Admin เท่านั้น' }), { status: 403 });
+  if (!canManageUsers(payload)) return new Response(JSON.stringify({ error: 'ต้องเป็นแอดมินหรือผู้ดูแลสาขา' }), { status: 403 });
+
+  // ===== ขอบเขตสาขา (16 พ.ย.69): แอดมินกลาง = ทุกสาขา · ผู้ดูแลสาขา = เฉพาะสาขาตัวเอง =====
+  // ไฟล์ CI มีคอลัมน์สาขา (COL_2) — แถวสาขาอื่นถูกข้าม ไม่แตะข้อมูลเขา
+  const isSuper = payload.role === 'admin';
+  let actorBaac = '';
+  if (!isSuper) {
+    let branches = BRANCHES;
+    try {
+      const rawB = env.BFR_KV && await env.BFR_KV.get('branches:all');
+      if (rawB) branches = JSON.parse(rawB);
+    } catch { /* ใช้ค่า default */ }
+    actorBaac = String(toBaacCode(payload.branch, branches) || '').trim();
+    if (!actorBaac) return new Response(JSON.stringify({ error: 'บัญชีนี้ยังไม่ผูกสาขา — อัพโหลดไฟล์หนี้ไม่ได้' }), { status: 400 });
+  }
 
   // dryrun=1 → วิเคราะห์ไฟล์เทียบของเดิมแล้วตอบกลับเลย ไม่เขียนอะไร (16 ต.ค.69)
   const url = new URL(request.url);
@@ -317,12 +359,35 @@ export async function onRequestPost(context) {
     const text = decoder.decode(buffer);
 
     // Parse CSV
-    const { rows: contracts, fileMY } = parseCSV(text);
+    const parsed = parseCSV(text);
+    const fileMY = parsed.fileMY;
+    let contracts = parsed.rows;
     if (!fileMY) {
       return new Response(JSON.stringify({ error: 'อ่านวันที่ไฟล์ไม่ได้ (แถวแรกต้องมี \"ข้อมูล ณ DD/MM/YYYY\")' }), { status: 400 });
     }
     if (contracts.length === 0) {
       return new Response(JSON.stringify({ error: 'No valid contracts found in CSV' }), { status: 400 });
+    }
+
+    // ===== ผู้ดูแลสาขา: เก็บเฉพาะแถวของสาขาตัวเอง =====
+    // แถวไม่มีสาขา = ไม่รู้ว่าเป็นของใคร → ข้าม (กันเขียนทับป้ายสาขาผิดคน)
+    let ignoredOtherBranch = 0;
+    let ignoredNoBranch = 0;
+    if (actorBaac) {
+      const own = [];
+      for (const c of contracts) {
+        const b = String(c.branch || '').trim();
+        if (!b) { ignoredNoBranch++; continue; }
+        if (b === actorBaac) own.push(c);
+        else ignoredOtherBranch++;
+      }
+      if (own.length === 0) {
+        return new Response(JSON.stringify({
+          error: `ไม่พบข้อมูลของสาขานี้ในไฟล์ (ต้องการสาขา ${actorBaac}) — ไฟล์มีสาขาอื่น ${ignoredOtherBranch} แถว` +
+                 (ignoredNoBranch ? ` และไม่มีข้อมูลสาขา ${ignoredNoBranch} แถว` : ''),
+        }), { status: 400 });
+      }
+      contracts = own;
     }
 
     // Group by CIF → สรุป + รายสัญญา
@@ -385,6 +450,7 @@ export async function onRequestPost(context) {
               next_due = ?,
               subsidy = ?,
               commitment_date = ?,
+              potential = COALESCE(NULLIF(?, ''), potential),
               debt_updated_at = ?,
               updated_at = ?
             WHERE cif = ?`
@@ -399,6 +465,7 @@ export async function onRequestPost(context) {
             s.nextDue,
             s.subsidy,
             s.commitmentDate,
+            s.potential || '',
             now,
             now,
             cif
@@ -411,9 +478,9 @@ export async function onRequestPost(context) {
           env.BFR_DB.prepare(
             `INSERT INTO customers (
               cif, name, zone, branch, debt_class, debt_balance, reserve_pct,
-              recognition, overdue_15m, next_due, subsidy, commitment_date,
+              recognition, overdue_15m, next_due, subsidy, commitment_date, potential,
               debt_updated_at, risk_level, deleted, created_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclassified', 0, 'Debt-Import', ?, ?)`
           ).bind(
             cif,
             (s.name || '').trim(),
@@ -427,6 +494,7 @@ export async function onRequestPost(context) {
             s.nextDue,
             s.subsidy,
             s.commitmentDate,
+            s.potential || '',
             now,
             now,
             now
@@ -441,20 +509,62 @@ export async function onRequestPost(context) {
 
     // ล้างข้อมูลหนี้ของ CIF ที่ไม่อยู่ในไฟล์ใหม่ (เฉพาะที่ยังมีหนี้ค้าง — ล้างแล้วข้าม)
     // ⛔ ห้ามล้างข้ามสาขา: ไฟล์แต่ละรอบเป็นของสาขาเดียว → ล้างเฉพาะ CIF ที่ branch ตรงกับในไฟล์
+    // ⛔ ทุกบทบาท (รวมแอดมินกลาง): ไฟล์ต้องครบ ≥80% ของหนี้ค้างในสาขานั้นก่อนจึงล้างได้
+    //    — กันอัพไฟล์บางส่วน/ผิดไฟล์ แล้วลบหนี้ทั้งสาขาทิ้ง
     let cleared = 0;
+    let clearSkipped = '';
     const cifSet = new Set(cifList);
-    const fileBranches = new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
-    const debtBranchOf = new Map(); // cif → แถว D1 (สาขา+สถานะล้างแล้ว) — ใช้ทั้งล้าง D1 และรวมคลัง KV
+    const fileBranches = actorBaac
+      ? new Set([actorBaac])
+      : new Set(cifList.map(c => (summaries[c].branch || '').trim()).filter(Boolean));
+    const debtBranchOf = new Map(); // cif → แถว D1 ที่ยัง active + มีข้อมูลหนี้ (ทุกช่องทางที่เขียน D1)
+    const blockedBranches = new Map(); // branch → ข้อความอธิบายว่าทำไมงดล้าง
     if (cifList.length > 0) {
       try {
+        // เดิมกรอง created_by = 'Debt-Import' → แถวที่ถูกลบ/ถูกสร้างจากช่องทางอื่นไม่ถูกจับ
+        // → แถวนั้นไม่ถูกตัดออกจากคลัง KV และค้างเป็นการ์ดผีตลอดกาล (16 พ.ย.69)
         const existingDebtRows = await env.BFR_DB.prepare(
           `SELECT cif, branch, debt_class, debt_balance, reserve_pct, recognition,
                   overdue_15m, next_due, subsidy, commitment_date
-           FROM customers WHERE deleted = 0 AND created_by = 'Debt-Import'`
+           FROM customers WHERE deleted = 0
+             AND (debt_balance != 0 OR debt_class != '' OR reserve_pct != ''
+                  OR recognition != '' OR overdue_15m != '' OR next_due != ''
+                  OR subsidy != '' OR commitment_date != '')`
         ).all();
-        (existingDebtRows.results || []).forEach(r => debtBranchOf.set(String(r.cif), r));
-        const toClear = (existingDebtRows.results || [])
-          .filter(r => !cifSet.has(r.cif) && (fileBranches.size === 0 || fileBranches.has((r.branch || '').trim())) && !isDebtClean(r))
+        const existing = existingDebtRows.results || [];
+        existing.forEach(r => debtBranchOf.set(String(r.cif), r));
+
+        // นับหนี้ค้างต่อสาขา (เฉพาะที่ยังไม่ถูกล้าง) เพื่อเช็คความครบของไฟล์
+        const existingByBranch = {};
+        for (const r of existing) {
+          if (isDebtClean(r)) continue;
+          const b = String(r.branch || '').trim() || '_none';
+          existingByBranch[b] = (existingByBranch[b] || 0) + 1;
+        }
+        const fileByBranch = {};
+        for (const cif of cifList) {
+          const b = String((summaries[cif] && summaries[cif].branch) || '').trim() || '_none';
+          fileByBranch[b] = (fileByBranch[b] || 0) + 1;
+        }
+        const guardTargets = fileBranches.size > 0 ? [...fileBranches] : Object.keys(existingByBranch);
+        for (const b of guardTargets) {
+          const have = existingByBranch[b] || 0;
+          const got = fileByBranch[b] || 0;
+          if (have >= 10 && got < Math.floor(have * 0.8)) {
+            blockedBranches.set(b, `สาขา ${b === '_none' ? '(ไม่ระบุ)' : b}: ไฟล์มี ${got} ราย แต่มีหนี้ค้าง ${have} ราย`);
+          }
+        }
+        if (blockedBranches.size > 0) {
+          clearSkipped = [...blockedBranches.values()].join(' · ') + ' — ข้ามการล้างข้อมูลเก่า (กันไฟล์ไม่ครบ)';
+        }
+        const clearBranchOk = (b) => {
+          const bb = String(b || '').trim() || '_none';
+          if (blockedBranches.has(bb)) return false;
+          if (fileBranches.size === 0) return true;
+          return fileBranches.has(String(b || '').trim());
+        };
+        const toClear = existing
+          .filter(r => !cifSet.has(r.cif) && !isDebtClean(r) && clearBranchOk(r.branch))
           .map(r => r.cif);
         for (let i = 0; i < toClear.length; i += 90) {
           const chunk = toClear.slice(i, i + 90);
@@ -477,6 +587,8 @@ export async function onRequestPost(context) {
           );
         }
         cleared = toClear.length;
+        // เก็บไว้ใช้ตัดแถวในคลัง KV รอบนี้ (ต้องเป็นชุดเดียวกับที่ล้าง D1 เป๊ะ)
+        var clearBranchOkFn = clearBranchOk;
       } catch (e) {
         console.warn('clear stale debt skip:', e.message);
       }
@@ -504,10 +616,13 @@ export async function onRequestPost(context) {
     for (const cif of [...kvMerged.keys()]) {
       if (cifSet.has(cif)) continue;
       const d = debtBranchOf.get(cif);
-      const b = ((d && d.branch) || '').trim();
-      if (fileBranches.size === 0 || fileBranches.has(b)) {
-        if (!d || !isDebtClean(d)) { kvMerged.delete(cif); kvDropped++; }
-      }
+      const kvRow = kvMerged.get(cif);
+      // ใช้สาขาจาก D1 ก่อน — ถ้าแถวถูกลบใน D1 ไปแล้ว ให้ใช้ป้ายสาขาของแถวในคลังเอง
+      // (บั๊กเดิม: d ไม่มี → b='' → ไม่ผ่านเงื่อนไขสาขา → แถวผีค้างตลอด)
+      const b = String((d && d.branch) || (kvRow && kvRow.branch) || '').trim();
+      const inScope = typeof clearBranchOkFn === 'function' ? clearBranchOkFn(b)
+        : (fileBranches.size === 0 || fileBranches.has(b));
+      if (inScope) { kvMerged.delete(cif); kvDropped++; }
     }
     const kvFinal = [...kvMerged.values()];
     const kvKept = kvFinal.length - debtRows.length;
@@ -532,6 +647,10 @@ export async function onRequestPost(context) {
         field_diff: fieldTh,
         estimated_writes: estimatedWrites,
         quota,
+        scope_branch: actorBaac,
+        ignored_other_branch: ignoredOtherBranch,
+        ignored_no_branch: ignoredNoBranch,
+        clear_skipped: clearSkipped,
       }), { status: 200 });
     }
 
@@ -561,22 +680,111 @@ export async function onRequestPost(context) {
     } catch (e) { /* miss ครั้งหน้า recompute เอง */ }
     const quotaAfter = await getWriteBudget(env);
 
-    // เขียนคลังการ์ดหนี้ฉบับรวมลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด (ครบทุกสาขา)
-    // สำรองของเดิมก่อนทุกครั้ง (17 ต.ค.69 — ระบบกันหาย: อัพแล้วกู้คืนได้เสมอ)
-    let kvWritten = false, kvBackup = '';
+    // เขียนคลังการ์ดหนี้ลง KV → หน้าแผนที่อ่านข้อมูลล่าสุด
+    // 18 พ.ย.69 (root cause: คลังรวมใหญ่เกิน ล้มเงียบ → สาขาใหม่ไม่ขึ้น):
+    //   เขียนแยกคีย์ตามสาขา `debt:data:b:<baac>` (ก้อนละไม่กี่ MB) เป็นหลัก
+    //   + พยายามเขียนคลังรวม `debt:data` เป็นสำรอง (ถ้าใหญ่เกินขีด KV จะข้าม ไม่ทำให้ทั้งงานล้ม)
+    let kvWritten = false, kvBackup = '', kvError = '', kvCombined = 'ok', kvBranchKeys = 0;
     if (env.BFR_KV) {
       try {
+        // สำรองของเดิมก่อนทุกครั้ง (17 ต.ค.69 — ระบบกันหาย: อัพแล้วกู้คืนได้เสมอ)
         if (kvPrev.length > 0) {
           kvBackup = 'debt:data:backup:' + now.slice(0, 10);
-          await env.BFR_KV.put(kvBackup, JSON.stringify(kvPrev));
+          try { await env.BFR_KV.put(kvBackup, JSON.stringify(kvPrev)); } catch (e) { console.warn('backup skip:', e.message); }
         }
-        await env.BFR_KV.put('debt:data', JSON.stringify(kvFinal));
+
+        // ===== แยกตามสาขา =====
+        const byBranch = new Map();
+        const noBranchRows = [];
+        for (const r of kvFinal) {
+          const b = String((r && r.branch) || '').trim();
+          if (!b) { noBranchRows.push(r); continue; }
+          if (!byBranch.has(b)) byBranch.set(b, []);
+          byBranch.get(b).push(r);
+        }
+        for (const [b, rows] of byBranch) {
+          try {
+            await env.BFR_KV.put('debt:data:b:' + b, JSON.stringify(rows));
+            kvBranchKeys++;
+          } catch (e) {
+            kvError += `สาขา ${b}: ${e.message}; `;
+          }
+        }
+        // แถวไม่ระบุสาขา: เก็บคีย์แยก (แอดมินกลางอ่านรวมได้)
+        if (noBranchRows.length) {
+          try { await env.BFR_KV.put('debt:data:b:_none', JSON.stringify(noBranchRows)); kvBranchKeys++; }
+          catch (e) { kvError += `ไม่มีสาขา: ${e.message}; `; }
+        }
+        // สารบัญสาขา (ให้ /api/debt-data รู้ว่ามีกี่สาขา ไม่ต้อง list keys)
+        try {
+          const index = [...byBranch.entries()].map(([b, rows]) => ({ branch: b, count: rows.length }));
+          if (noBranchRows.length) index.push({ branch: '_none', count: noBranchRows.length });
+          await env.BFR_KV.put('debt:index', JSON.stringify(index));
+        } catch (e) { /* index เป็นของเสริม */ }
+
+        // ===== คลังรวม (สำรอง/ของเดิม) =====
+        // KV จำกัดค่าต่อคีย์ 25 MiB → ถ้า JSON ใหญ่เกิน 20 MB ให้ข้าม แล้วพึ่งคีย์แยกสาขาแทน
+        const combined = JSON.stringify(kvFinal);
+        if (combined.length > 20 * 1024 * 1024) {
+          kvCombined = 'skipped_too_large';
+          console.warn('debt:data combined too large, skip:', combined.length);
+        } else {
+          try { await env.BFR_KV.put('debt:data', combined); }
+          catch (e) { kvCombined = 'error: ' + e.message; kvError += 'รวม: ' + e.message; }
+        }
+
         await env.BFR_KV.put('debt:updated', now);
-        kvWritten = true;
+        kvWritten = kvBranchKeys > 0;
       } catch (e) {
-        console.warn('KV write debt:data failed:', e.message);
+        console.warn('KV write debt failed:', e.message);
+        kvError = e.message;
       }
     }
+
+    // ===== ตรวจความถูกต้องหลังอัพ (16 พ.ย.69) =====
+    // เทียบยอดในคลัง KV กับ D1 ต่อสาขา — ต่างเกิน 1 บาท = เตือนทันที ไม่ปล่อยผ่านเงียบ ๆ
+    let verify = null, verifyOk = null;
+    try {
+      const g = await env.BFR_DB.prepare(
+        `SELECT COALESCE(NULLIF(branch, ''), '_none') b, COUNT(*) n, SUM(COALESCE(debt_balance, 0)) s
+         FROM customers WHERE deleted = 0
+           AND (debt_balance != 0 OR debt_class != '' OR reserve_pct != ''
+                OR recognition != '' OR overdue_15m != '' OR next_due != ''
+                OR subsidy != '' OR commitment_date != '')
+         GROUP BY b`
+      ).all();
+      const d1by = {};
+      for (const r of (g.results || [])) d1by[r.b] = { n: +r.n || 0, s: +r.s || 0 };
+      const kvby = {};
+      for (const r of kvFinal) {
+        const b = String((r && r.branch) || '').trim() || '_none';
+        if (!kvby[b]) kvby[b] = { n: 0, s: 0 };
+        kvby[b].n++;
+        kvby[b].s += (+r.total_debt || 0);
+      }
+      verify = {};
+      verifyOk = true;
+      for (const b of new Set([...Object.keys(d1by), ...Object.keys(kvby)])) {
+        const a = d1by[b] || { n: 0, s: 0 };
+        const k = kvby[b] || { n: 0, s: 0 };
+        const diff = Math.round((k.s - a.s) * 100) / 100;
+        verify[b] = { d1_n: a.n, kv_n: k.n, d1_baht: Math.round(a.s), kv_baht: Math.round(k.s), diff_baht: diff };
+        if (Math.abs(diff) > 1 || a.n !== k.n) verifyOk = false;
+      }
+    } catch (e) {
+      verify = { error: e.message };
+      verifyOk = null;
+    }
+
+    // เก็บผลรอบล่าสุดไว้ debug (เล็ก ไม่กี่ร้อยไบต์)
+    try {
+      if (env.BFR_KV) await env.BFR_KV.put('debt:last-import', JSON.stringify({
+        at: now, by: payload.username, scope: actorBaac,
+        updated, added, cleared, kv_total: kvFinal.length,
+        kv_written: kvWritten, kv_combined: kvCombined, kv_branch_keys: kvBranchKeys, kv_error: kvError,
+        kv_dropped: kvDropped, verify_ok: verifyOk, verify,
+      }));
+    } catch {}
 
     return new Response(JSON.stringify({
       success: true,
@@ -587,6 +795,7 @@ export async function onRequestPost(context) {
       skipped_identical: skipped,
       cleared,
       kv_total: kvFinal.length, kv_kept: kvKept, kv_dropped: kvDropped, kv_backup: kvBackup,
+      kv_written: kvWritten, kv_combined: kvCombined, kv_branch_keys: kvBranchKeys, kv_error: kvError,
       branch_filled: branchFilled,
       kv_no_branch: kvNoBranch,
       field_diff: Object.fromEntries(Object.entries(fieldDiff).map(([f, n]) => [FIELD_TH[f] || f, n])),
@@ -594,8 +803,13 @@ export async function onRequestPost(context) {
       quota: quotaAfter,
       zones_synced: cifList.filter(c => summaries[c] && summaries[c].zone).length,
       debt_rows: debtRows.length,
-      kv_written: kvWritten,
       debt_updated_at: now,
+      scope_branch: actorBaac,
+      ignored_other_branch: ignoredOtherBranch,
+      ignored_no_branch: ignoredNoBranch,
+      clear_skipped: clearSkipped,
+      verify_ok: verifyOk,
+      verify,
     }), { status: 200 });
 
   } catch (error) {
