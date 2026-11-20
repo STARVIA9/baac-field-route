@@ -105,14 +105,14 @@ const WorkCalendar = {
       if (total > 0 && dismissed !== sig) {
         // ข้อความสื่อความหมาย: ขึ้น "เลยกำหนด" ก่อน และบอกยอดเงินที่ต้องตาม
         const head = counts.overdue > 0
-          ? 'เลยกำหนด ' + counts.overdue + ' ราย' + (counts.due ? ' · วันนี้ ' + counts.due + ' ราย' : '')
-          : 'ถึงกำหนดวันนี้ ' + counts.due + ' ราย';
+          ? 'เลย' + counts.overdue + (counts.due ? '·วันนี้' + counts.due : '')
+          : 'ถึงกำหนดวันนี้ ' + counts.due;
         banner.innerHTML =
           '<span class="pa-ico" aria-hidden="true">🔔</span>' +
           '<div class="pa-text"><b>' + head + '</b><span>' +
-            (amount > 0 ? 'ยอดนัด ' + this.fmtAmount(amount) : 'จากปฏิทินนัดติดตาม') +
+            (amount > 0 ? this.fmtAmount(amount) : 'จากปฏิทิน') +
           '</span></div>' +
-          '<button type="button" class="pa-btn" data-pa-open>เปิดปฏิทิน</button>' +
+          '<button type="button" class="pa-btn" data-pa-open>ปฏิทิน</button>' +
           '<button type="button" class="pa-close" data-pa-close aria-label="ปิดการแจ้งเตือน">×</button>';
         banner.setAttribute('aria-live', 'polite');
         banner.dataset.sig = sig;

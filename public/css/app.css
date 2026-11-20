@@ -5641,3 +5641,25 @@ body.card-open .leaflet-control,body.card-open .map-fab{opacity:0!important;poin
 .pq-link:active{background:rgba(255,255,255,.28)}
 .plan-quick.flash{animation:pqFlash 1.4s ease-out}
 @keyframes pqFlash{0%{box-shadow:0 0 0 0 rgba(253,230,138,.9)}70%{box-shadow:0 0 0 14px rgba(253,230,138,0)}100%{box-shadow:0 6px 16px rgba(15,81,50,.22)}}
+
+/* จอเล็กมาก (iPhone SE 320px): 5 แท็บย่อชื่อแล้วให้พอดีจอโดยไม่ต้องเลื่อนแนวนอน */
+@media (max-width: 360px) {
+  .sheet-tabs { padding: 0 4px; }
+  .sheet-tab { padding-left: 4px; padding-right: 4px; gap: 3px; }
+}
+
+/* จอเล็กมาก: ย่อระยะห่าง/จำนวนบรรทัดของแถบ — สี การ์ด ปุ่ม ฟอนต์เหมือนเดิมทุกอย่าง */
+@media (max-width: 360px) {
+  .app-header.app-header-overlay { padding-top: 8px; padding-bottom: 6px; }
+  #promise-alert { padding: 7px 8px; gap: 5px; }
+  #promise-alert .pa-text { flex-direction: row; align-items: center; gap: 4px; }
+  #promise-alert .pa-text b { white-space: nowrap; }
+  #promise-alert .pa-text span { display: none; }
+  #promise-alert .pa-btn { min-height: 44px; padding: 0 10px; }
+  #promise-alert .pa-close { width: 44px; height: 44px; }
+  .map-debt-filter { padding: 6px; gap: 4px; }
+  .mdf-search-row { padding: 2px 2px 0; margin-bottom: 2px; }
+  .mdf-search-row input { padding: 5px 0; font-size: 14px; }
+  .mdf-plan { min-height: 44px; padding: 0 4px; }
+  .mdf-gps-gauge { padding: 0 2px; }
+}

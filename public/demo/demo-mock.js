@@ -470,8 +470,7 @@
     if (sessionStorage.getItem('demo_banner_closed') === '1') return;
     var d = document.createElement('div');
     d.id = 'demo-banner';
-    d.innerHTML = '<span>เว็บตัวอย่างสำหรับคณะกรรมการ — ข้อมูลสมมุติทั้งหมด ไม่ใช่ข้อมูลจริง<br>' +
-      'แตะชื่อ “เจ้าหน้าที่ตัวอย่าง” แล้วกรอก PIN <b>1234</b> · ลองกด “📍 เก็บพิกัด” ในงานวันนี้ · ดูแท็บ “บันทึกการเข้าพบ” / “ปฏิทิน” (มีนัดแจ้งเตือน) / “สรุปหนี้” และกด “คำนวณเส้นทาง” ได้เลย</span>' +
+    d.innerHTML = '<span>เว็บตัวอย่าง · ข้อมูลสมมุติ · PIN <b>1234</b></span>' +
       '<button type="button" id="demo-banner-reset" title="ล้างข้อมูลที่ลองแก้ แล้วเริ่มใหม่">เริ่มใหม่</button>' +
       '<button type="button" id="demo-banner-x" aria-label="ปิดป้าย">✕</button>';
     d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:60000;background:#7c2d12;color:#fff;' +
