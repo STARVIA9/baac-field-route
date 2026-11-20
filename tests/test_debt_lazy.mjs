@@ -8,7 +8,7 @@ import vm from 'node:vm';
 let fails = 0;
 const ok = (n, c, extra = '') => { console.log((c ? 'PASS' : 'FAIL') + ' ' + n + (extra ? ' — ' + extra : '')); if (!c) fails++; };
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const src = fs.readFileSync(ROOT + '/public/js/vendor.js', 'utf8');
+const src = fs.readFileSync(ROOT + '/public/js/debt-db.js', 'utf8');
 const m = src.match(/const DebtDB = \{([\s\S]*?)\n\};\n\nwindow\.DebtDB = DebtDB;/);
 if (!m) { console.log('FAIL extract DebtDB'); process.exit(1); }
 

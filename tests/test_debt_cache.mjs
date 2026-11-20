@@ -29,7 +29,7 @@ r = await onRequestGet({ request: new Request('https://baacroute.shop/api/debt-d
 ok('?v=1 no token -> 401', r.status === 401);
 
 // ===== ส่วน 2: client (DebtDB จาก vendor.js) =====
-const src = fs.readFileSync(ROOT + '/public/js/vendor.js', 'utf8');
+const src = fs.readFileSync(ROOT + '/public/js/debt-db.js', 'utf8');
 const m = src.match(/const DebtDB = \{([\s\S]*?)\n\};\n\nwindow\.DebtDB = DebtDB;/);
 if (!m) { console.log('FAIL extract DebtDB'); process.exit(1); }
 const FULL = [{ cif: 'C1', total_debt: 100, contracts: [{ c: 'S1' }] }];

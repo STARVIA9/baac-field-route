@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 import vm from 'node:vm';
 
-const src = fs.readFileSync(ROOT + '/public/js/vendor.js', 'utf8');
+const src = fs.readFileSync(ROOT + '/public/js/storage.js', 'utf8');
 const m = src.match(/const Storage = \{([\s\S]*?)\n\};\n\n\/\/ ===== Merge helpers/);
 if (!m) { console.log('FAIL extract Storage block'); process.exit(1); }
 

@@ -63,18 +63,22 @@ fi
 
 # ---------- 4) bundle drift ----------
 cd public/js
-if cat customers.js tsp.js route.js visit.js report.js app.js > /tmp/bfr-appbundle.js && \
+# 19 พ.ย.69: bundle ถูกแปลงเป็น ES2017 ด้วย esbuild — เทียบกับผลลัพธ์หลังแปลง ไม่ใช่ cat ดิบ
+ESBUILD="npx --yes esbuild@0.24.0"
+if cat customers.js tsp.js route.js visit.js report.js app.js > /tmp/bfr-appbundle.raw.js && \
+   $ESBUILD /tmp/bfr-appbundle.raw.js --target=es2017 --outfile=/tmp/bfr-appbundle.js --log-level=warning && \
    diff -q /tmp/bfr-appbundle.js app.bundle.js >/dev/null; then
-  ok "app.bundle.js ตรงกับ source"
+  ok "app.bundle.js ตรงกับ source (ES2017)"
 else
   bad "app.bundle.js ไม่ตรง source — รัน scripts/build-bundles.sh"
 fi
 
-if cat utils.js auth.js api.js storage.js fuel.js customer-db.js debt-db.js debt-summary.js > /tmp/bfr-vendor.js && \
+if cat utils.js auth.js api.js storage.js fuel.js customer-db.js debt-db.js debt-summary.js > /tmp/bfr-vendor.raw.js && \
+   $ESBUILD /tmp/bfr-vendor.raw.js --target=es2017 --outfile=/tmp/bfr-vendor.js --log-level=warning && \
    diff -q /tmp/bfr-vendor.js vendor.js >/dev/null; then
-  ok "vendor.js ตรงกับ source"
+  ok "vendor.js ตรงกับ source (ES2017)"
 else
-  warn "vendor.js ไม่ตรง source ($(diff /tmp/bfr-vendor.js vendor.js | wc -l) บรรทัด) — ต้อง sync ก่อนแก้ storage.js"
+  warn "vendor.js ไม่ตรง source — รัน scripts/build-vendor.sh --write"
 fi
 
 # ---------- 4b) demo sync ----------

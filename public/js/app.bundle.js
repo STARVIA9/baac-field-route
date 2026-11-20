@@ -1,47 +1,61 @@
-// ===== Customers management + Map rendering =====
-
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 const Customers = {
   map: null,
   markers: {},
-  currentFilter: 'all',
+  currentFilter: "all",
   // Debt filters (ข้อมูลหนี้ Customer Indicator)
-  debtMonth: '',       // เดือนที่ถึงกำหนด (เช่น '08/2026') — ว่าง = ทุกเดือน
-  debtTier: '',        // ชั้นหนี้ (''=ทุกชั้น, '1'..'5')
-  omsomMode: '',       // ''=รวม, 'exclude'=กรอง อสม.ออก, 'only'=เฉพาะ อสม.
-  m15Mode: '',         // ''=ทุก 15เดือน, 'Y'=มี 15เดือน, 'none'=ไม่มี 15เดือน
-  reserveMode: '',      // ''=ทุกสำรอง, '1'=กันสำรอง 1%, '100'=กันสำรอง 100%, 'none'=ไม่มีกันสำรอง
+  debtMonth: "",
+  // เดือนที่ถึงกำหนด (เช่น '08/2026') — ว่าง = ทุกเดือน
+  debtTier: "",
+  // ชั้นหนี้ (''=ทุกชั้น, '1'..'5')
+  omsomMode: "",
+  // ''=รวม, 'exclude'=กรอง อสม.ออก, 'only'=เฉพาะ อสม.
+  m15Mode: "",
+  // ''=ทุก 15เดือน, 'Y'=มี 15เดือน, 'none'=ไม่มี 15เดือน
+  reserveMode: "",
+  // ''=ทุกสำรอง, '1'=กันสำรอง 1%, '100'=กันสำรอง 100%, 'none'=ไม่มีกันสำรอง
   _baseLayers: {},
-  _currentBaseLayer: 'roadmap',
-
+  _currentBaseLayer: "roadmap",
   // Init map
   initMap() {
     if (this.map) return;
-    // Default view: จังหวัดปราจีนบุรี (zoom 12 — เห็นภาพรวมทั้งจังหวัด)
-    // Q1: เปิดมาที่ ต.วังท่าช้าง (บริเวณสาขา BAAC) zoom 13 — เห็นทั้งตำบล
     const office0 = window.OFFICE_LOCATION || { lat: 13.7760801, lng: 101.8907475 };
-    this.map = L.map('map', {
-      preferCanvas: true,  // Render vector layers on <canvas> — GPU accelerated, NO DOM per marker
+    this.map = L.map("map", {
+      preferCanvas: true,
+      // Render vector layers on <canvas> — GPU accelerated, NO DOM per marker
       maxZoom: 20,
-      zoomControl: false,  // B: ปิด topleft (โดนแผงตัวกรองบัง) → custom zoom control ล่างขวา
+      zoomControl: false,
+      // B: ปิด topleft (โดนแผงตัวกรองบัง) → custom zoom control ล่างขวา
       // มือถือ: นิ้วแตะพลาดไปโดนแผนที่รอบการ์ด (นิ้วลื่น/การ์ดเกือบเต็มจอ) ทำให้การ์ดปิดเอง
       // → ปิดการปิดอัตโนมัติ ปิดการ์ดด้วยปุ่ม ✕ ในการ์ด หรือแตะหมุดตัวอื่นแทน
-      closePopupOnClick: false,
+      closePopupOnClick: false
     }).setView([office0.lat, office0.lng], 13);
-
-    // การ์ดป๊อบอัพ: จำกัดความสูงให้พอดีกรอบแผนที่ (มือถือ) → ส่วนล่าง (ปุ่มนำทาง/แก้ไข/ลบ) ไม่ตกขอบ
-    // ตั้งค่าไว้ที่ตัวแผนที่ (ไม่ใช่ตอน popupopen) เพราะ Leaflet คิดตำแหน่ง/เลื่อนแผนที่ (autoPan)
-    // ตอน "เปิดการ์ด" — ถ้าไปย่อทีหลัง การ์ดจะลอยค้างครึ่งจอบน
     const applyCardMaxHeight = () => {
       if (!this.map) return;
       const avail = Math.max(220, Math.round(this.map.getSize().y) - 16);
-      this.map.getContainer().style.setProperty('--card-max-h', avail + 'px');
+      this.map.getContainer().style.setProperty("--card-max-h", avail + "px");
     };
     applyCardMaxHeight();
-    this.map.on('resize', applyCardMaxHeight);
-
-    // กันการ์ดโผล่ครึ่งจอ (บน/ล่าง): Leaflet เลื่อนแผนที่เอง (autoPan) แต่ถ้าการ์ดสูงเกือบเท่าแผนที่
-    // จะยังเหลือส่วนที่หลุดขอบ → เช็คหลังเปิดเสร็จแล้วเลื่อนแผนที่ให้การ์ดอยู่ในกรอบเต็มใบ
-    this.map.on('popupopen', (e) => {
+    this.map.on("resize", applyCardMaxHeight);
+    this.map.on("popupopen", (e) => {
       const el = e.popup && e.popup.getElement();
       if (!el) return;
       setTimeout(() => {
@@ -54,51 +68,44 @@ const Customers = {
         if (Math.abs(dy) > 2) this.map.panBy([0, dy], { animate: true });
       }, 350);
     });
-
-    // Define 2 base layers: roadmap + satellite
     this._baseLayers = {
-      roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
+      roadmap: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "\xA9 OpenStreetMap",
         maxZoom: 20,
-        maxNativeZoom: 19,   // 19+ = stretch tiles (ภาพเบลอนิดแต่ยังพอดูได้)
+        maxNativeZoom: 19
+        // 19+ = stretch tiles (ภาพเบลอนิดแต่ยังพอดูได้)
       }),
-      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri World Imagery',
+      satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "\xA9 Esri World Imagery",
         maxZoom: 20,
-        maxNativeZoom: 19,
-      }),
+        maxNativeZoom: 19
+      })
     };
-    // แจ้งเตือนเมื่อโหลด tile ไม่ได้ (เน็ตหลุด/OSM บล็อก) — เดิมเงียบ ทำให้เห็นแผนที่ว่างโดยไม่รู้สาเหตุ
     let _tileErrAt = 0;
     const _onTileErr = () => {
       const now = Date.now();
-      if (now - _tileErrAt < 10000) return;
+      if (now - _tileErrAt < 1e4) return;
       _tileErrAt = now;
-      if (window.Utils && Utils.toast) Utils.toast('⚠️ โหลดแผนที่ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วซูมใหม่', 'error');
+      if (window.Utils && Utils.toast) Utils.toast("\u26A0\uFE0F \u0E42\u0E2B\u0E25\u0E14\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E15\u0E23\u0E27\u0E08\u0E2D\u0E34\u0E19\u0E40\u0E17\u0E2D\u0E23\u0E4C\u0E40\u0E19\u0E47\u0E15\u0E41\u0E25\u0E49\u0E27\u0E0B\u0E39\u0E21\u0E43\u0E2B\u0E21\u0E48", "error");
     };
-    this._baseLayers.roadmap.on('tileerror', _onTileErr);
-    this._baseLayers.satellite.on('tileerror', _onTileErr);
-
+    this._baseLayers.roadmap.on("tileerror", _onTileErr);
+    this._baseLayers.satellite.on("tileerror", _onTileErr);
     this._baseLayers.roadmap.addTo(this.map);
-    this._currentBaseLayer = 'roadmap';
-
-    // Add layer toggle control (top-right)
+    this._currentBaseLayer = "roadmap";
     this._addLayerControl();
-
-    // T1.1: แจ้งเตือนเมื่อซูมถึงระดับละเอียดสุด (tile ถูกยืดจาก level 19)
     let _maxZoomNotified = false;
-    this.map.on('zoomend', () => {
+    this.map.on("zoomend", () => {
       const z = this.map.getZoom();
       if (z >= 20) {
         if (!_maxZoomNotified) {
-          Utils.toast('🔍 ซูมละเอียดสุดแล้ว (ภาพจากระดับ 19 ถูกขยาย)', '', 2500);
+          Utils.toast("\u{1F50D} \u0E0B\u0E39\u0E21\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E2A\u0E38\u0E14\u0E41\u0E25\u0E49\u0E27 (\u0E20\u0E32\u0E1E\u0E08\u0E32\u0E01\u0E23\u0E30\u0E14\u0E31\u0E1A 19 \u0E16\u0E39\u0E01\u0E02\u0E22\u0E32\u0E22)", "", 2500);
           _maxZoomNotified = true;
-          setTimeout(() => { _maxZoomNotified = false; }, 10000);
+          setTimeout(() => {
+            _maxZoomNotified = false;
+          }, 1e4);
         }
       }
     });
-
-    // Map long-press to add customer (ต้องจิ้มค้าง ~600ms ถึงจะขึ้นเพิ่มพิกัด)
     const LONG_PRESS_MS = 600;
     let pressTimer = null;
     let pressLatLng = null;
@@ -106,46 +113,57 @@ const Customers = {
       if (!latlng) return;
       if (window._pickMode) {
         window._pickMode = false;
-        const draft = sessionStorage.getItem('add-customer-draft');
+        const draft = sessionStorage.getItem("add-customer-draft");
         const draftData = draft ? JSON.parse(draft) : {};
         draftData.lat = latlng.lat.toFixed(6);
         draftData.lng = latlng.lng.toFixed(6);
-        sessionStorage.setItem('add-customer-draft', JSON.stringify(draftData));
+        sessionStorage.setItem("add-customer-draft", JSON.stringify(draftData));
         App.restoreAddCustomerModal();
         return;
       }
-      // แสดงตัวเลือก: ปักหมุดลูกค้าเดิม หรือ เพิ่มลูกค้าใหม่
       this._showPinOptions(latlng.lat, latlng.lng);
     };
     const startPress = (latlng) => {
       pressLatLng = latlng;
       clearTimeout(pressTimer);
-      pressTimer = setTimeout(() => { pressTimer = null; handleLongPress(pressLatLng); }, LONG_PRESS_MS);
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        handleLongPress(pressLatLng);
+      }, LONG_PRESS_MS);
     };
-    const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
-    // Desktop: กดค้างเมาส์ซ้าย
-    this.map.on('mousedown', (e) => { if (e.originalEvent && e.originalEvent.button !== 0) return; startPress(e.latlng); });
-    this.map.on('mouseup', cancelPress);
-    this.map.on('mousemove', (e) => { if (pressTimer && pressLatLng && e.latlng && e.latlng.distanceTo(pressLatLng) > 12) cancelPress(); });
-    this.map.on('mouseout', cancelPress);
-    // Mobile: จิ้มค้าง
-    this.map.on('touchstart', (e) => { if (e.latlng) startPress(e.latlng); });
-    this.map.on('touchend', cancelPress);
-    this.map.on('touchmove', cancelPress);
-    // Fallback: คลิกขวา (desktop) / long-press ระบบ (mobile บางรุ่นยิง contextmenu)
-    this.map.on('contextmenu', (e) => { clearTimeout(pressTimer); pressTimer = null; handleLongPress(e.latlng); });
+    const cancelPress = () => {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    };
+    this.map.on("mousedown", (e) => {
+      if (e.originalEvent && e.originalEvent.button !== 0) return;
+      startPress(e.latlng);
+    });
+    this.map.on("mouseup", cancelPress);
+    this.map.on("mousemove", (e) => {
+      if (pressTimer && pressLatLng && e.latlng && e.latlng.distanceTo(pressLatLng) > 12) cancelPress();
+    });
+    this.map.on("mouseout", cancelPress);
+    this.map.on("touchstart", (e) => {
+      if (e.latlng) startPress(e.latlng);
+    });
+    this.map.on("touchend", cancelPress);
+    this.map.on("touchmove", cancelPress);
+    this.map.on("contextmenu", (e) => {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      handleLongPress(e.latlng);
+    });
   },
-
   // ===== Color scheme for circleMarker (no DOM elements) =====
   _riskColors: {
     // ไม่ระบุความเสี่ยง → ให้เด่นขึ้น (เดิมเทาอ่อน opacity ต่ำ มองแทบไม่เห็น)
     // ม่วงเข้ม + ขอบขาว = ตัดกับทั้งแผนที่สว่างและภาพดาวเทียม
-    unclassified: { fill: '#6d28d9', stroke: '#ffffff' },
-    good:         { fill: '#16a34a', stroke: '#16a34a' },
-    warning:      { fill: '#d97706', stroke: '#d97706' },
-    bad:          { fill: '#dc2626', stroke: '#dc2626' },
+    unclassified: { fill: "#6d28d9", stroke: "#ffffff" },
+    good: { fill: "#16a34a", stroke: "#16a34a" },
+    warning: { fill: "#d97706", stroke: "#d97706" },
+    bad: { fill: "#dc2626", stroke: "#dc2626" }
   },
-
   // Render all markers on map — L.circleMarker + Canvas (ZERO DOM per marker)
   // Clustered so zoomed-out mobile doesn't render/overlap 178 dots.
   // Smart rebuild: skips full teardown if data hasn't changed.
@@ -154,9 +172,8 @@ const Customers = {
   // พิกัดอื่น ให้เห็นแค่เลขลำดับ 1,2,3 ชัดๆ · ออกด้วย exitRouteFocus()
   _routeFocus: null,
   renderMarkers(routeOrder, opts = {}) {
+    var _a, _b;
     if (!this.map) return;
-
-    // เข้าโฟกัสเมื่อมีลำดับเส้นทาง; คงโฟกัสไว้ตอน re-render ทั่วไป (ฟิลเตอร์/polling)
     if (routeOrder && routeOrder.length) {
       this._routeFocus = [...routeOrder];
     } else if (!routeOrder && this._routeFocus && !opts.exitFocus) {
@@ -164,258 +181,221 @@ const Customers = {
     }
     if (opts.exitFocus) this._routeFocus = null;
     const isFocus = !!(routeOrder && routeOrder.length);
-
-    // Compute hash of current state to skip unnecessary rebuilds
     const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
-    let hash = '';
+    let hash = "";
     for (const c of customers) {
       if (Number.isFinite(c.lat)) {
-        hash += c.id + ':' + Number(c.lat).toFixed(4) + ',' + Number(c.lng).toFixed(4) + ':' + (visits[c.id] ? '1' : '0') + ':' + (c.riskLevel || 'u') + ';';
+        hash += c.id + ":" + Number(c.lat).toFixed(4) + "," + Number(c.lng).toFixed(4) + ":" + (visits[c.id] ? "1" : "0") + ":" + (c.riskLevel || "u") + ";";
       }
     }
-    if (routeOrder) hash += '|route:' + routeOrder.join(',');
-    if (this.debtMonth) hash += '|dm:' + this.debtMonth;
-    if (this.debtTier) hash += '|dt:' + this.debtTier;
-    if (this.omsomMode) hash += '|om:' + this.omsomMode;
-    if (this.m15Mode) hash += '|m15:' + this.m15Mode;
-    this._zoneFilter = document.getElementById('customer-zone')?.value || '';
-    if (this._zoneFilter) hash += '|zone:' + this._zoneFilter;
-    this._branchFilter = document.getElementById('map-branch-filter')?.value || '';
-    if (this._branchFilter) hash += '|br:' + this._branchFilter;
-
-    // Skip rebuild if nothing changed (saves ~200-500ms on polling)
+    if (routeOrder) hash += "|route:" + routeOrder.join(",");
+    if (this.debtMonth) hash += "|dm:" + this.debtMonth;
+    if (this.debtTier) hash += "|dt:" + this.debtTier;
+    if (this.omsomMode) hash += "|om:" + this.omsomMode;
+    if (this.m15Mode) hash += "|m15:" + this.m15Mode;
+    this._zoneFilter = ((_a = document.getElementById("customer-zone")) == null ? void 0 : _a.value) || "";
+    if (this._zoneFilter) hash += "|zone:" + this._zoneFilter;
+    this._branchFilter = ((_b = document.getElementById("map-branch-filter")) == null ? void 0 : _b.value) || "";
+    if (this._branchFilter) hash += "|br:" + this._branchFilter;
     if (!opts.force && hash === this._lastMarkerHash) return;
     this._lastMarkerHash = hash;
-
-    // Clear existing
-    Object.values(this.markers).forEach(m => this.map.removeLayer(m));
+    Object.values(this.markers).forEach((m) => this.map.removeLayer(m));
     this.markers = {};
-    // Remove old cluster layer
     if (this._cluster) {
       this.map.removeLayer(this._cluster);
       this._cluster = null;
     }
-    // Clear route-number overlays if any
     if (this._routeNumLayer) {
       this.map.removeLayer(this._routeNumLayer);
       this._routeNumLayer = null;
     }
-
-    // Build order map: id -> order number (1-based)
     const orderMap = {};
     if (routeOrder && routeOrder.length) {
-      routeOrder.forEach((id, idx) => { orderMap[id] = idx + 1; });
+      routeOrder.forEach((id, idx) => {
+        orderMap[id] = idx + 1;
+      });
     }
-
-    // === Display-only jitter for exactly-overlapping pins ===
-    // Deterministic hash-based jitter: same CIF always gets same offset (stable across renders)
     const jitter = (v, seed) => {
-      // Simple hash: multiply seed by prime, take fractional part
-      const h = ((seed * 2654435761) >>> 0) / 4294967296; // 0..1
-      return v + (h - 0.5) * 0.00006;
+      const h = (seed * 2654435761 >>> 0) / 4294967296;
+      return v + (h - 0.5) * 6e-5;
     };
-    const coordKeys = {};   // "lat,lng" -> จำนวนหมุดที่ซ้อนกัน ณ จุดนั้น
+    const coordKeys = {};
     for (const c of customers) {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue;
-      const key = c.lat.toFixed(6) + ',' + c.lng.toFixed(6);
+      const key = c.lat.toFixed(6) + "," + c.lng.toFixed(6);
       coordKeys[key] = (coordKeys[key] || 0) + 1;
     }
-
-    // Cluster layer (only if leaflet.markercluster loaded); circleMarkers go here on canvas.
-    // โหมดโฟกัสเส้นทาง: ปิด clustering ไปเลย — ไม่ให้เลขกลุ่มพิกัดบังเลขลำดับ 1,2,3
-    const clusterable = typeof L.markerClusterGroup === 'function' && !isFocus;
-    const cluster = clusterable
-      ? L.markerClusterGroup({
-          maxClusterRadius: 45,          // merge points within ~45px
-          disableClusteringAtZoom: 16,   // below 16, show individual dots (village level)
-          spiderfyOnMaxZoom: true,
-          showCoverageOnHover: false,
-          zoomToBoundsOnClick: true,
-          iconCreateFunction: (cc) => {
-            const n = cc.getChildCount();
-            // Color ramp: 2-9 green, 10-49 orange, 50+ red
-            const cls = n >= 50 ? 'mc-red' : n >= 10 ? 'mc-orange' : 'mc-green';
-            return L.divIcon({
-              html: `<div class="marker-cluster-icon ${cls}">${n}</div>`,
-              className: '', iconSize: [40, 40], iconAnchor: [20, 20],
-            });
-          },
-        })
-      : null;
-
+    const clusterable = typeof L.markerClusterGroup === "function" && !isFocus;
+    const cluster = clusterable ? L.markerClusterGroup({
+      maxClusterRadius: 45,
+      // merge points within ~45px
+      disableClusteringAtZoom: 16,
+      // below 16, show individual dots (village level)
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (cc) => {
+        const n = cc.getChildCount();
+        const cls = n >= 50 ? "mc-red" : n >= 10 ? "mc-orange" : "mc-green";
+        return L.divIcon({
+          html: `<div class="marker-cluster-icon ${cls}">${n}</div>`,
+          className: "",
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        });
+      }
+    }) : null;
     customers.forEach((c) => {
       if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return;
       if (!this._passesMapFilters(c)) return;
-
       const visited = !!visits[c.id];
-      const riskClass = c.riskLevel || 'unclassified';
+      const riskClass = c.riskLevel || "unclassified";
       const inRoute = orderMap[c.id] != null;
       const colors = this._riskColors[riskClass] || this._riskColors.unclassified;
-      // Visited = override to green
-      const fill = visited ? '#16a34a' : colors.fill;
-      const stroke = visited ? '#16a34a' : colors.stroke;
-
-      // แยกหมุดที่ซ้อนกันพอดี: ถ้าจุดนี้มีหมุดซ้อน >1 → ขยับหมุดตัวถัดๆ ไปด้วย jitter
-      // เฉพาะตอนแสดงผล (jitter แบบ deterministic ตามคิว) เพื่อให้เห็นหมุดครบทุกตัว
+      const fill = visited ? "#16a34a" : colors.fill;
+      const stroke = visited ? "#16a34a" : colors.stroke;
       let mLat = c.lat, mLng = c.lng;
-      if (coordKeys[c.lat.toFixed(6) + ',' + c.lng.toFixed(6)] > 1) {
-        // Use CIF numeric value as seed for deterministic jitter
-        const seed = parseInt(c.cif, 10) || parseInt(c.id.replace(/\D/g, ''), 10) || 0;
+      if (coordKeys[c.lat.toFixed(6) + "," + c.lng.toFixed(6)] > 1) {
+        const seed = parseInt(c.cif, 10) || parseInt(c.id.replace(/\D/g, ""), 10) || 0;
         mLat = jitter(c.lat, seed);
-        mLng = jitter(c.lng, seed + 7919); // different prime offset for lng
+        mLng = jitter(c.lng, seed + 7919);
       }
-
-      const isUnclassified = riskClass === 'unclassified';
-      // โหมดโฟกัส: หมุดในเส้นทางใหญ่เด่น หมุดอื่นจาง+เล็ก (ไม่แย่งสายตาเลข 1,2,3)
-      const marker = L.circleMarker([mLat, mLng], (isFocus && !inRoute) ? {
+      const isUnclassified = riskClass === "unclassified";
+      const marker = L.circleMarker([mLat, mLng], isFocus && !inRoute ? {
         radius: 4,
         fillColor: fill,
         color: stroke,
         weight: 1,
         opacity: 0.3,
         fillOpacity: 0.25,
-        pane: 'markerPane',
+        pane: "markerPane"
       } : {
-        radius: inRoute ? 14 : (isUnclassified ? 10 : 8),
+        radius: inRoute ? 14 : isUnclassified ? 10 : 8,
         fillColor: fill,
         color: stroke,
-        weight: inRoute ? 4 : (isUnclassified ? 3 : 1.5),
+        weight: inRoute ? 4 : isUnclassified ? 3 : 1.5,
         opacity: 1,
-        fillOpacity: inRoute ? 1 : (isUnclassified ? 0.95 : 0.85),
-        pane: 'markerPane',
+        fillOpacity: inRoute ? 1 : isUnclassified ? 0.95 : 0.85,
+        pane: "markerPane"
       });
-
       marker.bindPopup(() => this.popupHTML(c));
-      marker.on('click', () => {
-        if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
+      marker.on("click", () => {
+        if (typeof App !== "undefined" && App.setSheetState) App.setSheetState("peek");
       });
-
       if (cluster) cluster.addLayer(marker);
       else marker.addTo(this.map);
       this.markers[c.id] = marker;
     });
-
-    // Add cluster layer to map (fast canvas underneath, cluster icons on overlay)
     if (cluster) {
       cluster.addTo(this.map);
       this._cluster = cluster;
     }
-
-    // ===== Route number overlays (max 10 — negligible DOM) =====
-    // โหมดโฟกัส: ป้ายเลขใหญ่ขึ้น + วางบนชั้นบนสุด (tooltipPane) กันเลขกลุ่มบัง
-    const inRouteCusts = customers.filter(c => orderMap[c.id] != null);
+    const inRouteCusts = customers.filter((c) => orderMap[c.id] != null);
     if (inRouteCusts.length > 0) {
-      this._routeNumLayer = L.layerGroup(inRouteCusts.map(c => {
+      this._routeNumLayer = L.layerGroup(inRouteCusts.map((c) => {
         return L.marker([c.lat, c.lng], {
           icon: L.divIcon({
-            className: '',
-            html: `<div class="marker-route-num${isFocus ? ' focus' : ''}">${orderMap[c.id]}</div>`,
+            className: "",
+            html: `<div class="marker-route-num${isFocus ? " focus" : ""}">${orderMap[c.id]}</div>`,
             iconSize: isFocus ? [32, 32] : [22, 22],
-            iconAnchor: isFocus ? [16, -16] : [11, -12],  // float above the circleMarker
+            iconAnchor: isFocus ? [16, -16] : [11, -12]
+            // float above the circleMarker
           }),
-          interactive: false,  // don't steal clicks
-          pane: 'tooltipPane',  // เหนือหมุด (markerPane) + กลุ่มเสมอ
+          interactive: false,
+          // don't steal clicks
+          pane: "tooltipPane"
+          // เหนือหมุด (markerPane) + กลุ่มเสมอ
         });
       })).addTo(this.map);
     }
-
-    // Fit bounds only when caller explicitly requests it (e.g. initial load).
-    // Only GPS customers have coords — skip null coords to avoid LatLng(null).
     if (opts.fitBounds && customers.length > 0) {
-      // A1 (17 ต.ค.69): ตัดพิกัดนอกไทยทิ้งก่อน fit — กันแผนที่ลอยไปกลางทะเล
-      // (เจอจริงบนเว็บ: เปิดมา center 7.11,50.98 zoom 4 ทั้งที่ init ตั้งสำนักงานไว้)
-      const gps = customers.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng)
-        && c.lat >= 5 && c.lat <= 21 && c.lng >= 97 && c.lng <= 106);
+      const gps = customers.filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng) && c.lat >= 5 && c.lat <= 21 && c.lng >= 97 && c.lng <= 106);
       if (gps.length > 0) {
-        const bounds = L.latLngBounds(gps.map(c => [c.lat, c.lng]));
+        const bounds = L.latLngBounds(gps.map((c) => [c.lat, c.lng]));
         this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
       }
     }
   },
-
   // ===== ออกจากโหมดโฟกัสเส้นทาง (โชว์หมุด+เลขกลุ่มทั้งหมดเหมือนเดิม) =====
   exitRouteFocus() {
     this._routeFocus = null;
     this._lastMarkerHash = null;
     this.renderMarkers(null, { force: true, exitFocus: true });
   },
-
   // ===== Debt filter bar: เติมเดือน + ผูก event + re-render =====
   initDebtFilter() {
-    const monthSel = document.getElementById('debt-month-filter');
-    const tierSel = document.getElementById('debt-tier-filter');
-    const omSel = document.getElementById('debt-omsom-filter');
-    const m15Sel = document.getElementById('debt-15m-filter');
-    const rsvSel = document.getElementById('debt-reserve-filter');
-    const resetBtn = document.getElementById('debt-filter-reset');
-    if (!monthSel || typeof DebtDB === 'undefined') return;
-
-    // เติม dropdown เดือนตามปีบัญชี ธ.ก.ส. (เม.ย. → มี.ค. ปีถัดไป) — เรียงตามปีบัญชี ไม่ตามข้อมูลดิบ
+    const monthSel = document.getElementById("debt-month-filter");
+    const tierSel = document.getElementById("debt-tier-filter");
+    const omSel = document.getElementById("debt-omsom-filter");
+    const m15Sel = document.getElementById("debt-15m-filter");
+    const rsvSel = document.getElementById("debt-reserve-filter");
+    const resetBtn = document.getElementById("debt-filter-reset");
+    if (!monthSel || typeof DebtDB === "undefined") return;
     if (DebtDB._loaded && monthSel.options.length <= 1) {
-      const now = new Date();
+      const now = /* @__PURE__ */ new Date();
       const fyStartY = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
       for (let i = 0; i < 12; i++) {
-        const mm = ((3 + i) % 12) + 1;   // 4..12 แล้วต่อ 1..3
+        const mm = (3 + i) % 12 + 1;
         const yyyy = fyStartY + (mm < 4 ? 1 : 0);
-        const k = String(mm).padStart(2, '0') + '/' + yyyy;
-        const o = document.createElement('option');
+        const k = String(mm).padStart(2, "0") + "/" + yyyy;
+        const o = document.createElement("option");
         o.value = k;
-        o.textContent = DebtDB.fmtDate('01/' + k);
+        o.textContent = DebtDB.fmtDate("01/" + k);
         monthSel.appendChild(o);
       }
     }
-
-    // T3: zone filter บนแผนที่ (sync กับ dropdown ในแท็บลูกค้า)
-    const mapZoneSel = document.getElementById('map-zone-filter');
-    const tabZoneSel = document.getElementById('customer-zone');
+    const mapZoneSel = document.getElementById("map-zone-filter");
+    const tabZoneSel = document.getElementById("customer-zone");
     if (mapZoneSel && tabZoneSel) {
-      // เปิดหน้า: sync ค่าจาก tab → map
-      mapZoneSel.value = tabZoneSel.value || '';
-      mapZoneSel.addEventListener('change', () => {
-        tabZoneSel.value = mapZoneSel.value;   // ให้สองฝั่งตรงกัน
-        this._lastMarkerHash = null;            // force rebuild
-        this.renderAll();                       // renderMarkers + list
+      mapZoneSel.value = tabZoneSel.value || "";
+      mapZoneSel.addEventListener("change", () => {
+        tabZoneSel.value = mapZoneSel.value;
+        this._lastMarkerHash = null;
+        this.renderAll();
       });
-      // ฝั่งแท็บลูกค้าเปลี่ยน → อัพเดต map dropdown ด้วย
-      tabZoneSel.addEventListener('change', () => {
-        mapZoneSel.value = tabZoneSel.value || '';
+      tabZoneSel.addEventListener("change", () => {
+        mapZoneSel.value = tabZoneSel.value || "";
       });
     }
-
-    // Branch filter บนแผนที่: เติมทีหลังใน refreshBranchOptions() (ทุก renderAll)
-    // (เดิมเติมครั้งเดียวตอน init — ถ้า CustomerDB โหลดช้ากว่า DebtDB ตัวเลือกจะว่างตลอด)
     this.refreshBranchOptions();
-
     const apply = () => {
+      var _a;
       this.debtMonth = monthSel.value;
       this.debtTier = tierSel.value;
       this.omsomMode = omSel.value;
-      this.m15Mode = m15Sel ? m15Sel.value : '';
-      this.reserveMode = rsvSel ? rsvSel.value : '';
-      this._zoneFilter = document.getElementById('customer-zone')?.value || '';
-      this._lastMarkerHash = null;   // force rebuild
+      this.m15Mode = m15Sel ? m15Sel.value : "";
+      this.reserveMode = rsvSel ? rsvSel.value : "";
+      this._zoneFilter = ((_a = document.getElementById("customer-zone")) == null ? void 0 : _a.value) || "";
+      this._lastMarkerHash = null;
       this.renderAll();
     };
-    monthSel.addEventListener('change', apply);
-    tierSel.addEventListener('change', apply);
-    omSel.addEventListener('change', apply);
-    if (m15Sel) m15Sel.addEventListener('change', apply);
-    if (rsvSel) rsvSel.addEventListener('change', apply);
-    if (resetBtn) resetBtn.addEventListener('click', () => {
-      monthSel.value = ''; tierSel.value = ''; omSel.value = ''; if(m15Sel) m15Sel.value=''; if(rsvSel) rsvSel.value='';
-      if (mapZoneSel) mapZoneSel.value = '';
-      if (tabZoneSel) tabZoneSel.value = '';
-      const mapBranchSel = document.getElementById('map-branch-filter');
-      if (mapBranchSel) mapBranchSel.value = '';
-      this.debtMonth = ''; this.debtTier = ''; this.omsomMode = ''; this.m15Mode=''; this.reserveMode='';
-      this._zoneFilter = '';
-      this._branchFilter = '';
+    monthSel.addEventListener("change", apply);
+    tierSel.addEventListener("change", apply);
+    omSel.addEventListener("change", apply);
+    if (m15Sel) m15Sel.addEventListener("change", apply);
+    if (rsvSel) rsvSel.addEventListener("change", apply);
+    if (resetBtn) resetBtn.addEventListener("click", () => {
+      monthSel.value = "";
+      tierSel.value = "";
+      omSel.value = "";
+      if (m15Sel) m15Sel.value = "";
+      if (rsvSel) rsvSel.value = "";
+      if (mapZoneSel) mapZoneSel.value = "";
+      if (tabZoneSel) tabZoneSel.value = "";
+      const mapBranchSel = document.getElementById("map-branch-filter");
+      if (mapBranchSel) mapBranchSel.value = "";
+      this.debtMonth = "";
+      this.debtTier = "";
+      this.omsomMode = "";
+      this.m15Mode = "";
+      this.reserveMode = "";
+      this._zoneFilter = "";
+      this._branchFilter = "";
       this._lastMarkerHash = null;
       this.renderAll();
     });
   },
-
   // ===== ตัวกรองหนี้แบบ pure — ใช้ร่วมกันทั้งแผนที่และหน้า "งานวันนี้" =====
   // f = {month, tier, omsom, m15, reserve, zone, branch} ('' = ไม่กรองข้อนั้น)
   // info มาจาก debtInfo(): {due, maxTier, omsom, has15, reserves[], zone|null, branch}
@@ -423,8 +403,8 @@ const Customers = {
     f = f || {};
     info = info || {};
     if (f.month || f.tier || f.omsom || f.m15 || f.reserve) {
-      const isNpl = f.tier === 'npl';   // NPL (ชั้น 3-5) ดูทั้งหมด ไม่ต้องกรองเดือน
-      if (f.month && !isNpl && (info.due || '') !== f.month) return false;
+      const isNpl = f.tier === "npl";
+      if (f.month && !isNpl && (info.due || "") !== f.month) return false;
       if (f.tier) {
         const t = info.maxTier || 0;
         if (isNpl) {
@@ -432,64 +412,59 @@ const Customers = {
         } else if (t !== parseInt(f.tier, 10)) return false;
       }
       if (f.omsom) {
-        if (f.omsom === 'exclude' && info.omsom) return false;
-        if (f.omsom === 'only' && !info.omsom) return false;
+        if (f.omsom === "exclude" && info.omsom) return false;
+        if (f.omsom === "only" && !info.omsom) return false;
       }
       if (f.m15) {
-        if (f.m15 === 'Y' && !info.has15) return false;
-        if (f.m15 === 'none' && info.has15) return false;
+        if (f.m15 === "Y" && !info.has15) return false;
+        if (f.m15 === "none" && info.has15) return false;
       }
       if (f.reserve) {
         const rsv = info.reserves || [];
-        if (f.reserve === 'none') {
-          if (rsv.some((x) => String(x) !== '')) return false;
+        if (f.reserve === "none") {
+          if (rsv.some((x) => String(x) !== "")) return false;
         } else if (!rsv.some((x) => String(x) === f.reserve)) return false;
       }
     }
     if (f.zone && (info.zone == null || String(info.zone) !== String(f.zone))) return false;
-    if (f.branch && String(info.branch || '') !== String(f.branch)) return false;
+    if (f.branch && String(info.branch || "") !== String(f.branch)) return false;
     return true;
   },
-
   // ดึง info สำหรับ matchDebt (พฤติกรรมเดิม: ไม่มีทะเบียนกลาง = เขตไม่ผ่าน, สาขาตกไปใช้ของเครื่อง)
   debtInfo(c) {
     c = c || {};
-    const debt = (c.cif && typeof DebtDB !== 'undefined' && DebtDB._loaded) ? DebtDB.getByCif(c.cif) : null;
-    const dbrec = (c.cif && typeof CustomerDB !== 'undefined') ? CustomerDB.getByCif(c.cif) : null;
-    const ctrs = (debt && debt.contracts) || [];
+    const debt = c.cif && typeof DebtDB !== "undefined" && DebtDB._loaded ? DebtDB.getByCif(c.cif) : null;
+    const dbrec = c.cif && typeof CustomerDB !== "undefined" ? CustomerDB.getByCif(c.cif) : null;
+    const ctrs = debt && debt.contracts || [];
     return {
-      due: (debt && typeof DebtDB !== 'undefined' && DebtDB.dueMonthKey) ? (DebtDB.dueMonthKey(debt.earliest_due) || '') : '',
-      maxTier: debt ? (parseInt(debt.max_tier, 10) || 0) : 0,
+      due: debt && typeof DebtDB !== "undefined" && DebtDB.dueMonthKey ? DebtDB.dueMonthKey(debt.earliest_due) || "" : "",
+      maxTier: debt ? parseInt(debt.max_tier, 10) || 0 : 0,
       omsom: !!(debt && debt.is_omsom),
-      has15: ctrs.some((x) => x.m15 === 'Y' || (x.m15_amt || 0) > 0),
+      has15: ctrs.some((x) => x.m15 === "Y" || (x.m15_amt || 0) > 0),
       reserves: ctrs.map((x) => x.reserve),
-      zone: dbrec ? String(dbrec.zone == null ? '' : dbrec.zone) : null,
-      branch: dbrec ? String(dbrec.branch || '') : String(c.branch || ''),
+      zone: dbrec ? String(dbrec.zone == null ? "" : dbrec.zone) : null,
+      branch: dbrec ? String(dbrec.branch || "") : String(c.branch || "")
     };
   },
-
   // ===== ตัวกรองแผนที่ (ใช้ร่วมกันทั้งหมุด + เกจพิกัด) =====
   // คืน true = ลูกค้าผ่านตัวกรองปัจจุบัน (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
   _passesMapFilters(c, query) {
-    // === Debt/zone/branch filters — ตรรกะเดียวกับหน้า "งานวันนี้" (Customers.matchDebt) ===
-    const df = { month: this.debtMonth || '', tier: this.debtTier || '', omsom: this.omsomMode || '', m15: this.m15Mode || '', reserve: this.reserveMode || '', zone: this._zoneFilter || '', branch: this._userBranch() || this._branchFilter || '' };
+    var _a;
+    const df = { month: this.debtMonth || "", tier: this.debtTier || "", omsom: this.omsomMode || "", m15: this.m15Mode || "", reserve: this.reserveMode || "", zone: this._zoneFilter || "", branch: this._userBranch() || this._branchFilter || "" };
     if (!Customers.matchDebt(df, Customers.debtInfo(c))) return false;
-
-    // คำค้นในช่องค้นหาแผนที่ (ชื่อ/ชื่อเล่น/CIF/เบอร์)
-    const q = (query !== undefined ? query : (document.getElementById('map-search')?.value || '')).trim().toLowerCase();
+    const q = (query !== void 0 ? query : ((_a = document.getElementById("map-search")) == null ? void 0 : _a.value) || "").trim().toLowerCase();
     if (q) {
-      const name = (c.name || '').toLowerCase();
-      const nick = (c.nickname || '').toLowerCase();
-      const cif = String(c.cif || '');
-      const phone = String(c.phone || '');
+      const name = (c.name || "").toLowerCase();
+      const nick = (c.nickname || "").toLowerCase();
+      const cif = String(c.cif || "");
+      const phone = String(c.phone || "");
       if (!(name.includes(q) || nick.includes(q) || cif.includes(q) || phone.includes(q))) return false;
     }
     return true;
   },
-
   // นับ {total, withGps} ตามตัวกรองปัจจุบัน (รวมรายที่ไม่มีพิกัดด้วย)
   getFilterStats(query) {
-    if (typeof Storage === 'undefined' || !Storage.getActiveCustomers) return { total: 0, withGps: 0 };
+    if (typeof Storage === "undefined" || !Storage.getActiveCustomers) return { total: 0, withGps: 0 };
     let total = 0, withGps = 0;
     for (const c of Storage.getActiveCustomers()) {
       if (!this._passesMapFilters(c, query)) continue;
@@ -498,40 +473,36 @@ const Customers = {
     }
     return { total, withGps };
   },
-
   // อัพเดทเกจพิกัดใต้ช่องค้นหา
   updateGpsGauge() {
-    const text = document.getElementById('mdf-gps-text');
-    const fill = document.getElementById('mdf-gps-fill');
+    const text = document.getElementById("mdf-gps-text");
+    const fill = document.getElementById("mdf-gps-fill");
     if (!text || !fill) return;
     const { total, withGps } = this.getFilterStats();
     if (!total) {
-      text.textContent = '📍 ไม่มีข้อมูลตามตัวกรอง';
-      fill.style.width = '0%';
+      text.textContent = "\u{1F4CD} \u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E32\u0E21\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07";
+      fill.style.width = "0%";
       return;
     }
     const pct = Math.round(withGps / total * 100);
-    text.textContent = `📍 ${withGps.toLocaleString('th-TH')}/${total.toLocaleString('th-TH')} มีพิกัด (${pct}%)`;
-    fill.style.width = pct + '%';
+    text.textContent = `\u{1F4CD} ${withGps.toLocaleString("th-TH")}/${total.toLocaleString("th-TH")} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 (${pct}%)`;
+    fill.style.width = pct + "%";
   },
-
   // Popup HTML
   popupHTML(c) {
-    const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
-    let metaHTML = '';
+    const db = c.cif && typeof CustomerDB !== "undefined" ? CustomerDB.getByCif(c.cif) : null;
+    let metaHTML = "";
     if (db) {
       const parts = [];
-      if (db.zone) parts.push(`เขต ${db.zone}`);
-      if (db.customer_class) parts.push(`ชั้น ${db.customer_class}`);
-      if (db.potential) parts.push(`ศักยภาพ ${db.potential}`);
-      if (parts.length) metaHTML = `<div class="popup-addr" style="font-size:11px;color:#0a8f3c;">${this.escapeHTML(parts.join(' · '))}</div>`;
+      if (db.zone) parts.push(`\u0E40\u0E02\u0E15 ${db.zone}`);
+      if (db.customer_class) parts.push(`\u0E0A\u0E31\u0E49\u0E19 ${db.customer_class}`);
+      if (db.potential) parts.push(`\u0E28\u0E31\u0E01\u0E22\u0E20\u0E32\u0E1E ${db.potential}`);
+      if (parts.length) metaHTML = `<div class="popup-addr" style="font-size:11px;color:#0a8f3c;">${this.escapeHTML(parts.join(" \xB7 "))}</div>`;
     }
-    // Debt summary + contracts (หลายสัญญา) — แสดงทุกสัญญาเต็ม
-    let debtHTML = '';
-    if (c.cif && typeof DebtDB !== 'undefined') {
+    let debtHTML = "";
+    if (c.cif && typeof DebtDB !== "undefined") {
       if (!DebtDB._loaded) {
-        // ยังโหลดข้อมูลหนี้ไม่เสร็จ — โชว์สถานะ ไม่ใช่ "ไม่มีข้อมูล"
-        const label = DebtDB._loading ? '⏳ กำลังโหลดข้อมูลหนี้...' : 'ข้อมูลหนี้โหลดไม่สำเร็จ';
+        const label = DebtDB._loading ? "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49..." : "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49\u0E42\u0E2B\u0E25\u0E14\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
         debtHTML = `<div class="popup-debt"><div class="debt-nodata">${label}</div></div>`;
       } else {
         const debt = DebtDB.getByCif(c.cif);
@@ -539,87 +510,81 @@ const Customers = {
           debtHTML = `
           <div class="popup-debt">
             ${DebtDB.summaryHTML(debt)}
-            <button type="button" class="debt-more" onclick="DebtUI.toggleContracts('${this.escapeAttr(debt.cif)}', this)">📄 ดูสัญญา (${debt.contracts ? debt.contracts.length : 0} สัญญา) ▾</button>
+            <button type="button" class="debt-more" onclick="DebtUI.toggleContracts('${this.escapeAttr(debt.cif)}', this)">\u{1F4C4} \u0E14\u0E39\u0E2A\u0E31\u0E0D\u0E0D\u0E32 (${debt.contracts ? debt.contracts.length : 0} \u0E2A\u0E31\u0E0D\u0E0D\u0E32) \u25BE</button>
             <div class="debt-contracts-wrap hidden" id="debt-contracts-${this.escapeAttr(debt.cif)}"></div>
           </div>
         `;
         } else {
-          debtHTML = `<div class="popup-debt"><div class="debt-nodata">ไม่มีข้อมูลหนี้</div></div>`;
+          debtHTML = `<div class="popup-debt"><div class="debt-nodata">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49</div></div>`;
         }
       }
     }
     const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
-    const gpsStatus = hasGps
-      ? `<div class="popup-addr">📍 มีพิกัดแล้ว</div>`
-      : `<div class="popup-addr">⚪ ยังไม่มีพิกัด</div>`;
+    const gpsStatus = hasGps ? `<div class="popup-addr">\u{1F4CD} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E41\u0E25\u0E49\u0E27</div>` : `<div class="popup-addr">\u26AA \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14</div>`;
     return `
       <div class="popup-head">
         <div class="popup-name">${this.escapeHTML(c.name)}</div>
-        <button type="button" class="popup-close" onclick="Customers.closeCard()" title="ปิดการ์ด" aria-label="ปิดการ์ด">✕</button>
+        <button type="button" class="popup-close" onclick="Customers.closeCard()" title="\u0E1B\u0E34\u0E14\u0E01\u0E32\u0E23\u0E4C\u0E14" aria-label="\u0E1B\u0E34\u0E14\u0E01\u0E32\u0E23\u0E4C\u0E14">\u2715</button>
       </div>
-      ${c.cif ? `<div class="popup-addr">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
+      ${c.cif ? `<div class="popup-addr">CIF: ${this.escapeHTML(c.cif)}</div>` : ""}
       ${metaHTML}
       ${debtHTML}
-      ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ''}
-      ${c.phone ? `<div class="popup-addr">📞 ${this.escapeHTML(c.phone)}</div>` : ''}
+      ${c.address ? `<div class="popup-addr">${this.escapeHTML(c.address)}</div>` : ""}
+      ${c.phone ? `<div class="popup-addr">\u{1F4DE} ${this.escapeHTML(c.phone)}</div>` : ""}
       ${gpsStatus}
       <div class="popup-actions">
-        ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">🧭 นำทาง</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">📍 เก็บพิกัดตรงนี้</button>`}
-        <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">✏️ แก้ไข</button>
-        <button class="popup-visit" onclick="Visit.openLog('${this.escapeAttr(c.id)}')">📝 บันทึกเข้าพบ</button>
-        <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">🗑️ ลบ</button>
+        ${hasGps ? `<button class="popup-nav" onclick="Customers.navigate(${Number(c.lat)},${Number(c.lng)})">\u{1F9ED} \u0E19\u0E33\u0E17\u0E32\u0E07</button>` : `<button class="popup-nav" onclick="Customers.saveQuickGps('${this.escapeAttr(c.id)}')">\u{1F4CD} \u0E40\u0E01\u0E47\u0E1A\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49</button>`}
+        <button class="popup-edit" onclick="Customers.edit('${this.escapeAttr(c.id)}')">\u270F\uFE0F \u0E41\u0E01\u0E49\u0E44\u0E02</button>
+        <button class="popup-visit" onclick="Visit.openLog('${this.escapeAttr(c.id)}')">\u{1F4DD} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E1A</button>
+        <button class="popup-del" onclick="Customers.del('${this.escapeAttr(c.id)}')">\u{1F5D1}\uFE0F \u0E25\u0E1A</button>
       </div>
     `;
   },
-
   // ปิดการ์ดลูกค้าบนแผนที่ (ปุ่ม ✕) — จำเป็นเพราะปิดการปิดอัตโนมัติเมื่อแตะแผนที่แล้ว (กันนิ้วพลาดบนมือถือ)
   closeCard() {
     if (this.map) this.map.closePopup();
   },
-
   // 📍 เซฟพิกัดด่วนในหน้าเดียวกับดูข้อมูล — กดปุ๊บเก็บพิกัดมือถือทันที ไม่ต้องเปิดฟอร์มแก้ไข
   saveQuickGps(id) {
-    const c = Storage.getCustomers().find(x => x.id === id);
+    const c = Storage.getCustomers().find((x) => x.id === id);
     if (!c) return;
     if (!navigator.geolocation) {
-      Utils.toast('เครื่องนี้ไม่รองรับ GPS', 'error');
+      Utils.toast("\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A GPS", "error");
       return;
     }
-    Utils.toast('📍 กำลังจับพิกัด...', 'info');
+    Utils.toast("\u{1F4CD} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E08\u0E31\u0E1A\u0E1E\u0E34\u0E01\u0E31\u0E14...", "info");
     navigator.geolocation.getCurrentPosition((pos) => {
       const lat = Number(pos.coords.latitude.toFixed(6));
       const lng = Number(pos.coords.longitude.toFixed(6));
       this.saveGpsFast(id, c.cif, lat, lng, c.name);
     }, () => {
-      Utils.toast('จับพิกัดไม่สำเร็จ — เปิด GPS แล้วลองใหม่', 'error');
-    }, { enableHighAccuracy: true, timeout: 15000 });
+      Utils.toast("\u0E08\u0E31\u0E1A\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E40\u0E1B\u0E34\u0E14 GPS \u0E41\u0E25\u0E49\u0E27\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48", "error");
+    }, { enableHighAccuracy: true, timeout: 15e3 });
   },
-
   // ⚡ จุดเดียวที่ทุกปุ่มปักหมุดเรียกใช้
   // เขียนลงเครื่อง + วาดหมุดทันที (~20ms) แล้วค่อยส่งขึ้นเว็บเบื้องหลัง
   // เดิม: await เน็ตก่อน (วัดจริง 14 ก.ย.69 = รอ 1.0–2.5 วิ กว่าหมุดจะขึ้น)
   saveGpsFast(id, cif, lat, lng, label) {
     const saved = Storage.updateCustomerLocal(id, { lat, lng });
-    if (!saved) { Utils.toast('ไม่พบลูกค้า', 'error'); return; }
-
-    this._lastMarkerHash = null;   // hash ยังไม่รู้พิกัดใหม่ → บังคับวาดใหม่
+    if (!saved) {
+      Utils.toast("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "error");
+      return;
+    }
+    this._lastMarkerHash = null;
     this.renderAll();
-    this.focusPin(lat, lng);       // ซูมเข้าหา + กระพริบ → เห็นหมุดแน่ๆ ไม่จมในกลุ่ม
-
-    if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('saving');
-    Utils.toast('⏳ กำลังบันทึกพิกัดขึ้นเว็บ...', 'info');
-
+    this.focusPin(lat, lng);
+    if (typeof App !== "undefined" && App.setSaveStatus) App.setSaveStatus("saving");
+    Utils.toast("\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A...", "info");
     Storage.uploadCustomer(cif, { lat: Number(lat), lng: Number(lng) }).then((r) => {
       if (r && r.synced) {
-        if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('saved');
-        Utils.toast(`✅ บันทึกพิกัด "${label || 'ลูกค้า'}" ขึ้นเว็บแล้ว`);
+        if (typeof App !== "undefined" && App.setSaveStatus) App.setSaveStatus("saved");
+        Utils.toast(`\u2705 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14 "${label || "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32"}" \u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E41\u0E25\u0E49\u0E27`);
       } else {
-        if (typeof App !== 'undefined' && App.setSaveStatus) App.setSaveStatus('error');
-        Utils.toast('⚠️ หมุดขึ้นในเครื่องนี้แล้ว แต่ยังส่งขึ้นเว็บไม่สำเร็จ — กดปุ่ม sync ล่างขวาเพื่อลองใหม่', 'error');
+        if (typeof App !== "undefined" && App.setSaveStatus) App.setSaveStatus("error");
+        Utils.toast("\u26A0\uFE0F \u0E2B\u0E21\u0E38\u0E14\u0E02\u0E36\u0E49\u0E19\u0E43\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49\u0E41\u0E25\u0E49\u0E27 \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E2A\u0E48\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21 sync \u0E25\u0E48\u0E32\u0E07\u0E02\u0E27\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48", "error");
       }
     });
   },
-
   // ซูมเข้าหาหมุดที่เพิ่งปัก (zoom 17 = หมุดไม่ถูกยัดอยู่ในกลุ่ม) + กระพริบให้เห็น
   focusPin(lat, lng) {
     if (!this.map) return;
@@ -628,86 +593,97 @@ const Customers = {
       const z = Math.max(this.map.getZoom(), 17);
       this.map.flyTo(target, z, { duration: 0.6 });
       this._flashPin(target);
-    } catch (e) { /* ไม่ขวางการปักหมุด */ }
+    } catch (e) {
+    }
   },
-
   // วงแหวนกระพริบรอบหมุดที่เพิ่งปัก — หายเองใน ~4.5 วิ
   _flashPin(latlng) {
     try {
-      if (this._flashLayer) { this.map.removeLayer(this._flashLayer); this._flashLayer = null; }
-      if (this._flashTimer) { clearInterval(this._flashTimer); this._flashTimer = null; }
+      if (this._flashLayer) {
+        this.map.removeLayer(this._flashLayer);
+        this._flashLayer = null;
+      }
+      if (this._flashTimer) {
+        clearInterval(this._flashTimer);
+        this._flashTimer = null;
+      }
       const halo = L.circleMarker(latlng, {
-        radius: 16, color: '#1d4ed8', weight: 3, opacity: 0.9,
-        fillColor: '#3b82f6', fillOpacity: 0.25,
-        pane: 'markerPane', interactive: false,
+        radius: 16,
+        color: "#1d4ed8",
+        weight: 3,
+        opacity: 0.9,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.25,
+        pane: "markerPane",
+        interactive: false
       });
       this._flashLayer = L.layerGroup([halo]).addTo(this.map);
       let n = 0;
       this._flashTimer = setInterval(() => {
         n++;
         halo.setStyle({ opacity: n % 2 ? 0.2 : 0.9, fillOpacity: n % 2 ? 0.08 : 0.3 });
-        if (n >= 8) { clearInterval(this._flashTimer); this._flashTimer = null; }
+        if (n >= 8) {
+          clearInterval(this._flashTimer);
+          this._flashTimer = null;
+        }
       }, 350);
       setTimeout(() => {
-        if (this._flashLayer) { this.map.removeLayer(this._flashLayer); this._flashLayer = null; }
-        if (this._flashTimer) { clearInterval(this._flashTimer); this._flashTimer = null; }
+        if (this._flashLayer) {
+          this.map.removeLayer(this._flashLayer);
+          this._flashLayer = null;
+        }
+        if (this._flashTimer) {
+          clearInterval(this._flashTimer);
+          this._flashTimer = null;
+        }
       }, 4500);
-    } catch (e) { /* ไม่ขวางการปักหมุด */ }
+    } catch (e) {
+    }
   },
-
   // Navigate to customer (Google Maps)
   navigate(lat, lng) {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank");
   },
-
   // Edit customer
   edit(id) {
-    const c = Storage.getCustomers().find(x => x.id === id);
+    const c = Storage.getCustomers().find((x) => x.id === id);
     if (!c) return;
-    // Open modal FIRST (it clears form + reset editId)
     App.openAddCustomerModal();
-    document.getElementById('add-modal-title').textContent = `✏️ แก้ไขลูกค้า: ${c.name || ''}`;
-    // Then set editId AFTER, so the modal reset doesn't wipe it
-    const form = document.getElementById('add-customer-form');
+    document.getElementById("add-modal-title").textContent = `\u270F\uFE0F \u0E41\u0E01\u0E49\u0E44\u0E02\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32: ${c.name || ""}`;
+    const form = document.getElementById("add-customer-form");
     form.dataset.editId = id;
-    form.elements.cif.value = c.cif || '';
+    form.elements.cif.value = c.cif || "";
     form.elements.name.value = c.name;
-    form.elements.nickname.value = c.nickname || '';
-    form.elements.phone.value = c.phone || '';
-    form.elements.address.value = c.address || '';
-    form.elements.lat.value = c.lat || '';
-    form.elements.lng.value = c.lng || '';
+    form.elements.nickname.value = c.nickname || "";
+    form.elements.phone.value = c.phone || "";
+    form.elements.address.value = c.address || "";
+    form.elements.lat.value = c.lat || "";
+    form.elements.lng.value = c.lng || "";
     App._renderAddGpsDisplay();
-    // Phase 4: pre-fill risk + debt note
-    form.elements.riskLevel.value = c.riskLevel || 'unclassified';
-    if ('debtNote' in form.elements) form.elements.debtNote.value = c.debtNote || '';
-    // Phase 2: pre-fill photo
+    form.elements.riskLevel.value = c.riskLevel || "unclassified";
+    if ("debtNote" in form.elements) form.elements.debtNote.value = c.debtNote || "";
     if (c.photo) {
       App._showPhotoPreview(c.photo);
     }
-    // Re-init mini-map with customer location
     setTimeout(() => App.initMiniMap(c.lat, c.lng), 150);
-
-    // Show DB info badge (matches popup HTML for the same customer)
-    const dbInfo = document.getElementById('db-filled-info');
+    const dbInfo = document.getElementById("db-filled-info");
     if (dbInfo) {
-      const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      const db = c.cif && typeof CustomerDB !== "undefined" ? CustomerDB.getByCif(c.cif) : null;
       if (db) {
         const badges = [];
-        if (db.zone) badges.push(`เขต ${db.zone}`);
-        if (db.customer_class) badges.push(`ชั้น ${db.customer_class}`);
-        if (db.potential) badges.push(`ศักยภาพ ${db.potential}`);
-        if (db.dob) badges.push(`เกิด ${db.dob}`);
-        if (db.lat) badges.push(`📍 มีพิกัดแล้ว`);
-        dbInfo.innerHTML = `✅ <strong>${this.escapeHTML(c.name)}</strong> · CIF ${this.escapeHTML(c.cif)}${badges.length ? ' · ' + badges.map(b => this.escapeHTML(b)).join(' · ') : ''}`;
-        dbInfo.classList.add('active');
+        if (db.zone) badges.push(`\u0E40\u0E02\u0E15 ${db.zone}`);
+        if (db.customer_class) badges.push(`\u0E0A\u0E31\u0E49\u0E19 ${db.customer_class}`);
+        if (db.potential) badges.push(`\u0E28\u0E31\u0E01\u0E22\u0E20\u0E32\u0E1E ${db.potential}`);
+        if (db.dob) badges.push(`\u0E40\u0E01\u0E34\u0E14 ${db.dob}`);
+        if (db.lat) badges.push(`\u{1F4CD} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E41\u0E25\u0E49\u0E27`);
+        dbInfo.innerHTML = `\u2705 <strong>${this.escapeHTML(c.name)}</strong> \xB7 CIF ${this.escapeHTML(c.cif)}${badges.length ? " \xB7 " + badges.map((b) => this.escapeHTML(b)).join(" \xB7 ") : ""}`;
+        dbInfo.classList.add("active");
       }
     }
   },
-
   // Delete customer
   async del(id) {
-    const c = Storage.getCustomers().find(x => x.id === id);
+    const c = Storage.getCustomers().find((x) => x.id === id);
     if (!c) return;
     const confirmed = await App.confirmDelete(c);
     if (!confirmed) return;
@@ -715,112 +691,104 @@ const Customers = {
     Storage.removeFromRoute(id);
     this.renderAll();
     if (delResult && delResult.synced) {
-      Utils.toast('🗑️ ลบ "' + (c.name || 'ลูกค้า') + '" แล้ว · sync สำเร็จ');
+      Utils.toast('\u{1F5D1}\uFE0F \u0E25\u0E1A "' + (c.name || "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32") + '" \u0E41\u0E25\u0E49\u0E27 \xB7 sync \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08');
     } else {
-      Utils.toast('⚠️ ลบแล้วแต่ sync ไม่สำเร็จ — กด 🔄 เพื่อลองใหม่', 'error');
+      Utils.toast("\u26A0\uFE0F \u0E25\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E41\u0E15\u0E48 sync \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E01\u0E14 \u{1F504} \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48", "error");
     }
   },
-
   // ===== Pin existing customer on map (fast GPS update) =====
   _showPinOptions(lat, lng) {
-    // ลบ panel เดิมถ้ามี
-    const old = document.getElementById('pin-options-panel');
+    const old = document.getElementById("pin-options-panel");
     if (old) old.remove();
-
-    const panel = document.createElement('div');
-    panel.id = 'pin-options-panel';
-    panel.className = 'pin-options-panel';
+    const panel = document.createElement("div");
+    panel.id = "pin-options-panel";
+    panel.className = "pin-options-panel";
     panel.innerHTML = `
       <div class="pin-options-header">
-        📍 ปักหมุดที่ ${lat.toFixed(5)}, ${lng.toFixed(5)}
-        <button class="pin-close" onclick="document.getElementById('pin-options-panel').remove()">×</button>
+        \u{1F4CD} \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E17\u0E35\u0E48 ${lat.toFixed(5)}, ${lng.toFixed(5)}
+        <button class="pin-close" onclick="document.getElementById('pin-options-panel').remove()">\xD7</button>
       </div>
       <div class="pin-options-body">
         <button class="pin-btn pin-btn-existing" onclick="Customers._startPinExisting(${lat}, ${lng})">
-          🔍 ค้นหาลูกค้าเดิม → ปักหมุด
+          \u{1F50D} \u0E04\u0E49\u0E19\u0E2B\u0E32\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E40\u0E14\u0E34\u0E21 \u2192 \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14
         </button>
         <button class="pin-btn pin-btn-new" onclick="Customers._addNewAtLocation(${lat}, ${lng})">
-          ➕ เพิ่มลูกค้าใหม่
+          \u2795 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48
         </button>
         <a class="pin-btn pin-btn-street" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat.toFixed(6)},${lng.toFixed(6)}" target="_blank" rel="noopener">
-          🛣 เปิด Google Street View
+          \u{1F6E3} \u0E40\u0E1B\u0E34\u0E14 Google Street View
         </a>
       </div>
     `;
     document.body.appendChild(panel);
   },
-
   // เพิ่มลูกค้าใหม่ ณ ตำแหน่งที่เลือก (เปิด modal เดิม)
   _addNewAtLocation(lat, lng) {
-    document.getElementById('pin-options-panel')?.remove();
-    const latEl = document.getElementById('new-lat');
-    const lngEl = document.getElementById('new-lng');
+    var _a;
+    (_a = document.getElementById("pin-options-panel")) == null ? void 0 : _a.remove();
+    const latEl = document.getElementById("new-lat");
+    const lngEl = document.getElementById("new-lng");
     if (latEl) latEl.value = lat.toFixed(6);
     if (lngEl) lngEl.value = lng.toFixed(6);
     App.openAddCustomerModal();
   },
-
   // ค้นหาลูกค้าเดิม → ปักหมุดตรงๆ
   _startPinExisting(lat, lng) {
-    document.getElementById('pin-options-panel')?.remove();
-
-    const old = document.getElementById('pin-search-panel');
+    var _a;
+    (_a = document.getElementById("pin-options-panel")) == null ? void 0 : _a.remove();
+    const old = document.getElementById("pin-search-panel");
     if (old) old.remove();
-
-    const panel = document.createElement('div');
-    panel.id = 'pin-search-panel';
-    panel.className = 'pin-options-panel';
+    const panel = document.createElement("div");
+    panel.id = "pin-search-panel";
+    panel.className = "pin-options-panel";
     panel.innerHTML = `
       <div class="pin-options-header">
-        🔍 เลือกลูกค้าที่ต้องการปักหมุด
-        <button class="pin-close" onclick="document.getElementById('pin-search-panel').remove()">×</button>
+        \u{1F50D} \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14
+        <button class="pin-close" onclick="document.getElementById('pin-search-panel').remove()">\xD7</button>
       </div>
       <div class="pin-search-input-wrap">
-        <input type="text" id="pin-search-input" placeholder="พิมพ์ CIF หรือ ชื่อ..." autocomplete="off">
+        <input type="text" id="pin-search-input" placeholder="\u0E1E\u0E34\u0E21\u0E1E\u0E4C CIF \u0E2B\u0E23\u0E37\u0E2D \u0E0A\u0E37\u0E48\u0E2D..." autocomplete="off">
       </div>
       <div id="pin-search-results" class="pin-search-results"></div>
     `;
     document.body.appendChild(panel);
-
-    const input = document.getElementById('pin-search-input');
-    const results = document.getElementById('pin-search-results');
+    const input = document.getElementById("pin-search-input");
+    const results = document.getElementById("pin-search-results");
     input.focus();
-
     let debounce = null;
-    input.addEventListener('input', () => {
+    input.addEventListener("input", () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => {
         const q = input.value.trim().toLowerCase();
-        if (q.length < 2) { results.innerHTML = ''; return; }
-
-        const customers = Storage.getActiveCustomers();
-        const matches = customers.filter(c => {
-          const name = (c.name || '').toLowerCase();
-          const cif = (c.cif || '').toLowerCase();
-          const nick = (c.nickname || '').toLowerCase();
-          return name.includes(q) || cif.includes(q) || nick.includes(q);
-        }).slice(0, 20);
-
-        if (matches.length === 0) {
-          results.innerHTML = '<div class="pin-search-hint">❌ ไม่พบ</div>';
+        if (q.length < 2) {
+          results.innerHTML = "";
           return;
         }
-
-        results.innerHTML = matches.map(c => {
+        const customers = Storage.getActiveCustomers();
+        const matches = customers.filter((c) => {
+          const name = (c.name || "").toLowerCase();
+          const cif = (c.cif || "").toLowerCase();
+          const nick = (c.nickname || "").toLowerCase();
+          return name.includes(q) || cif.includes(q) || nick.includes(q);
+        }).slice(0, 20);
+        if (matches.length === 0) {
+          results.innerHTML = '<div class="pin-search-hint">\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A</div>';
+          return;
+        }
+        results.innerHTML = matches.map((c) => {
           const hasGps = c.lat && c.lng;
           return `
-            <div class="pin-search-item" data-id="${this.escapeAttr(c.id)}" data-cif="${this.escapeAttr(c.cif || '')}">
+            <div class="pin-search-item" data-id="${this.escapeAttr(c.id)}" data-cif="${this.escapeAttr(c.cif || "")}">
               <div class="pin-search-name">${this.escapeHTML(c.name)}</div>
               <div class="pin-search-meta">
-                CIF: ${this.escapeHTML(c.cif || '-')}
-                ${hasGps ? ' · 📍 มีพิกัด' : ' · ⚠️ ไม่มีพิกัด'}
+                CIF: ${this.escapeHTML(c.cif || "-")}
+                ${hasGps ? " \xB7 \u{1F4CD} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14" : " \xB7 \u26A0\uFE0F \u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14"}
               </div>
             </div>
           `;
-        }).join('');
-
-        results.querySelectorAll('.pin-search-item').forEach(el => {
-          el.addEventListener('click', () => {
+        }).join("");
+        results.querySelectorAll(".pin-search-item").forEach((el) => {
+          el.addEventListener("click", () => {
             const id = el.dataset.id;
             const cif = el.dataset.cif;
             this._confirmPin(id, cif, lat, lng);
@@ -829,167 +797,148 @@ const Customers = {
       }, 200);
     });
   },
-
   // ยืนยันการปักหมุด → ยิง PUT ตรง
   async _confirmPin(id, cif, lat, lng) {
-    const c = Storage.getCustomers().find(x => x.id === id);
-    if (!c) return Utils.toast('ไม่พบลูกค้า', 'error');
-
-    const oldGps = c.lat && c.lng ? `(${Number(c.lat).toFixed(5)}, ${Number(c.lng).toFixed(5)})` : 'ยังไม่มี';
-    // ใช้ custom dialog — iOS Safari confirm() ไม่แสดงตอนแป้นพิมพ์ค้างเปิด
+    var _a;
+    const c = Storage.getCustomers().find((x) => x.id === id);
+    if (!c) return Utils.toast("\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "error");
+    const oldGps = c.lat && c.lng ? `(${Number(c.lat).toFixed(5)}, ${Number(c.lng).toFixed(5)})` : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35";
     const ok = await Utils.confirmDialog({
-      title: '📍 ปักหมุดลูกค้า',
-      message: `"${c.name}"\n\nพิกัดเดิม: ${oldGps}\nพิกัดใหม่: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-      confirmText: 'ปักหมุดเลย',
+      title: "\u{1F4CD} \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      message: `"${c.name}"
+
+\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E40\u0E14\u0E34\u0E21: ${oldGps}
+\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      confirmText: "\u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E40\u0E25\u0E22"
     });
     if (!ok) return;
-
-    // ปิด panel ค้นหา
-    document.getElementById('pin-search-panel')?.remove();
-
-    // local-first: หมุดขึ้นทันที (~20ms) แล้วค่อยส่งขึ้นเว็บเบื้องหลัง
+    (_a = document.getElementById("pin-search-panel")) == null ? void 0 : _a.remove();
     this.saveGpsFast(id, cif || c.cif, lat, lng, c.name);
   },
-
   // Render customer list (Customers tab) — with infinite scroll
   _filteredCustomers: [],
   _renderedListOffset: 0,
   _listScrollHandler: null,
-
   renderList() {
-    // 17 พ.ย.69: ฐานรายชื่อโหลดเมื่อจำเป็น (ไม่โหลดตอนเปิดแอป) — เปิดแท็บนี้ครั้งแรกจึงดึง แล้ววาดใหม่
-    if (typeof CustomerDB !== 'undefined' && !CustomerDB._loaded && !this._ensureTried) {
+    var _a, _b, _c;
+    if (typeof CustomerDB !== "undefined" && !CustomerDB._loaded && !this._ensureTried) {
       this._ensureTried = true;
-      const list0 = document.getElementById('customers-list');
-      if (list0) list0.innerHTML = '<div style="padding:16px;color:#666">กำลังโหลดฐานรายชื่อ...</div>';
-      CustomerDB.ensure().then(() => { this._ensureTried = false; try { this.renderList(); } catch (e) {} })
-        .catch(() => { this._ensureTried = false; });
+      const list0 = document.getElementById("customers-list");
+      if (list0) list0.innerHTML = '<div style="padding:16px;color:#666">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E10\u0E32\u0E19\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D...</div>';
+      CustomerDB.ensure().then(() => {
+        this._ensureTried = false;
+        try {
+          this.renderList();
+        } catch (e) {
+        }
+      }).catch(() => {
+        this._ensureTried = false;
+      });
       return;
     }
-    const list = document.getElementById('customers-list');
+    const list = document.getElementById("customers-list");
     let customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
     const route = Storage.getRoute();
-
-    // Zone filter (เขตสินเชื่อ — T3)
-    const zoneSel = document.getElementById('customer-zone');
-    const zoneVal = zoneSel?.value || '';
-    if (zoneVal && typeof CustomerDB !== 'undefined' && CustomerDB._loaded) {
-      customers = customers.filter(c => {
+    const zoneSel = document.getElementById("customer-zone");
+    const zoneVal = (zoneSel == null ? void 0 : zoneSel.value) || "";
+    if (zoneVal && typeof CustomerDB !== "undefined" && CustomerDB._loaded) {
+      customers = customers.filter((c) => {
         const db = c.cif ? CustomerDB.getByCif(c.cif) : null;
         return db && String(db.zone) === String(zoneVal);
       });
     }
-
-    // Branch filter (สาขา — sync กับ dropdown บนแผนที่) + ล็อกสาขาตัวเองสำหรับ non-admin
-    const branchVal = this._userBranch() || document.getElementById('map-branch-filter')?.value || '';
+    const branchVal = this._userBranch() || ((_a = document.getElementById("map-branch-filter")) == null ? void 0 : _a.value) || "";
     if (branchVal) {
-      customers = customers.filter(c => {
-        const db = (c.cif && typeof CustomerDB !== 'undefined') ? CustomerDB.getByCif(c.cif) : null;
-        const cb = db ? String(db.branch || '') : String(c.branch || '');
+      customers = customers.filter((c) => {
+        const db = c.cif && typeof CustomerDB !== "undefined" ? CustomerDB.getByCif(c.cif) : null;
+        const cb = db ? String(db.branch || "") : String(c.branch || "");
         return cb === String(branchVal);
       });
     }
-
-    // Search filter
-    const searchQuery = (document.getElementById('customer-search')?.value || '').trim().toLowerCase();
+    const searchQuery = (((_b = document.getElementById("customer-search")) == null ? void 0 : _b.value) || "").trim().toLowerCase();
     if (searchQuery) {
-      customers = customers.filter(c => {
-        const haystack = `${c.cif || ''} ${c.name || ''} ${c.phone || ''} ${c.address || ''} ${c.note || ''}`.toLowerCase();
+      customers = customers.filter((c) => {
+        const haystack = `${c.cif || ""} ${c.name || ""} ${c.phone || ""} ${c.address || ""} ${c.note || ""}`.toLowerCase();
         return haystack.includes(searchQuery);
       });
     }
-
-    // Sort
-    const sortBy = document.getElementById('customer-sort')?.value || 'name';
+    const sortBy = ((_c = document.getElementById("customer-sort")) == null ? void 0 : _c.value) || "name";
     customers = this._sortCustomers(customers, sortBy);
-
-    document.getElementById('customer-count').textContent = customers.length;
-
+    document.getElementById("customer-count").textContent = customers.length;
     if (customers.length === 0) {
-      const msg = searchQuery
-        ? `ไม่พบลูกค้าที่ตรงกับ "${searchQuery}"`
-        : 'ยังไม่มีลูกค้า กดปุ่ม <strong>เพิ่มลูกค้า</strong> มุมขวาล่าง';
+      const msg = searchQuery ? `\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A "${searchQuery}"` : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 \u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21 <strong>\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</strong> \u0E21\u0E38\u0E21\u0E02\u0E27\u0E32\u0E25\u0E48\u0E32\u0E07";
       list.innerHTML = `<p class="empty-state">${msg}</p>`;
       return;
     }
-
-    // Store filtered list and reset offset
     this._filteredCustomers = customers;
     this._renderedListOffset = 0;
-    list.innerHTML = '';
-
-    // Render first batch
+    list.innerHTML = "";
     this._appendCustomerBatch(list, 30);
-
-    // Set up infinite scroll (remove old handler first)
-    if (this._listScrollHandler) list.removeEventListener('scroll', this._listScrollHandler);
+    if (this._listScrollHandler) list.removeEventListener("scroll", this._listScrollHandler);
     this._listScrollHandler = Utils.debounce(() => {
       if (list.scrollTop + list.clientHeight >= list.scrollHeight - 300) {
         this._appendCustomerBatch(list, 20);
       }
     }, 80);
-    list.addEventListener('scroll', this._listScrollHandler, { passive: true });
+    list.addEventListener("scroll", this._listScrollHandler, { passive: true });
   },
-
   _appendCustomerBatch(container, count) {
     const customers = this._filteredCustomers;
     const start = this._renderedListOffset;
     const end = Math.min(start + count, customers.length);
     if (start >= end) return;
-
     const visits = Storage.getVisits();
     const route = Storage.getRoute();
     const frag = document.createDocumentFragment();
-    const tmp = document.createElement('div');
-
+    const tmp = document.createElement("div");
     for (let i = start; i < end; i++) {
       const c = customers[i];
       const visited = !!visits[c.id];
       const inRoute = route.includes(c.id);
       const hasCoords = Number.isFinite(c.lat) && Number.isFinite(c.lng);
-      const db = c.cif && typeof CustomerDB !== 'undefined' ? CustomerDB.getByCif(c.cif) : null;
+      const db = c.cif && typeof CustomerDB !== "undefined" ? CustomerDB.getByCif(c.cif) : null;
       const metaBadges = [];
       if (db) {
-        if (db.zone) metaBadges.push(`<span class="meta-badge gray">เขต ${this.escapeHTML(db.zone)}</span>`);
+        if (db.zone) metaBadges.push(`<span class="meta-badge gray">\u0E40\u0E02\u0E15 ${this.escapeHTML(db.zone)}</span>`);
         if (db.customer_class) metaBadges.push(`<span class="meta-badge blue">${this.escapeHTML(db.customer_class)}</span>`);
         if (db.potential) {
-          const pClass = db.potential === 'แดง' ? 'red' : db.potential === 'เหลือง' ? 'yellow' : 'green';
+          const pClass = db.potential === "\u0E41\u0E14\u0E07" ? "red" : db.potential === "\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E07" ? "yellow" : "green";
           metaBadges.push(`<span class="meta-badge ${pClass}">${this.escapeHTML(db.potential)}</span>`);
         }
       }
-      let debtMini = '';
-      if (c.cif && typeof DebtDB !== 'undefined') {
+      let debtMini = "";
+      if (c.cif && typeof DebtDB !== "undefined") {
         if (!DebtDB._loaded) {
-          debtMini = `<div class="customer-debt debt-loading"><span>⏳ กำลังโหลดข้อมูลหนี้...</span></div>`;
+          debtMini = `<div class="customer-debt debt-loading"><span>\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49...</span></div>`;
         } else {
           const debt = DebtDB.getByCif(c.cif);
           if (debt) {
             const urgent = debt.max_tier >= 2;
-            debtMini = `<div class="customer-debt ${urgent ? 'debt-urgent' : ''}" style="border-left-color:${DebtDB.tierColor(debt.max_tier)}">
-            <span>💰 ${DebtDB.fmtMoney(debt.total_debt)}</span>
-            <span>${debt.num_contracts} สัญญา</span>
-            <span>📅 ${DebtDB.fmtDate(debt.earliest_due) || '-'}</span>
+            debtMini = `<div class="customer-debt ${urgent ? "debt-urgent" : ""}" style="border-left-color:${DebtDB.tierColor(debt.max_tier)}">
+            <span>\u{1F4B0} ${DebtDB.fmtMoney(debt.total_debt)}</span>
+            <span>${debt.num_contracts} \u0E2A\u0E31\u0E0D\u0E0D\u0E32</span>
+            <span>\u{1F4C5} ${DebtDB.fmtDate(debt.earliest_due) || "-"}</span>
           </div>`;
           }
         }
       }
-      tmp.innerHTML = `<div class="customer-card ${visited ? 'visited' : ''}">
-          <div class="customer-avatar">${visited ? '✓' : '👤'}</div>
+      tmp.innerHTML = `<div class="customer-card ${visited ? "visited" : ""}">
+          <div class="customer-avatar">${visited ? "\u2713" : "\u{1F464}"}</div>
           <div class="customer-info">
             <div class="customer-name">${this.escapeHTML(c.name)}</div>
-            ${c.cif ? `<div class="customer-cif">CIF: ${this.escapeHTML(c.cif)}</div>` : ''}
-            <div class="customer-address">${this.escapeHTML(c.address || 'ไม่มีที่อยู่')}</div>
-            ${metaBadges.length ? `<div class="customer-meta">${metaBadges.join('')}</div>` : ''}
+            ${c.cif ? `<div class="customer-cif">CIF: ${this.escapeHTML(c.cif)}</div>` : ""}
+            <div class="customer-address">${this.escapeHTML(c.address || "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48")}</div>
+            ${metaBadges.length ? `<div class="customer-meta">${metaBadges.join("")}</div>` : ""}
             ${debtMini}
           </div>
           <div class="customer-actions">
-            ${hasCoords ? `<button class="btn-small btn-locate" onclick="Customers.locateCustomer('${c.id}')" title="ไปพิกัดบนแผนที่">📍</button>` : ''}
-            <button class="btn-small ${inRoute ? 'btn-route-active' : ''}" onclick="Customers.toggleRoute('${c.id}')" title="เพิ่มในเส้นทาง">
-              ${inRoute ? '✓' : '➕'}
+            ${hasCoords ? `<button class="btn-small btn-locate" onclick="Customers.locateCustomer('${c.id}')" title="\u0E44\u0E1B\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E1A\u0E19\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48">\u{1F4CD}</button>` : ""}
+            <button class="btn-small ${inRoute ? "btn-route-active" : ""}" onclick="Customers.toggleRoute('${c.id}')" title="\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07">
+              ${inRoute ? "\u2713" : "\u2795"}
             </button>
-            <button class="btn-small" onclick="Customers.edit('${c.id}')" title="แก้ไข">✏️</button>
-            <button class="btn-small btn-danger" onclick="Customers.del('${c.id}')" title="ลบลูกค้า">🗑️</button>
+            <button class="btn-small" onclick="Customers.edit('${c.id}')" title="\u0E41\u0E01\u0E49\u0E44\u0E02">\u270F\uFE0F</button>
+            <button class="btn-small btn-danger" onclick="Customers.del('${c.id}')" title="\u0E25\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32">\u{1F5D1}\uFE0F</button>
           </div>
         </div>`;
       frag.appendChild(tmp.firstChild);
@@ -997,384 +946,393 @@ const Customers = {
     container.appendChild(frag);
     this._renderedListOffset = end;
   },
-
   // T2: พาไปพิกัดลูกค้าบนแผนที่ (ปุ่ม 📍 ในการ์ด) — เด้งการ์ดลูกหนี้+ข้อมูลหนี้ที่จุดพิกัดด้วย
   locateCustomer(id) {
-    const c = this._filteredCustomers.find(x => x.id === id) ||
-              Storage.getActiveCustomers().find(x => x.id === id);
+    const c = this._filteredCustomers.find((x) => x.id === id) || Storage.getActiveCustomers().find((x) => x.id === id);
     if (!c) return;
     if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) {
-      Utils.toast('⚠️ ลูกค้านี้ยังไม่มีพิกัด', 'error');
+      Utils.toast("\u26A0\uFE0F \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14", "error");
       return;
     }
-    // พับ bottom sheet ลง → เห็นแผนที่เต็มจอ
-    if (typeof App !== 'undefined' && App.setSheetState) App.setSheetState('peek');
+    if (typeof App !== "undefined" && App.setSheetState) App.setSheetState("peek");
     if (!this.map) return;
     this.map.flyTo([c.lat, c.lng], 17, { duration: 0.8 });
     setTimeout(() => this.showCustomerCard(c), 900);
   },
-
   // เปิดการ์ดลูกหนี้ที่จุดพิกัดเสมอ — ไม่พึ่ง marker เดิม (หมุดอาจถูกตัวกรองตัด/ยังไม่ถูกวาดบนแผนที่)
   showCustomerCard(c) {
     if (!this.map || !c) return;
     const lat = Number(c.lat), lng = Number(c.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    if (this._tempPin) { try { this.map.removeLayer(this._tempPin); } catch (e) {} this._tempPin = null; }
-    if (this._cardPopup) { try { this.map.closePopup(this._cardPopup); } catch (e) {} this._cardPopup = null; }
-    // หมุดชั่วคราววงกลมเขียว ให้เห็นชัดว่าจุดพิกัดอยู่ตรงไหน
-    const pin = L.circleMarker([lat, lng], { radius: 10, color: '#0a8f3c', weight: 3, fillColor: '#0a8f3c', fillOpacity: 0.35, interactive: false }).addTo(this.map);
+    if (this._tempPin) {
+      try {
+        this.map.removeLayer(this._tempPin);
+      } catch (e) {
+      }
+      this._tempPin = null;
+    }
+    if (this._cardPopup) {
+      try {
+        this.map.closePopup(this._cardPopup);
+      } catch (e) {
+      }
+      this._cardPopup = null;
+    }
+    const pin = L.circleMarker([lat, lng], { radius: 10, color: "#0a8f3c", weight: 3, fillColor: "#0a8f3c", fillOpacity: 0.35, interactive: false }).addTo(this.map);
     this._tempPin = pin;
-    // วางการ์ดให้พ้นแถบแจ้งเตือน/แผงด้านบน และไม่จมใต้แถบล่าง (คำนวณจากความสูงจอจริง)
     const vh = window.innerHeight || 844;
-    const padTop = Math.min(260, Math.round(vh * 0.30));
+    const padTop = Math.min(260, Math.round(vh * 0.3));
     const padBottom = Math.min(160, Math.round(vh * 0.17));
     const maxH = Math.max(280, vh - padTop - padBottom - 24);
-    const pop = L.popup({ maxWidth: 320, maxHeight: maxH, autoPan: true, autoPanPaddingTopLeft: [10, padTop], autoPanPaddingBottomRight: [56, padBottom], closeButton: false, className: 'cust-card-popup' })
-      .setLatLng([lat, lng]).setContent(this.popupHTML(c)).openOn(this.map);
+    const pop = L.popup({ maxWidth: 320, maxHeight: maxH, autoPan: true, autoPanPaddingTopLeft: [10, padTop], autoPanPaddingBottomRight: [56, padBottom], closeButton: false, className: "cust-card-popup" }).setLatLng([lat, lng]).setContent(this.popupHTML(c)).openOn(this.map);
     this._cardPopup = pop;
-    // ซ่อนปุ่มควบคุมแผนที่ชั่วคราวระหว่างเปิดการ์ด กันปุ่มทับข้อมูล (คืนค่าเมื่อปิดการ์ด)
-    try { document.body.classList.add('card-open'); } catch (e) {}
-    pop.on('remove', () => {
+    try {
+      document.body.classList.add("card-open");
+    } catch (e) {
+    }
+    pop.on("remove", () => {
       this._cardPopup = null;
-      try { document.body.classList.remove('card-open'); } catch (e) {}
-      if (this._tempPin === pin) { try { this.map.removeLayer(pin); } catch (e) {} this._tempPin = null; }
+      try {
+        document.body.classList.remove("card-open");
+      } catch (e) {
+      }
+      if (this._tempPin === pin) {
+        try {
+          this.map.removeLayer(pin);
+        } catch (e) {
+        }
+        this._tempPin = null;
+      }
     });
-    // ข้อมูลหนี้ยังโหลดไม่เสร็จ → เติมการ์ดให้เองเมื่อโหลดเสร็จ
-    if (typeof DebtDB !== 'undefined' && !DebtDB._loaded && DebtDB.load) {
+    if (typeof DebtDB !== "undefined" && !DebtDB._loaded && DebtDB.load) {
       DebtDB.load().then(() => {
         if (this._cardPopup && this.map && this.map.hasLayer(this._cardPopup)) {
-          try { this._cardPopup.setContent(this.popupHTML(c)); } catch (e) {}
+          try {
+            this._cardPopup.setContent(this.popupHTML(c));
+          } catch (e) {
+          }
         }
-      }).catch(() => {});
+      }).catch(() => {
+      });
     }
   },
-
   // Toggle customer in today's route
   toggleRoute(id) {
     const route = Storage.getRoute();
     if (route.includes(id)) {
       Storage.removeFromRoute(id);
-      Utils.toast('เอาออกจากเส้นทาง');
+      Utils.toast("\u0E40\u0E2D\u0E32\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07");
     } else {
       if (!Storage.addToRoute(id)) {
-        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
+        Utils.toast("\u0E04\u0E19\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \u0E01\u0E14 \u{1F4CD} \u0E40\u0E01\u0E47\u0E1A\u0E01\u0E48\u0E2D\u0E19", "error");
         return;
       }
-      Utils.toast('เพิ่มในเส้นทางวันนี้ ✓');
+      Utils.toast("\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 \u2713");
     }
     this.renderList();
     App.updateRouteUI();
   },
-
   // Sort customers by different criteria
   _sortCustomers(customers, sortBy) {
     const sorted = [...customers];
     switch (sortBy) {
-      case 'name':
-        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+      case "name":
+        sorted.sort((a, b) => (a.name || "").localeCompare(b.name || "", "th"));
         break;
-      case 'cif':
-        sorted.sort((a, b) => (a.cif || '').localeCompare(b.cif || ''));
+      case "cif":
+        sorted.sort((a, b) => (a.cif || "").localeCompare(b.cif || ""));
         break;
-      case 'risk':
+      case "risk":
         const riskOrder = { bad: 0, warning: 1, good: 2, unclassified: 3 };
-        sorted.sort((a, b) => (riskOrder[a.riskLevel] ?? 3) - (riskOrder[b.riskLevel] ?? 3));
+        sorted.sort((a, b) => {
+          var _a, _b;
+          return ((_a = riskOrder[a.riskLevel]) != null ? _a : 3) - ((_b = riskOrder[b.riskLevel]) != null ? _b : 3);
+        });
         break;
-      case 'recent':
+      case "recent":
         sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
         break;
     }
     return sorted;
   },
-
   // ===== Base layer toggle (roadmap ↔ satellite) =====
   _addLayerControl() {
-    // Custom control as a DOM element (Leaflet way)
     const LayerToggle = L.Control.extend({
       onAdd: () => {
-        const div = L.DomUtil.create('div', 'layer-toggle leaflet-bar');
+        const div = L.DomUtil.create("div", "layer-toggle leaflet-bar");
         div.innerHTML = `
-          <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
-          <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+          <button class="layer-btn active" data-layer="roadmap" title="\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E16\u0E19\u0E19">\u{1F5FA}\uFE0F</button>
+          <button class="layer-btn" data-layer="satellite" title="\u0E20\u0E32\u0E1E\u0E14\u0E32\u0E27\u0E40\u0E17\u0E35\u0E22\u0E21">\u{1F6F0}\uFE0F</button>
         `;
         L.DomEvent.disableClickPropagation(div);
-        div.querySelectorAll('.layer-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
+        div.querySelectorAll(".layer-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
             L.DomEvent.stop(e);
             const layer = btn.dataset.layer;
             Customers.switchBaseLayer(layer);
           });
         });
         return div;
-      },
+      }
     });
-    new LayerToggle({ position: 'topright' }).addTo(this.map);
-
-    // Fullscreen toggle button
+    new LayerToggle({ position: "topright" }).addTo(this.map);
     const FsToggle = L.Control.extend({
       onAdd: () => {
-        const div = L.DomUtil.create('div', 'fs-toggle leaflet-bar');
-        const btn = L.DomUtil.create('button', 'fs-btn', div);
-        btn.innerHTML = '⛶';
-        btn.title = 'ขยายเต็มจอ';
-        btn.setAttribute('aria-label', 'Toggle fullscreen');
+        const div = L.DomUtil.create("div", "fs-toggle leaflet-bar");
+        const btn = L.DomUtil.create("button", "fs-btn", div);
+        btn.innerHTML = "\u26F6";
+        btn.title = "\u0E02\u0E22\u0E32\u0E22\u0E40\u0E15\u0E47\u0E21\u0E08\u0E2D";
+        btn.setAttribute("aria-label", "Toggle fullscreen");
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener("click", (e) => {
           L.DomEvent.stop(e);
           Customers.toggleFullscreen();
         });
         return div;
-      },
-    });
-    new FsToggle({ position: 'topright' }).addTo(this.map);
-
-    // Update icon when fullscreen state changes (handles ESC key + iOS quirks)
-    const updateFsIcon = () => {
-      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement
-        || document.querySelector('#map.map-fs-fake'));
-      const btn = document.querySelector('.fs-btn');
-      if (btn) {
-        btn.innerHTML = isFs ? '✕' : '⛶';
-        btn.title = isFs ? 'ออกจากเต็มจอ' : 'ขยายเต็มจอ';
-        btn.classList.toggle('active', isFs);
       }
-      // Trigger map resize after layout change
+    });
+    new FsToggle({ position: "topright" }).addTo(this.map);
+    const updateFsIcon = () => {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.querySelector("#map.map-fs-fake"));
+      const btn = document.querySelector(".fs-btn");
+      if (btn) {
+        btn.innerHTML = isFs ? "\u2715" : "\u26F6";
+        btn.title = isFs ? "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E40\u0E15\u0E47\u0E21\u0E08\u0E2D" : "\u0E02\u0E22\u0E32\u0E22\u0E40\u0E15\u0E47\u0E21\u0E08\u0E2D";
+        btn.classList.toggle("active", isFs);
+      }
       setTimeout(() => this.map && this.map.invalidateSize(), 200);
     };
-    ['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(ev => {
+    ["fullscreenchange", "webkitfullscreenchange", "msfullscreenchange"].forEach((ev) => {
       document.addEventListener(ev, updateFsIcon);
     });
   },
-
   // ===== Fullscreen toggle =====
   toggleFullscreen() {
-    const mapEl = document.getElementById('map');
+    const mapEl = document.getElementById("map");
     if (!mapEl) return;
     const isFs = document.fullscreenElement || document.webkitFullscreenElement;
     if (!isFs) {
-      // Enter fullscreen — try real API first, fallback to fake fullscreen
-      // Find first actually-defined function
       const candidates = [
         mapEl.requestFullscreen,
         mapEl.webkitRequestFullscreen,
-        mapEl.msRequestFullscreen,
+        mapEl.msRequestFullscreen
       ];
-      const req = candidates.find(fn => typeof fn === 'function') || null;
+      const req = candidates.find((fn) => typeof fn === "function") || null;
       if (req) {
         let result;
         try {
           result = req.call(mapEl);
         } catch (err) {
-          // Synchronous error (e.g. some iOS WebViews)
-          console.warn('Fullscreen call threw, using fallback:', err);
+          console.warn("Fullscreen call threw, using fallback:", err);
           this._useFakeFullscreen(mapEl);
           return;
         }
-        // Some browsers return undefined (no promise); only chain .catch if it's a Promise
-        if (result && typeof result.then === 'function') {
-          result.catch(err => {
-            console.warn('Fullscreen API blocked, using fallback:', err);
+        if (result && typeof result.then === "function") {
+          result.catch((err) => {
+            console.warn("Fullscreen API blocked, using fallback:", err);
             this._useFakeFullscreen(mapEl);
           });
         }
       } else {
-        // No Fullscreen API support at all
-        console.warn('No Fullscreen API, using CSS fallback');
+        console.warn("No Fullscreen API, using CSS fallback");
         this._useFakeFullscreen(mapEl);
       }
     } else {
-      // Exit fullscreen
       const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
       if (exit) exit.call(document);
-      mapEl.classList.remove('map-fs-fake');
+      mapEl.classList.remove("map-fs-fake");
     }
-    },
-    _useFakeFullscreen(mapEl) {
-    mapEl.classList.add('map-fs-fake');
-    const btn = document.querySelector('.fs-btn');
-    if (btn) { btn.innerHTML = '✕'; btn.classList.add('active'); btn.title = 'ออกจากเต็มจอ'; }
+  },
+  _useFakeFullscreen(mapEl) {
+    mapEl.classList.add("map-fs-fake");
+    const btn = document.querySelector(".fs-btn");
+    if (btn) {
+      btn.innerHTML = "\u2715";
+      btn.classList.add("active");
+      btn.title = "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E40\u0E15\u0E47\u0E21\u0E08\u0E2D";
+    }
     this.map.invalidateSize();
-    },
-
+  },
   switchBaseLayer(layerName) {
     if (!this._baseLayers[layerName] || layerName === this._currentBaseLayer) return;
-    // Remove current
     this.map.removeLayer(this._baseLayers[this._currentBaseLayer]);
-    // Add new
     this._baseLayers[layerName].addTo(this.map);
     this._currentBaseLayer = layerName;
-    // Update button states
-    const buttons = document.querySelectorAll('.layer-toggle .layer-btn');
-    buttons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.layer === layerName);
+    const buttons = document.querySelectorAll(".layer-toggle .layer-btn");
+    buttons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.layer === layerName);
     });
   },
-
   // ===== ตัวกรองเขตตามสาขา (17 ต.ค.69 — พ่อสั่ง: แต่ละสาขาเขตไม่เหมือนกัน) =====
   // เติม option เขตจากข้อมูลจริงที่เห็น (ตามสาขา) แทน hardcode 1-5
   // non-admin เห็นสาขาเดียวอยู่แล้ว (server กรองมา) → ได้เขตสาขาตัวเองอัตโนมัติ
   // admin ตาม dropdown สาขา (ว่าง = รวมทุกสาขา)
-  _zoneSig: '',
+  _zoneSig: "",
   refreshZoneOptions() {
-    const tabSel = document.getElementById('customer-zone');
-    const mapSel = document.getElementById('map-zone-filter');
+    var _a, _b;
+    const tabSel = document.getElementById("customer-zone");
+    const mapSel = document.getElementById("map-zone-filter");
     if (!tabSel && !mapSel) return;
-    // สาขาที่ใช้กรองเขต: แท็บลูกค้า/แผนที่ sync กัน + non-admin ล็อกสาขาตัวเอง
-    let branchVal = document.getElementById('map-branch-filter')?.value || '';
-    const tabBranch = document.getElementById('customer-branch')?.value || '';
+    let branchVal = ((_a = document.getElementById("map-branch-filter")) == null ? void 0 : _a.value) || "";
+    const tabBranch = ((_b = document.getElementById("customer-branch")) == null ? void 0 : _b.value) || "";
     if (tabBranch) branchVal = tabBranch;
     let recs = [];
-    // รวม 2 ถัง (กันถังใดถังหนึ่งว่าง — เช่น กลางยังโหลดไม่เสร็จแต่เครื่องมีข้อมูลแล้ว)
-    if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && Array.isArray(CustomerDB._data)) {
+    if (typeof CustomerDB !== "undefined" && CustomerDB._loaded && Array.isArray(CustomerDB._data)) {
       recs = recs.concat(CustomerDB._data);
     }
-    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
-      try { recs = recs.concat(Storage.getActiveCustomers()); } catch {}
+    if (typeof Storage !== "undefined" && Storage.getActiveCustomers) {
+      try {
+        recs = recs.concat(Storage.getActiveCustomers());
+      } catch (e) {
+      }
     }
     const lock = this._userBranch();
-    if (lock && recs.some(r => String(r.branch || '').trim() === lock)) branchVal = lock;
-    if (branchVal) recs = recs.filter(r => String(r.branch || '').trim() === String(branchVal));
-    const zones = [...new Set(recs.map(r => String(r.zone ?? '').trim()).filter(z => z !== ''))];
-    zones.sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
-    const sig = branchVal + '|' + zones.join(',');
-    if (sig === this._zoneSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM (กัน dropdown กระพริบ)
+    if (lock && recs.some((r) => String(r.branch || "").trim() === lock)) branchVal = lock;
+    if (branchVal) recs = recs.filter((r) => String(r.branch || "").trim() === String(branchVal));
+    const zones = [...new Set(recs.map((r) => {
+      var _a2;
+      return String((_a2 = r.zone) != null ? _a2 : "").trim();
+    }).filter((z) => z !== ""))];
+    zones.sort((a, b) => a.localeCompare(b, "th", { numeric: true }));
+    const sig = branchVal + "|" + zones.join(",");
+    if (sig === this._zoneSig) return;
     this._zoneSig = sig;
     for (const sel of [tabSel, mapSel]) {
       if (!sel) continue;
       const cur = sel.value;
-      sel.textContent = '';
-      const all = document.createElement('option');
-      all.value = ''; all.textContent = 'ทุกเขต';
+      sel.textContent = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "\u0E17\u0E38\u0E01\u0E40\u0E02\u0E15";
       sel.appendChild(all);
       for (const z of zones) {
-        const o = document.createElement('option');
-        o.value = z; o.textContent = 'เขต ' + z;
+        const o = document.createElement("option");
+        o.value = z;
+        o.textContent = "\u0E40\u0E02\u0E15 " + z;
         sel.appendChild(o);
       }
-      sel.value = zones.includes(cur) ? cur : '';   // ค่าเดิมยังอยู่คงไว้ หายไป reset เป็นทุกเขต
+      sel.value = zones.includes(cur) ? cur : "";
     }
   },
-
   // ===== ตัวเลือกสาขาตามข้อมูลจริง (17 ต.ค.69 — แก้บั๊กเลือกสาขาไม่ได้) =====
   // เติมทุก renderAll (sig-guard กัน dropdown กระพริบ) — รวม 2 ถัง (CustomerDB + เครื่อง)
   // ผูก change ครั้งเดียว (dataset.bound) กันยิงซ้ำ
   // + ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
-  _branchSig: '',
+  _branchSig: "",
   _userBranch() {
-    // คืนรหัสสาขาของคนใช้ (non-admin) — รหัสเดียวกับข้อมูลลูกค้า (เช่น '854')
-    // admin → null (ไม่ล็อก เห็นทุกสาขา)
     try {
-      if (typeof Auth !== 'undefined' && Auth.isAdmin && Auth.isAdmin()) return null;
-      const u = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
-      const b = String((u && u.branch) || '').trim();
+      if (typeof Auth !== "undefined" && Auth.isAdmin && Auth.isAdmin()) return null;
+      const u = typeof Auth !== "undefined" && Auth.getUser ? Auth.getUser() : null;
+      const b = String(u && u.branch || "").trim();
       return b || null;
-    } catch { return null; }
+    } catch (e) {
+      return null;
+    }
   },
   refreshBranchOptions() {
-    const sel = document.getElementById('map-branch-filter');
-    const tabSel = document.getElementById('customer-branch');
+    const sel = document.getElementById("map-branch-filter");
+    const tabSel = document.getElementById("customer-branch");
     if (!sel && !tabSel) return;
-    // change สองฝั่ง sync กัน (เลือกฝั่งไหน อีกฝั่งตาม — อ่านจากตัวที่ถูกกด ไม่ใช่ || เพราะ '' คือค่าตั้งใจ)
     const onChange = (e) => {
-      const src = (e && e.target) || null;
-      const v = src ? src.value : ((sel && sel.value) || (tabSel && tabSel.value) || '');
+      const src = e && e.target || null;
+      const v = src ? src.value : sel && sel.value || tabSel && tabSel.value || "";
       if (sel) sel.value = v;
       if (tabSel) tabSel.value = v;
-      this._branchFilter = v || '';
-      this._lastMarkerHash = null;            // force rebuild
-      // 17 พ.ย.69: เลือกสาขาไหน = โหลดข้อมูลหนี้สาขานั้น (แอดมินทยอยโหลดทีละสาขา)
+      this._branchFilter = v || "";
+      this._lastMarkerHash = null;
       if (v && window.DebtDB && DebtDB.ensureBranch) {
-        DebtDB.ensureBranch(v).then(() => { this._lastMarkerHash = null; this.renderAll(); }).catch(() => {});
+        DebtDB.ensureBranch(v).then(() => {
+          this._lastMarkerHash = null;
+          this.renderAll();
+        }).catch(() => {
+        });
       }
-      this.renderAll();                       // renderMarkers + list
+      this.renderAll();
     };
     for (const s of [sel, tabSel]) {
       if (s && !s.dataset.bound) {
-        s.dataset.bound = '1';
-        s.addEventListener('change', onChange);
+        s.dataset.bound = "1";
+        s.addEventListener("change", onChange);
       }
     }
-    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง', '10': 'ปราจีนบุรี', '327': 'ศรีมหาโพธิ', '486': 'ประจันตคาม', '715': 'นาดี' };
-    const seen = new Set();
-    if (typeof CustomerDB !== 'undefined' && CustomerDB._loaded && CustomerDB._byCif) {
-      CustomerDB._byCif.forEach(r => { const b = String(r.branch || '').trim(); if (b) seen.add(b); });
+    const names = { "854": "\u0E27\u0E31\u0E07\u0E17\u0E48\u0E32\u0E0A\u0E49\u0E32\u0E07", "145": "\u0E01\u0E1A\u0E34\u0E19\u0E17\u0E23\u0E4C\u0E1A\u0E38\u0E23\u0E35", "291": "\u0E1A\u0E49\u0E32\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07", "10": "\u0E1B\u0E23\u0E32\u0E08\u0E35\u0E19\u0E1A\u0E38\u0E23\u0E35", "327": "\u0E28\u0E23\u0E35\u0E21\u0E2B\u0E32\u0E42\u0E1E\u0E18\u0E34", "486": "\u0E1B\u0E23\u0E30\u0E08\u0E31\u0E19\u0E15\u0E04\u0E32\u0E21", "715": "\u0E19\u0E32\u0E14\u0E35" };
+    const seen = /* @__PURE__ */ new Set();
+    if (typeof CustomerDB !== "undefined" && CustomerDB._loaded && CustomerDB._byCif) {
+      CustomerDB._byCif.forEach((r) => {
+        const b = String(r.branch || "").trim();
+        if (b) seen.add(b);
+      });
     }
-    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
+    if (typeof Storage !== "undefined" && Storage.getActiveCustomers) {
       try {
         for (const c of Storage.getActiveCustomers()) {
-          const b = String(c.branch || '').trim();
+          const b = String(c.branch || "").trim();
           if (b) seen.add(b);
         }
-      } catch {}
+      } catch (e) {
+      }
     }
     const branches = [...seen].sort();
     const lock = this._userBranch();
-    const locked = !!(lock && seen.has(lock));   // ล็อกเฉพาะเมื่อสาขาตัวเองมีข้อมูลจริง (กันซ่อนหมด)
-    const sig = locked ? ('lock:' + lock) : branches.join(',');
-    if (sig === this._branchSig) return;   // ไม่เปลี่ยน → ไม่แตะ DOM
+    const locked = !!(lock && seen.has(lock));
+    const sig = locked ? "lock:" + lock : branches.join(",");
+    if (sig === this._branchSig) return;
     this._branchSig = sig;
     if (locked) {
-      // ไม่ใช่แอดมิน: ล็อกสาขาตัวเอง + ซ่อน dropdown (เห็นแค่ข้อมูลสาขาตัวเองทุกจุด)
       for (const s of [sel, tabSel]) {
         if (!s) continue;
-        s.textContent = '';
-        const o = document.createElement('option');
-        o.value = lock; o.textContent = names[lock] || ('สาขา ' + lock);
+        s.textContent = "";
+        const o = document.createElement("option");
+        o.value = lock;
+        o.textContent = names[lock] || "\u0E2A\u0E32\u0E02\u0E32 " + lock;
         s.appendChild(o);
         s.value = lock;
-        s.style.display = 'none';
+        s.style.display = "none";
       }
       this._branchFilter = lock;
       return;
     }
-    // admin: โชว์ + เติมทุกสาขา
-    const cur = sel ? sel.value : (tabSel ? tabSel.value : '');
+    const cur = sel ? sel.value : tabSel ? tabSel.value : "";
     for (const s of [sel, tabSel]) {
       if (!s) continue;
-      s.style.display = '';
-      s.textContent = '';
-      const all = document.createElement('option');
-      all.value = ''; all.textContent = 'ทุกสาขา';
+      s.style.display = "";
+      s.textContent = "";
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = "\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32";
       s.appendChild(all);
       for (const b of branches) {
-        const o = document.createElement('option');
-        o.value = b; o.textContent = names[b] || ('สาขา ' + b);
+        const o = document.createElement("option");
+        o.value = b;
+        o.textContent = names[b] || "\u0E2A\u0E32\u0E02\u0E32 " + b;
         s.appendChild(o);
       }
-      s.value = branches.includes(cur) ? cur : '';
+      s.value = branches.includes(cur) ? cur : "";
     }
-    if (((sel && sel.value) || '') !== cur) this._branchFilter = '';   // ค่าเดิมหายไป → เคลียร์ตัวกรองให้ตรงกัน
+    if ((sel && sel.value || "") !== cur) this._branchFilter = "";
   },
-
   // Render everything
   renderAll(routeOrder, opts) {
-    this.refreshBranchOptions(); // สาขาจากข้อมูลจริง + ล็อกตามสิทธิ์ (ต้องก่อนเขต)
-    this.refreshZoneOptions();   // เขตตามสาขา (sig-guard: ข้อมูลไม่เปลี่ยนไม่แตะ DOM)
+    this.refreshBranchOptions();
+    this.refreshZoneOptions();
     this.renderMarkers(routeOrder, opts);
     this.updateGpsGauge();
-    const customersTab = document.getElementById('tab-customers');
-    if (customersTab && customersTab.classList.contains('active')) {
+    const customersTab = document.getElementById("tab-customers");
+    if (customersTab && customersTab.classList.contains("active")) {
       this.renderList();
     }
   },
-
   escapeHTML(str) {
-    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    return String(str || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
   },
-
   // Escape for use inside HTML attribute values (single/double quotes + ampersand)
   escapeAttr(str) {
-    return String(str || '').replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  },
+    return String(str || "").replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
 };
-
-if (typeof window !== 'undefined') window.Customers = Customers;
-if (typeof module !== 'undefined' && module.exports) module.exports = Customers;
-// ===== TSP (Travelling Salesman) — open path with start + optional end =====
-// Algorithm: Nearest-Neighbor heuristic + 2-opt improvement
-// Supports: round trip (start == end) OR open path (different end)
-
+if (typeof window !== "undefined") window.Customers = Customers;
+if (typeof module !== "undefined" && module.exports) module.exports = Customers;
 const TSP = {
   // Nearest-neighbor TSP heuristic
   // If end is provided: open path (start → ... → end, don't return)
@@ -1382,11 +1340,9 @@ const TSP = {
   nearestNeighbor(start, customers, end) {
     if (customers.length === 0) return [];
     if (customers.length === 1) return [customers[0].id];
-
     const remaining = [...customers];
     const order = [];
-    let current = { lat: start.lat, lng: start.lng, id: 'start' };
-
+    let current = { lat: start.lat, lng: start.lng, id: "start" };
     while (remaining.length > 0) {
       let nearestIdx = 0;
       let nearestDist = Infinity;
@@ -1401,17 +1357,14 @@ const TSP = {
       order.push({ id: next.id, dist: nearestDist });
       current = next;
     }
-
-    return order.map(o => o.id);
+    return order.map((o) => o.id);
   },
-
   // 2-opt improvement (swap to reduce total distance)
   // end: optional endpoint to consider
   twoOpt(route, start, end) {
     if (route.length < 3) return route;
     const customers = Storage.getActiveCustomers();
-    const custMap = new Map(customers.map(c => [c.id, c]));
-
+    const custMap = new Map(customers.map((c) => [c.id, c]));
     function totalDistance(order) {
       let total = 0;
       let prev = { lat: start.lat, lng: start.lng };
@@ -1421,18 +1374,15 @@ const TSP = {
         total += Utils.haversine(prev.lat, prev.lng, c.lat, c.lng);
         prev = c;
       }
-      // Add distance to endpoint
       const finalPoint = end || start;
       total += Utils.haversine(prev.lat, prev.lng, finalPoint.lat, finalPoint.lng);
       return total;
     }
-
     let best = [...route];
     let bestDist = totalDistance(best);
     let improved = true;
     let iter = 0;
     const maxIter = 50;
-
     while (improved && iter < maxIter) {
       improved = false;
       iter++;
@@ -1441,7 +1391,7 @@ const TSP = {
           const newRoute = [
             ...best.slice(0, i),
             ...best.slice(i, j + 1).reverse(),
-            ...best.slice(j + 1),
+            ...best.slice(j + 1)
           ];
           const newDist = totalDistance(newRoute);
           if (newDist < bestDist * 0.999) {
@@ -1454,127 +1404,99 @@ const TSP = {
     }
     return best;
   },
-
   // Plan route: nearest-neighbor + 2-opt
   // start: {lat, lng} — required
   // customerIds: array of customer IDs to visit
   // end: {lat, lng} — optional endpoint (default: return to start = round trip)
   plan(start, customerIds, end) {
     const allCustomers = Storage.getActiveCustomers();
-    const selectedCustomers = customerIds
-      .map(id => allCustomers.find(c => c.id === id))
-      .filter(Boolean);
+    const selectedCustomers = customerIds.map((id) => allCustomers.find((c) => c.id === id)).filter(Boolean);
     if (selectedCustomers.length === 0) return [];
-
-    // Step 1: nearest-neighbor
     const nnOrder = this.nearestNeighbor(start, selectedCustomers, end);
-    // Step 2: improve with 2-opt
     const optimized = this.twoOpt(nnOrder, start, end);
     return optimized;
-  },
+  }
 };
-
 window.TSP = TSP;
-// ===== Route planning — merged with Quick (search + chips + drag/drop) =====
-//
-// Single source of truth for the "เส้นทาง" tab. Replaces the old Quick tab.
-// Flow:
-//   1. Customer tab → click "+เพิ่มในเส้นทางวันนี้" → Storage.addToRoute(id)
-//   2. Route tab search → click + button → Route.toggle(id) → Storage.addToRoute(id)
-//   3. App.updateRouteUI() re-renders chips (drag&drop + ▲▼ + ×)
-//   4. "Calculate" = uses manual order (default), "Optimize" = TSP opt-in
-//
-// All state lives in Storage.getRoute() — no separate Quick state.
-
 const Route = {
   MAX_SELECT: 10,
   routeLine: null,
   endMarker: null,
   currentResult: null,
   eventsAttached: false,
-
   // ===== Event attachment (called once) =====
   attachEvents() {
     if (this.eventsAttached) return;
     this.eventsAttached = true;
-
-    const search = document.getElementById('route-search');
+    const search = document.getElementById("route-search");
     if (search) {
-      search.addEventListener('input', () => this.search(search.value));
-      search.addEventListener('focus', () => {
+      search.addEventListener("input", () => this.search(search.value));
+      search.addEventListener("focus", () => {
         if (search.value.trim()) this.search(search.value);
       });
-      // Close dropdown on outside click
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.route-search-box')) {
-          const el = document.getElementById('route-search-results');
-          if (el) el.classList.remove('active');
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".route-search-box")) {
+          const el = document.getElementById("route-search-results");
+          if (el) el.classList.remove("active");
         }
       });
     }
-    const btnClear = document.getElementById('btn-clear-route');
-    if (btnClear) btnClear.addEventListener('click', () => this.clear());
-    const btnAutoPlan = document.getElementById('btn-auto-plan');
-    if (btnAutoPlan) btnAutoPlan.addEventListener('click', () => this.autoPlanFromFilters());
-    const btnOptimize = document.getElementById('btn-optimize-route');
-    if (btnOptimize) btnOptimize.addEventListener('click', () => App.calculateRoute(true, { focusSummary: true }));
-    // ออกจากโหมดโฟกัสเส้นทาง (โชว์เลขกลุ่มพิกัดทั้งหมดเหมือนเดิม)
-    const btnShowAll = document.getElementById('btn-route-show-all');
-    if (btnShowAll) btnShowAll.addEventListener('click', () => {
-      if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
-      Utils.toast('🔍 โชว์หมุดทั้งหมดแล้ว');
+    const btnClear = document.getElementById("btn-clear-route");
+    if (btnClear) btnClear.addEventListener("click", () => this.clear());
+    const btnAutoPlan = document.getElementById("btn-auto-plan");
+    if (btnAutoPlan) btnAutoPlan.addEventListener("click", () => this.autoPlanFromFilters());
+    const btnOptimize = document.getElementById("btn-optimize-route");
+    if (btnOptimize) btnOptimize.addEventListener("click", () => App.calculateRoute(true, { focusSummary: true }));
+    const btnShowAll = document.getElementById("btn-route-show-all");
+    if (btnShowAll) btnShowAll.addEventListener("click", () => {
+      if (typeof Customers !== "undefined" && Customers.exitRouteFocus) Customers.exitRouteFocus();
+      Utils.toast("\u{1F50D} \u0E42\u0E0A\u0E27\u0E4C\u0E2B\u0E21\u0E38\u0E14\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E41\u0E25\u0E49\u0E27");
     });
   },
-
   // ===== Search customers by CIF, name, phone, address =====
   search(query) {
-    const q = (query || '').trim().toLowerCase();
-    const resultsEl = document.getElementById('route-search-results');
+    const q = (query || "").trim().toLowerCase();
+    const resultsEl = document.getElementById("route-search-results");
     if (!resultsEl) return;
-
     if (q.length < 1) {
-      resultsEl.classList.remove('active');
-      resultsEl.innerHTML = '';
+      resultsEl.classList.remove("active");
+      resultsEl.innerHTML = "";
       return;
     }
-
     const customers = Storage.getActiveCustomers();
     const route = Storage.getRoute();
-    const matches = customers.filter(c => {
-      const haystack = `${c.cif || ''} ${c.name || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase();
+    const matches = customers.filter((c) => {
+      const haystack = `${c.cif || ""} ${c.name || ""} ${c.phone || ""} ${c.address || ""}`.toLowerCase();
       return haystack.includes(q);
-    }).slice(0, 10); // limit results
-
+    }).slice(0, 10);
     if (matches.length === 0) {
-      resultsEl.innerHTML = `<div style="padding:16px;text-align:center;color:#5a655a;font-size:13px">ไม่พบลูกค้าที่ตรงกับ "${this.escapeHTML(query)}"</div>`;
-      resultsEl.classList.add('active');
+      resultsEl.innerHTML = `<div style="padding:16px;text-align:center;color:#5a655a;font-size:13px">\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A "${this.escapeHTML(query)}"</div>`;
+      resultsEl.classList.add("active");
       return;
     }
-
-    resultsEl.innerHTML = matches.map(c => {
+    resultsEl.innerHTML = matches.map((c) => {
       const isSelected = route.includes(c.id);
       const hasGps = Number.isFinite(c.lat) && Number.isFinite(c.lng);
-      const gpsBadge = hasGps ? '📍' : '⚪';
+      const gpsBadge = hasGps ? "\u{1F4CD}" : "\u26AA";
       const noGps = !hasGps && !isSelected;
-      const disabled = (isSelected || noGps) ? 'disabled' : '';
-      const btnTitle = isSelected ? 'เลือกแล้ว' : (hasGps ? 'เพิ่ม' : 'ยังไม่มีพิกัด — กด 📍 เก็บก่อน');
-      const btnStyle = noGps ? ' style="opacity:0.35;cursor:not-allowed"' : '';
+      const disabled = isSelected || noGps ? "disabled" : "";
+      const btnTitle = isSelected ? "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27" : hasGps ? "\u0E40\u0E1E\u0E34\u0E48\u0E21" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \u2014 \u0E01\u0E14 \u{1F4CD} \u0E40\u0E01\u0E47\u0E1A\u0E01\u0E48\u0E2D\u0E19";
+      const btnStyle = noGps ? ' style="opacity:0.35;cursor:not-allowed"' : "";
       return `
         <div class="route-search-result-item">
           <div class="route-search-result-info">
             <div class="route-search-result-name">${gpsBadge} ${this.escapeHTML(c.name)}</div>
-            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : 'ไม่มีที่อยู่'}${c.phone ? ' · ' + this.escapeHTML(c.phone) : ''}${hasGps ? '' : ' · ยังไม่มีพิกัด'}</div>
+            <div class="route-search-result-meta">${c.address ? this.escapeHTML(c.address) : "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48"}${c.phone ? " \xB7 " + this.escapeHTML(c.phone) : ""}${hasGps ? "" : " \xB7 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14"}</div>
           </div>
-          <span class="route-search-result-cif">${this.escapeHTML(c.cif || '-')}</span>
+          <span class="route-search-result-cif">${this.escapeHTML(c.cif || "-")}</span>
           <button class="route-search-result-add" ${disabled}${btnStyle} onclick="Route.toggle('${c.id}')" title="${btnTitle}">
-            ${isSelected ? '✓' : '+'}
+            ${isSelected ? "\u2713" : "+"}
           </button>
         </div>
       `;
-    }).join('');
-    resultsEl.classList.add('active');
+    }).join("");
+    resultsEl.classList.add("active");
   },
-
   // ===== Toggle customer in route (add or remove) =====
   toggle(id) {
     const route = Storage.getRoute();
@@ -1583,33 +1505,28 @@ const Route = {
       Storage.removeFromRoute(id);
     } else {
       if (route.length >= this.MAX_SELECT) {
-        Utils.toast(`เลือกได้สูงสุด ${this.MAX_SELECT} คน`, 'error');
+        Utils.toast(`\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14 ${this.MAX_SELECT} \u0E04\u0E19`, "error");
         return;
       }
       if (!Storage.addToRoute(id)) {
-        Utils.toast('คนนี้ยังไม่มีพิกัด กด 📍 เก็บก่อน', 'error');
+        Utils.toast("\u0E04\u0E19\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \u0E01\u0E14 \u{1F4CD} \u0E40\u0E01\u0E47\u0E1A\u0E01\u0E48\u0E2D\u0E19", "error");
         return;
       }
     }
-    // Re-search to update + button states (✓/disabled)
-    const search = document.getElementById('route-search');
+    const search = document.getElementById("route-search");
     if (search && search.value) this.search(search.value);
-    // Re-render chips
     App.updateRouteUI();
   },
-
   // ===== Clear all selected customers =====
   clear() {
     Storage.saveRoute([]);
     App.updateRouteUI();
-    const resultEl = document.getElementById('route-result');
-    if (resultEl) resultEl.classList.add('hidden');
+    const resultEl = document.getElementById("route-result");
+    if (resultEl) resultEl.classList.add("hidden");
     this.currentResult = null;
-    // ออกจากโหมดโฟกัสเส้นทางด้วย (โชว์หมุด+เลขกลุ่มทั้งหมดเหมือนเดิม)
-    if (typeof Customers !== 'undefined' && Customers.exitRouteFocus) Customers.exitRouteFocus();
-    Utils.toast('ล้างรายการแล้ว');
+    if (typeof Customers !== "undefined" && Customers.exitRouteFocus) Customers.exitRouteFocus();
+    Utils.toast("\u0E25\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27");
   },
-
   // ===== Move chip up/down (▲▼ buttons) =====
   move(idx, dir) {
     const route = Storage.getRoute();
@@ -1618,86 +1535,89 @@ const Route = {
     [route[idx], route[newIdx]] = [route[newIdx], route[idx]];
     Storage.saveRoute(route);
     App.updateRouteUI();
-    // Re-search to refresh + button states
-    const search = document.getElementById('route-search');
+    const search = document.getElementById("route-search");
     if (search && search.value) this.search(search.value);
   },
-
   // ===== Drag & drop reordering =====
   dragStart(e, idx) {
-    e.dataTransfer.setData('text/plain', idx.toString());
-    e.dataTransfer.effectAllowed = 'move';
-    e.target.classList.add('dragging');
+    e.dataTransfer.setData("text/plain", idx.toString());
+    e.dataTransfer.effectAllowed = "move";
+    e.target.classList.add("dragging");
   },
   dragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
   },
   drop(e, targetIdx) {
     e.preventDefault();
-    const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    const fromIdx = parseInt(e.dataTransfer.getData("text/plain"), 10);
     if (fromIdx === targetIdx) return;
     const route = Storage.getRoute();
     if (fromIdx < 0 || fromIdx >= route.length) return;
     [route[fromIdx], route[targetIdx]] = [route[targetIdx], route[fromIdx]];
     Storage.saveRoute(route);
     App.updateRouteUI();
-    const search = document.getElementById('route-search');
+    const search = document.getElementById("route-search");
     if (search && search.value) this.search(search.value);
   },
   dragEnd(e) {
-    e.target.classList.remove('dragging');
+    e.target.classList.remove("dragging");
   },
-
   // ===== จัดลำดับจุดเยี่ยมให้สั้นที่สุดบน "ระยะทางถนนจริง" =====
   // ใช้ OSRM /table (distance matrix) + Held-Karp DP (≤12 จุด) หรือ NN+2-opt (>12)
   // ต่างจาก TSP.plan เดิมที่ Uses haversine (เส้นตรง) → มักอ้อมเพราะแม่น้ำ/สะพาน/ทางเดียว
   async optimizeOrder(start, orderedIds, end) {
     const customers = Storage.getActiveCustomers();
-    const stops = orderedIds.map(id => customers.find(c => c.id === id)).filter(Boolean);
-    if (stops.length < 3) return stops.map(s => s.id); // 1-2 จุด ไม่ต้องจัดใหม่
-
+    const stops = orderedIds.map((id) => customers.find((c) => c.id === id)).filter(Boolean);
+    if (stops.length < 3) return stops.map((s) => s.id);
     const isOpen = end && (Math.abs(end.lat - start.lat) > 1e-9 || Math.abs(end.lng - start.lng) > 1e-9);
     const endPt = isOpen ? { lat: end.lat, lng: end.lng } : { lat: start.lat, lng: start.lng };
-    const pts = [{ lat: start.lat, lng: start.lng }, ...stops.map(c => ({ lat: c.lat, lng: c.lng })), endPt];
-    const coords = pts.map(p => `${p.lng},${p.lat}`).join(';');
+    const pts = [{ lat: start.lat, lng: start.lng }, ...stops.map((c) => ({ lat: c.lat, lng: c.lng })), endPt];
+    const coords = pts.map((p) => `${p.lng},${p.lat}`).join(";");
     const url = `https://router.project-osrm.org/table/v1/driving/${coords}?annotations=distance`;
     const res = await fetch(url);
     const data = await res.json();
-    if (data.code !== 'Ok' || !Array.isArray(data.distances)) throw new Error('OSRM table ไม่พร้อม');
+    if (data.code !== "Ok" || !Array.isArray(data.distances)) throw new Error("OSRM table \u0E44\u0E21\u0E48\u0E1E\u0E23\u0E49\u0E2D\u0E21");
     const m = data.distances;
-    const n = stops.length;          // 0 = start, 1..n = stops, n+1 = end
+    const n = stops.length;
     const endIdx = n + 1;
-
     const orderCost = (ids) => {
       let prev = 0, total = 0;
-      for (const id of ids) { const k = stops.findIndex(s => s.id === id) + 1; total += m[prev][k]; prev = k; }
+      for (const id of ids) {
+        const k = stops.findIndex((s) => s.id === id) + 1;
+        total += m[prev][k];
+        prev = k;
+      }
       return total + m[prev][endIdx];
     };
-
     let best = null;
     if (n <= 12) {
-      // Held-Karp: optimal order with fixed start/end
       const size = 1 << n;
       const dp = Array.from({ length: size }, () => new Float64Array(n).fill(Infinity));
       const par = Array.from({ length: size }, () => new Int8Array(n).fill(-1));
-      for (let j = 0; j < n; j++) dp[1 << j][j] = m[0][j + 1];
-      for (let mask = 1; mask < size; mask++) {
-        for (let j = 0; j < n; j++) {
-          if (!(mask & (1 << j)) || dp[mask][j] === Infinity) continue;
-          const cur = dp[mask][j];
+      for (let j2 = 0; j2 < n; j2++) dp[1 << j2][j2] = m[0][j2 + 1];
+      for (let mask2 = 1; mask2 < size; mask2++) {
+        for (let j2 = 0; j2 < n; j2++) {
+          if (!(mask2 & 1 << j2) || dp[mask2][j2] === Infinity) continue;
+          const cur = dp[mask2][j2];
           for (let k = 0; k < n; k++) {
-            if (mask & (1 << k)) continue;
-            const nm = mask | (1 << k);
-            const cand = cur + m[j + 1][k + 1];
-            if (cand < dp[nm][k]) { dp[nm][k] = cand; par[nm][k] = j; }
+            if (mask2 & 1 << k) continue;
+            const nm = mask2 | 1 << k;
+            const cand = cur + m[j2 + 1][k + 1];
+            if (cand < dp[nm][k]) {
+              dp[nm][k] = cand;
+              par[nm][k] = j2;
+            }
           }
         }
       }
       let bestJ = -1, bestCost = Infinity;
-      for (let j = 0; j < n; j++) {
-        const cand = dp[size - 1][j] + m[j + 1][endIdx];
-        if (cand < bestCost) { bestCost = cand; bestJ = j; }
+      for (let j2 = 0; j2 < n; j2++) {
+        const cand = dp[size - 1][j2] + m[j2 + 1][endIdx];
+        if (cand < bestCost) {
+          bestCost = cand;
+          bestJ = j2;
+        }
       }
       const seq = [];
       let mask = size - 1, j = bestJ;
@@ -1709,14 +1629,21 @@ const Route = {
       }
       best = seq;
     } else {
-      // มากกว่า 12 จุด: nearest-neighbor บนเมทริกซ์ + 2-opt
       const left = stops.map((s, i) => i);
-      const seq = []; let prev = 0;
+      const seq = [];
+      let prev = 0;
       while (left.length) {
         let bi = 0, bd = Infinity;
-        left.forEach((idx, i) => { const d = m[prev][idx + 1]; if (d < bd) { bd = d; bi = i; } });
+        left.forEach((idx2, i) => {
+          const d = m[prev][idx2 + 1];
+          if (d < bd) {
+            bd = d;
+            bi = i;
+          }
+        });
         const idx = left.splice(bi, 1)[0];
-        seq.push(stops[idx].id); prev = idx + 1;
+        seq.push(stops[idx].id);
+        prev = idx + 1;
       }
       const cost = (arr) => orderCost(arr);
       let bestArr = seq, bestD = cost(seq), improved = true, guard = 0;
@@ -1726,197 +1653,162 @@ const Route = {
           for (let k = i + 1; k < bestArr.length; k++) {
             const cand = [...bestArr.slice(0, i), ...bestArr.slice(i, k + 1).reverse(), ...bestArr.slice(k + 1)];
             const d = cost(cand);
-            if (d < bestD - 1) { bestArr = cand; bestD = d; improved = true; }
+            if (d < bestD - 1) {
+              bestArr = cand;
+              bestD = d;
+              improved = true;
+            }
           }
         }
       }
       best = bestArr;
     }
-
-    // กันแย่กว่าเดิม: ถ้าลำดับที่ผู้ใช้ตั้งไว้สั้นกว่า ให้คงลำดับเดิม
-    const origIds = stops.map(s => s.id);
+    const origIds = stops.map((s) => s.id);
     if (orderCost(origIds) <= orderCost(best)) return origIds;
     return best;
   },
-
   // ===== Calculate route using OSRM =====
   // start: {lat, lng} — required start point
   // orderedCustomerIds: array of customer IDs in visit order (already sorted)
   // end: {lat, lng} — optional endpoint (default: return to start)
   async calculate(start, orderedCustomerIds, end) {
+    var _a;
     const customers = Storage.getActiveCustomers();
-    const stops = orderedCustomerIds
-      .map(id => customers.find(c => c.id === id))
-      .filter(Boolean);
-
+    const stops = orderedCustomerIds.map((id) => customers.find((c) => c.id === id)).filter(Boolean);
     if (stops.length === 0) {
-      Utils.toast('กรุณาเพิ่มลูกค้าในเส้นทางก่อน', 'error');
+      Utils.toast("\u0E01\u0E23\u0E38\u0E13\u0E32\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E01\u0E48\u0E2D\u0E19", "error");
       return null;
     }
-
-    Utils.toast('🧮 กำลังคำนวณเส้นทาง...');
-
+    Utils.toast("\u{1F9EE} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E33\u0E19\u0E27\u0E13\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07...");
     const isOpenPath = end && (end.lat !== start.lat || end.lng !== start.lng);
-
-    // Build coordinates: start → stops → [end] or back to start
     const coordList = [
       { lat: start.lat, lng: start.lng },
-      ...stops.map(c => ({ lat: c.lat, lng: c.lng })),
+      ...stops.map((c) => ({ lat: c.lat, lng: c.lng }))
     ];
     if (isOpenPath) {
       coordList.push({ lat: end.lat, lng: end.lng });
     } else {
-      // Round trip: เพิ่มจุดเริ่มต้นต่อท้าย (รวมขากลับ)
       coordList.push({ lat: start.lat, lng: start.lng });
     }
-
-    const coords = coordList.map(p => `${p.lng},${p.lat}`).join(';');
-
+    const coords = coordList.map((p) => `${p.lng},${p.lat}`).join(";");
     try {
-      // OSRM public API
       const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false&continue_straight=false`;
       const res = await fetch(url);
       const data = await res.json();
-
-      if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-        throw new Error('OSRM ไม่สามารถคำนวณเส้นทางได้');
+      if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+        throw new Error("OSRM \u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E04\u0E33\u0E19\u0E27\u0E13\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E44\u0E14\u0E49");
       }
-
       const route = data.routes[0];
       const result = {
-        distance: route.distance, // meters
-        duration: route.duration, // seconds
+        distance: route.distance,
+        // meters
+        duration: route.duration,
+        // seconds
         stops,
         geometry: route.geometry,
         order: orderedCustomerIds,
-        start: { ...start },
-        end: isOpenPath ? { ...end } : null,  // null = round trip
+        start: __spreadValues({}, start),
+        end: isOpenPath ? __spreadValues({}, end) : null,
+        // null = round trip
         isOpenPath: !!isOpenPath,
         // Fuel calculation
-        fuel: Utils.calcFuel(route.distance),
+        fuel: Utils.calcFuel(route.distance)
       };
       this.currentResult = result;
       return result;
     } catch (err) {
-      console.warn('OSRM failed, using haversine fallback:', err);
-      // Fallback: use haversine + estimate 40 km/h average speed
+      console.warn("OSRM failed, using haversine fallback:", err);
       let totalDist = 0;
       let prev = start;
       for (const c of stops) {
         totalDist += Utils.haversine(prev.lat, prev.lng, c.lat, c.lng);
         prev = c;
       }
-      // Add distance to endpoint
       if (isOpenPath) {
         totalDist += Utils.haversine(prev.lat, prev.lng, end.lat, end.lng);
       }
-      // Add 30% detour factor for road vs straight-line
       const estDist = totalDist * 1.3;
-      
-      // Calculate duration based on vehicle type and road classification
       const vehicleType = Utils.getVehicle();
-      const roadClassification = document.getElementById('road-classification')?.value || 'auto';
+      const roadClassification = ((_a = document.getElementById("road-classification")) == null ? void 0 : _a.value) || "auto";
       const vehicleProfile = Utils.VEHICLE_PROFILES[vehicleType];
-      
-      let speed = 40; // Default speed
+      let speed = 40;
       if (vehicleProfile) {
-        if (roadClassification !== 'auto') {
+        if (roadClassification !== "auto") {
           speed = vehicleProfile.speed[roadClassification] || vehicleProfile.speed.road || 40;
         } else {
-          // Use average speed based on vehicle type
           speed = (vehicleProfile.speed.highway + vehicleProfile.speed.road + vehicleProfile.speed.village + vehicleProfile.speed.dirt) / 4;
         }
       }
-      const estDuration = (estDist / 1000) / speed * 3600; // Convert to seconds
-      
+      const estDuration = estDist / 1e3 / speed * 3600;
       const result = {
         distance: estDist,
         duration: estDuration,
         stops,
         geometry: null,
         order: orderedCustomerIds,
-        start: { ...start },
-        end: isOpenPath ? { ...end } : null,
+        start: __spreadValues({}, start),
+        end: isOpenPath ? __spreadValues({}, end) : null,
         isOpenPath: !!isOpenPath,
         fuel: Utils.calcFuel(estDist),
         estimated: true,
         // Vehicle and road info
-        vehicleType: vehicleType,
-        roadClassification: roadClassification,
-        vehicleProfile: vehicleProfile,
+        vehicleType,
+        roadClassification,
+        vehicleProfile
       };
       this.currentResult = result;
-      Utils.toast('⚠️ ใช้การประมาณ (OSRM ไม่ตอบสนอง)');
+      Utils.toast("\u26A0\uFE0F \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 (OSRM \u0E44\u0E21\u0E48\u0E15\u0E2D\u0E1A\u0E2A\u0E19\u0E2D\u0E07)");
       return result;
     }
   },
-
   // ===== Show result on UI =====
   showResult(result) {
-    const resultEl = document.getElementById('route-result');
-    resultEl.classList.remove('hidden');
-
-    document.getElementById('result-distance').textContent = Utils.formatKm(result.distance);
-    document.getElementById('result-duration').textContent = Math.round(result.duration / 60);
-    document.getElementById('result-stops').textContent = result.stops.length;
-
-    // Show route type + fuel info
-    const routeTypeEl = document.getElementById('result-route-type');
+    const resultEl = document.getElementById("route-result");
+    resultEl.classList.remove("hidden");
+    document.getElementById("result-distance").textContent = Utils.formatKm(result.distance);
+    document.getElementById("result-duration").textContent = Math.round(result.duration / 60);
+    document.getElementById("result-stops").textContent = result.stops.length;
+    const routeTypeEl = document.getElementById("result-route-type");
     if (routeTypeEl) {
-      routeTypeEl.textContent = result.isOpenPath
-        ? '🔀 เปิด (มีจุดสิ้นสุด)'
-        : '🔄 ไป-กลับ';
+      routeTypeEl.textContent = result.isOpenPath ? "\u{1F500} \u0E40\u0E1B\u0E34\u0E14 (\u0E21\u0E35\u0E08\u0E38\u0E14\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14)" : "\u{1F504} \u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A";
     }
-
-    // แจ้งผลการจัดลำดับ (เฉพาะเมื่อกดปุ่ม "ให้ระบบจัดลำดับให้สั้นที่สุด")
-    const noteEl = document.getElementById('result-order-note');
+    const noteEl = document.getElementById("result-order-note");
     if (noteEl) {
       if (result.autoOrderTried) {
-        noteEl.classList.remove('hidden');
-        noteEl.textContent = result.autoOrdered
-          ? '🎯 ระบบจัดลำดับการเยี่ยมให้ใหม่แล้ว — เลข 1,2,3,… ในเส้นทางวันนี้ เรียงตามรายชื่อด้านล่างนี้'
-          : '🎯 ลำดับที่คุณเรียงไว้สั้นที่สุดอยู่แล้ว — ไม่ต้องสลับ';
+        noteEl.classList.remove("hidden");
+        noteEl.textContent = result.autoOrdered ? "\u{1F3AF} \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E40\u0E22\u0E35\u0E48\u0E22\u0E21\u0E43\u0E2B\u0E49\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E40\u0E25\u0E02 1,2,3,\u2026 \u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E19\u0E35\u0E49" : "\u{1F3AF} \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E40\u0E23\u0E35\u0E22\u0E07\u0E44\u0E27\u0E49\u0E2A\u0E31\u0E49\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14\u0E2D\u0E22\u0E39\u0E48\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E2A\u0E25\u0E31\u0E1A";
       } else {
-        noteEl.classList.add('hidden');
-        noteEl.textContent = '';
+        noteEl.classList.add("hidden");
+        noteEl.textContent = "";
       }
     }
-    
-    // Show vehicle and road info
     if (result.vehicleProfile) {
-      const vehicleInfo = document.getElementById('result-vehicle-info');
+      const vehicleInfo = document.getElementById("result-vehicle-info");
       if (vehicleInfo) {
-        vehicleInfo.textContent = `${result.vehicleProfile.name} · ${result.roadClassification}`;
+        vehicleInfo.textContent = `${result.vehicleProfile.name} \xB7 ${result.roadClassification}`;
       }
     }
-    // Fuel display
-    const fuelEl = document.getElementById('result-fuel');
+    const fuelEl = document.getElementById("result-fuel");
     if (fuelEl && result.fuel) {
       const v = result.fuel.vehicle;
-      const fuelName = v.fuelName || '';
-      const fuelPrice = v.fuelPrice || '?';
+      const fuelName = v.fuelName || "";
+      const fuelPrice = v.fuelPrice || "?";
       const fuelDiff = v.fuelDiff != null ? v.fuelDiff : 0;
       const fuelUpdated = Utils.getFuelUpdated();
-      const diffBadge = fuelDiff > 0
-        ? `<span class="fuel-diff up">▲ ${fuelDiff.toFixed(2)}</span>`
-        : fuelDiff < 0
-          ? `<span class="fuel-diff down">▼ ${Math.abs(fuelDiff).toFixed(2)}</span>`
-          : '';
+      const diffBadge = fuelDiff > 0 ? `<span class="fuel-diff up">\u25B2 ${fuelDiff.toFixed(2)}</span>` : fuelDiff < 0 ? `<span class="fuel-diff down">\u25BC ${Math.abs(fuelDiff).toFixed(2)}</span>` : "";
       fuelEl.innerHTML = `
         <div class="fuel-card">
-          <div class="fuel-icon">⛽</div>
+          <div class="fuel-icon">\u26FD</div>
           <div class="fuel-info">
-            <div class="fuel-amount">~${result.fuel.liters.toFixed(2)} ลิตร</div>
-            <div class="fuel-cost">~${Utils.formatBaht(result.fuel.baht)} บาท</div>
-            <div class="fuel-meta">${v.name} · ${v.kmPerLiter} กม./ลิตร · ${fuelName} ${fuelPrice} บาท/ล ${diffBadge}</div>
-            ${fuelUpdated ? `<div class="fuel-date">📅 อัปเดตราคา ${fuelUpdated}</div>` : ''}
+            <div class="fuel-amount">~${result.fuel.liters.toFixed(2)} \u0E25\u0E34\u0E15\u0E23</div>
+            <div class="fuel-cost">~${Utils.formatBaht(result.fuel.baht)} \u0E1A\u0E32\u0E17</div>
+            <div class="fuel-meta">${v.name} \xB7 ${v.kmPerLiter} \u0E01\u0E21./\u0E25\u0E34\u0E15\u0E23 \xB7 ${fuelName} ${fuelPrice} \u0E1A\u0E32\u0E17/\u0E25 ${diffBadge}</div>
+            ${fuelUpdated ? `<div class="fuel-date">\u{1F4C5} \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E23\u0E32\u0E04\u0E32 ${fuelUpdated}</div>` : ""}
           </div>
         </div>
       `;
     }
-
-    // Build order list
-    const orderEl = document.getElementById('route-order');
+    const orderEl = document.getElementById("route-order");
     orderEl.innerHTML = result.stops.map((c, idx) => {
       let distFromPrev = 0;
       if (idx === 0) {
@@ -1931,96 +1823,83 @@ const Route = {
           <div class="order-num">${idx + 1}</div>
           <div class="order-info">
             <div class="order-name">${this.escapeHTML(c.name)}</div>
-            <div class="order-distance">📍 ${Utils.formatKm(distFromPrev)} กม.</div>
+            <div class="order-distance">\u{1F4CD} ${Utils.formatKm(distFromPrev)} \u0E01\u0E21.</div>
           </div>
         </li>
       `;
-    }).join('');
-
-    // Draw on map
+    }).join("");
     this.drawOnMap(result);
   },
-
   // ===== Get start coordinates =====
   getStartCoords() {
-    const mode = document.getElementById('route-start-mode').value;
-    if (mode === 'custom') {
+    const mode = document.getElementById("route-start-mode").value;
+    if (mode === "custom") {
       return {
-        lat: parseFloat(document.getElementById('start-lat').value),
-        lng: parseFloat(document.getElementById('start-lng').value),
+        lat: parseFloat(document.getElementById("start-lat").value),
+        lng: parseFloat(document.getElementById("start-lng").value)
       };
-    } else if (mode === 'office') {
-      // BAAC สาขาวังท่าช้าง (single source of truth in app.js)
+    } else if (mode === "office") {
       return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
-    } else if (mode === 'last-stop') {
-      // End of last leg — use the last customer in the route
+    } else if (mode === "last-stop") {
       return window._routeEnd || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
-    // current — use last known GPS
     return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
   },
-
   // ===== Get end coordinates (for open-path route) =====
   getEndCoords() {
-    const mode = document.getElementById('route-end-mode')?.value || 'none';
-    if (mode === 'none') return null; // round trip
-    if (mode === 'current') {
+    var _a;
+    const mode = ((_a = document.getElementById("route-end-mode")) == null ? void 0 : _a.value) || "none";
+    if (mode === "none") return null;
+    if (mode === "current") {
       return window._lastGPS || { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
-    if (mode === 'office') {
+    if (mode === "office") {
       return { lat: window.OFFICE_LOCATION.lat, lng: window.OFFICE_LOCATION.lng };
     }
-    if (mode === 'customer') {
-      const sel = document.getElementById('route-end-customer');
+    if (mode === "customer") {
+      const sel = document.getElementById("route-end-customer");
       if (sel && sel.value) {
-        const c = Storage.getCustomers().find(x => x.id === sel.value);
+        const c = Storage.getCustomers().find((x) => x.id === sel.value);
         if (c) return { lat: c.lat, lng: c.lng, name: c.name };
       }
     }
     return null;
   },
-
   // ===== Draw route on map =====
   drawOnMap(result) {
     if (this.routeLine && Customers.map) {
       Customers.map.removeLayer(this.routeLine);
       this.routeLine = null;
     }
-    // Remove old end marker
     if (this.endMarker && Customers.map) {
       Customers.map.removeLayer(this.endMarker);
       this.endMarker = null;
     }
-
     if (result.geometry && Customers.map) {
-      const coords = result.geometry.coordinates.map(c => [c[1], c[0]]);
+      const coords = result.geometry.coordinates.map((c) => [c[1], c[0]]);
       this.routeLine = L.polyline(coords, {
-        color: '#0a8f3c',
+        color: "#0a8f3c",
         weight: 5,
-        opacity: 0.8,
+        opacity: 0.8
       }).addTo(Customers.map);
     }
-    // Re-render markers with route order numbers
     Customers.renderMarkers(result.order);
-    // Add end marker (if open path)
     if (result.isOpenPath && result.end && Customers.map) {
       this.endMarker = L.marker([result.end.lat, result.end.lng], {
         icon: L.divIcon({
-          className: 'end-marker',
-          html: '<div class="end-pin">🏁</div>',
+          className: "end-marker",
+          html: '<div class="end-pin">\u{1F3C1}</div>',
           iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        }),
+          iconAnchor: [16, 16]
+        })
       }).addTo(Customers.map).bindPopup(
-        `<b>🏁 จุดสิ้นสุด</b><br>${this.escapeHTML(result.end.name || 'ปลายทาง')}`
+        `<b>\u{1F3C1} \u0E08\u0E38\u0E14\u0E2A\u0E34\u0E49\u0E19\u0E2A\u0E38\u0E14</b><br>${this.escapeHTML(result.end.name || "\u0E1B\u0E25\u0E32\u0E22\u0E17\u0E32\u0E07")}`
       );
     }
-    // Fit bounds to entire route (or markers)
     if (this.routeLine) {
       Customers.map.fitBounds(this.routeLine.getBounds(), { padding: [50, 50] });
     }
   },
-
   // ===== Open in Google Maps =====
   // Uses ?api=1 + waypoints= query params (iOS-compatible)
   openGoogleMaps() {
@@ -2028,441 +1907,402 @@ const Route = {
     const start = this.getStartCoords();
     const end = this.currentResult.end;
     const dest = end || start;
-    const waypoints = this.currentResult.stops
-      .map(c => `${c.lat},${c.lng}`)
-      .join('|');
-    const url = `https://www.google.com/maps/dir/?api=1` +
-      `&origin=${start.lat},${start.lng}` +
-      `&destination=${dest.lat},${dest.lng}` +
-      `&waypoints=${waypoints}` +
-      `&travelmode=driving`;
-    window.open(url, '_blank');
+    const waypoints = this.currentResult.stops.map((c) => `${c.lat},${c.lng}`).join("|");
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${dest.lat},${dest.lng}&waypoints=${waypoints}&travelmode=driving`;
+    window.open(url, "_blank");
   },
-
   // ===== Save route snapshot =====
   saveRoute() {
+    var _a;
     if (!this.currentResult) return;
-    const route = {
-      ...this.currentResult,
-      savedAt: new Date().toISOString(),
-      savedBy: Auth.getUser()?.name,
-    };
-    // Save to cloud via Storage (auto-sync — แยกตามผู้ใช้ + เครื่องนี้)
+    const route = __spreadProps(__spreadValues({}, this.currentResult), {
+      savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      savedBy: (_a = Auth.getUser()) == null ? void 0 : _a.name
+    });
     Storage.saveSavedRoute(route);
-    Utils.toast('💾 บันทึกเส้นทางแล้ว — ส่งขึ้นเว็บ (ของเครื่องนี้)');
+    Utils.toast("\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E2A\u0E48\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A (\u0E02\u0E2D\u0E07\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49)");
   },
-
   // ===== Route Templates =====
   // คีย์แยกตามผู้ใช้+เครื่อง (เดิมคีย์กลาง 'bfr_route_templates' → ใช้เครื่องร่วมกันแล้วเห็นเทมเพลตกัน)
-  _templatesKey() { return 'bfr_route_templates' + Storage._routeSuffix(); },
-
+  _templatesKey() {
+    return "bfr_route_templates" + Storage._routeSuffix();
+  },
   // Save current route as a reusable template
   saveAsTemplate(name) {
+    var _a;
     const routeIds = Storage.getRoute();
     if (!routeIds.length) {
-      Utils.toast('⚠️ ไม่มีเส้นทางให้บันทึกเป็นเทมเพลต', 'error');
+      Utils.toast("\u26A0\uFE0F \u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E43\u0E2B\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E17\u0E21\u0E40\u0E1E\u0E25\u0E15", "error");
       return;
     }
     const templates = this._getTemplates();
     templates.push({
       id: Utils.uuid(),
-      name: name || `เส้นทาง ${new Date().toLocaleDateString('th-TH')}`,
+      name: name || `\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07 ${(/* @__PURE__ */ new Date()).toLocaleDateString("th-TH")}`,
       routeIds: [...routeIds],
-      createdAt: new Date().toISOString(),
-      createdBy: Auth.getUser()?.name,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      createdBy: (_a = Auth.getUser()) == null ? void 0 : _a.name
     });
     localStorage.setItem(this._templatesKey(), JSON.stringify(templates));
-    Utils.toast(`📋 บันทึกเทมเพลต "${name}" แล้ว`);
+    Utils.toast(`\u{1F4CB} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E17\u0E21\u0E40\u0E1E\u0E25\u0E15 "${name}" \u0E41\u0E25\u0E49\u0E27`);
   },
-
   // Load a template into current route
   loadTemplate(templateId) {
     const templates = this._getTemplates();
-    const template = templates.find(t => t.id === templateId);
+    const template = templates.find((t) => t.id === templateId);
     if (!template) {
-      Utils.toast('❌ ไม่พบเทมเพลต', 'error');
+      Utils.toast("\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E17\u0E21\u0E40\u0E1E\u0E25\u0E15", "error");
       return;
     }
     Storage.saveRoute(template.routeIds);
     App.updateRouteUI();
-    Utils.toast(`📋 โหลดเทมเพลต "${template.name}" แล้ว`);
+    Utils.toast(`\u{1F4CB} \u0E42\u0E2B\u0E25\u0E14\u0E40\u0E17\u0E21\u0E40\u0E1E\u0E25\u0E15 "${template.name}" \u0E41\u0E25\u0E49\u0E27`);
   },
-
   // Get all templates
   _getTemplates() {
     try {
-      // ย้ายเทมเพลตเดิม (คีย์กลาง) มาที่คีย์ของเครื่องนี้ครั้งแรก
-      return Storage._readScoped(this._templatesKey(), ['bfr_route_templates']);
-    } catch {
+      return Storage._readScoped(this._templatesKey(), ["bfr_route_templates"]);
+    } catch (e) {
       return [];
     }
   },
-
   // Delete a template
   deleteTemplate(templateId) {
     let templates = this._getTemplates();
-    templates = templates.filter(t => t.id !== templateId);
+    templates = templates.filter((t) => t.id !== templateId);
     localStorage.setItem(this._templatesKey(), JSON.stringify(templates));
-    Utils.toast('🗑️ ลบเทมเพลตแล้ว');
+    Utils.toast("\u{1F5D1}\uFE0F \u0E25\u0E1A\u0E40\u0E17\u0E21\u0E40\u0E1E\u0E25\u0E15\u0E41\u0E25\u0E49\u0E27");
   },
-
   // ===== Route History =====
   // Save completed route to history
   saveToHistory(result) {
+    var _a;
     if (!result) return;
     const history = this._getHistory();
     history.unshift({
       id: Utils.uuid(),
       distance: result.distance,
       duration: result.duration,
-      stops: result.stops.map(c => ({ id: c.id, name: c.name, cif: c.cif })),
+      stops: result.stops.map((c) => ({ id: c.id, name: c.name, cif: c.cif })),
       fuel: result.fuel,
-      completedAt: new Date().toISOString(),
-      completedBy: Auth.getUser()?.name,
+      completedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      completedBy: (_a = Auth.getUser()) == null ? void 0 : _a.name
     });
-    // Keep only last 20 routes
     if (history.length > 20) history.length = 20;
     localStorage.setItem(this._historyKey(), JSON.stringify(history));
   },
-
   // คีย์ประวัติแยกตามผู้ใช้+เครื่อง
-  _historyKey() { return 'bfr_route_history' + Storage._routeSuffix(); },
-
+  _historyKey() {
+    return "bfr_route_history" + Storage._routeSuffix();
+  },
   // Get route history
   _getHistory() {
     try {
-      return Storage._readScoped(this._historyKey(), ['bfr_route_history']);
-    } catch {
+      return Storage._readScoped(this._historyKey(), ["bfr_route_history"]);
+    } catch (e) {
       return [];
     }
   },
-
   // Load a historical route
   loadFromHistory(historyId) {
     const history = this._getHistory();
-    const entry = history.find(h => h.id === historyId);
+    const entry = history.find((h) => h.id === historyId);
     if (!entry) {
-      Utils.toast('❌ ไม่พบเส้นทางในประวัติ', 'error');
+      Utils.toast("\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E43\u0E19\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34", "error");
       return;
     }
-    const routeIds = entry.stops.map(s => s.id);
+    const routeIds = entry.stops.map((s) => s.id);
     Storage.saveRoute(routeIds);
     App.updateRouteUI();
-    Utils.toast(`📋 โหลดเส้นทางจากประวัติแล้ว`);
+    Utils.toast(`\u{1F4CB} \u0E42\u0E2B\u0E25\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E08\u0E32\u0E01\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27`);
   },
-
   // ===== จัดแผนอัตโนมัติจากตัวกรองซ้าย (28 ต.ค.69 — พ่อสั่ง) =====
   // เอาตัวกรองตอนนี้ → จับเฉพาะคนมีพิกัด → เอา N รายแรกยอดมากสุด → ใส่เส้นทาง + จัดลำดับสั้นสุดให้เลย
   autoPlanFromFilters() {
+    var _a;
     try {
-      const n = parseInt(document.getElementById('auto-plan-count')?.value || '10', 10) || 10;
+      const n = parseInt(((_a = document.getElementById("auto-plan-count")) == null ? void 0 : _a.value) || "10", 10) || 10;
       let list = Storage.getActiveCustomers();
-      // ใช้ตัวกรองแผนที่ตัวเดียวกับหมุด (เดือน/ชั้นหนี้/อสม./15เดือน/เขต/สาขา + คำค้น)
-      if (typeof Customers !== 'undefined' && Customers._passesMapFilters) {
-        list = list.filter(c => Customers._passesMapFilters(c));
+      if (typeof Customers !== "undefined" && Customers._passesMapFilters) {
+        list = list.filter((c) => Customers._passesMapFilters(c));
       }
-      const withGps = list.filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+      const withGps = list.filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
       if (withGps.length === 0) {
-        Utils.toast('ตัวกรองนี้ยังไม่มีคนมีพิกัด — ลองล้างตัวกรองดูค่ะ', 'error');
+        Utils.toast("\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \u2014 \u0E25\u0E2D\u0E07\u0E25\u0E49\u0E32\u0E07\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07\u0E14\u0E39\u0E04\u0E48\u0E30", "error");
         return;
       }
-      // เรียงยอดหนี้มาก→น้อย (มี DebtDB) ไม่งั้นตามชื่อ
-      if (typeof DebtDB !== 'undefined' && DebtDB._loaded) {
+      if (typeof DebtDB !== "undefined" && DebtDB._loaded) {
         withGps.sort((a, b) => {
           const da = DebtDB.getByCif(a.cif), db = DebtDB.getByCif(b.cif);
-          return ((db && db.total_debt) || 0) - ((da && da.total_debt) || 0);
+          return (db && db.total_debt || 0) - (da && da.total_debt || 0);
         });
       }
-      const picked = withGps.slice(0, Math.min(n, this.MAX_SELECT)).map(c => c.id);
+      const picked = withGps.slice(0, Math.min(n, this.MAX_SELECT)).map((c) => c.id);
       Storage.saveRoute(picked);
       App.updateRouteUI();
-      // เปิดแผงวางแผนให้เห็นรายชื่อที่เลือก
-      if (typeof App !== 'undefined' && App.switchSheetTab) { try { App.switchSheetTab('plan'); } catch (e) {} }
-      const sheet = document.getElementById('bottom-sheet');
-      if (sheet) sheet.classList.add('open');
-      Utils.toast(`✅ หยิบ ${picked.length} รายจาก ${withGps.length} หมุดแล้ว — กำลังจัดลำดับให้สั้นสุด…`);
-      // จัดลำดับสั้นสุด + คำนวณเส้นทางถนนจริงทันที
-      if (typeof App !== 'undefined' && App.calculateRoute) App.calculateRoute(true, { focusSummary: true });
+      if (typeof App !== "undefined" && App.switchSheetTab) {
+        try {
+          App.switchSheetTab("plan");
+        } catch (e) {
+        }
+      }
+      const sheet = document.getElementById("bottom-sheet");
+      if (sheet) sheet.classList.add("open");
+      Utils.toast(`\u2705 \u0E2B\u0E22\u0E34\u0E1A ${picked.length} \u0E23\u0E32\u0E22\u0E08\u0E32\u0E01 ${withGps.length} \u0E2B\u0E21\u0E38\u0E14\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E08\u0E31\u0E14\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E43\u0E2B\u0E49\u0E2A\u0E31\u0E49\u0E19\u0E2A\u0E38\u0E14\u2026`);
+      if (typeof App !== "undefined" && App.calculateRoute) App.calculateRoute(true, { focusSummary: true });
     } catch (e) {
-      if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('จัดแผนไม่ได้ ลองอีกทีค่ะ', 'error');
+      if (typeof Utils !== "undefined" && Utils.toast) Utils.toast("\u0E08\u0E31\u0E14\u0E41\u0E1C\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E25\u0E2D\u0E07\u0E2D\u0E35\u0E01\u0E17\u0E35\u0E04\u0E48\u0E30", "error");
     }
   },
-
   escapeHTML(str) {
-    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  },
+    return String(str || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
+  }
 };
-// ===== Visit log management =====
-
 const Visit = {
   currentCustomerId: null,
-
   // Render visit list
   render() {
-    const list = document.getElementById('visit-list');
+    const list = document.getElementById("visit-list");
     const route = Storage.getRoute();
     const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
-    const routeCustomers = route.map(id => customers.find(c => c.id === id)).filter(Boolean);
-
+    const routeCustomers = route.map((id) => customers.find((c) => c.id === id)).filter(Boolean);
     const counts = { pending: 0, visited: 0, skipped: 0 };
-    list.innerHTML = '';
-
+    list.innerHTML = "";
     if (routeCustomers.length === 0) {
-      list.innerHTML = `<p class="empty-state">ไม่มีลูกค้าในเส้นทางวันนี้<br><small>ไปที่แท็บ "ลูกค้า" เพื่อเพิ่ม</small></p>`;
-      document.getElementById('visit-pending').textContent = 0;
-      document.getElementById('visit-completed').textContent = 0;
-      document.getElementById('visit-skipped').textContent = 0;
-      if (typeof WorkCalendar !== 'undefined' && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
+      list.innerHTML = `<p class="empty-state">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49<br><small>\u0E44\u0E1B\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A "\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21</small></p>`;
+      document.getElementById("visit-pending").textContent = 0;
+      document.getElementById("visit-completed").textContent = 0;
+      document.getElementById("visit-skipped").textContent = 0;
+      if (typeof WorkCalendar !== "undefined" && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
       return;
     }
-
     routeCustomers.forEach((c, idx) => {
       const visit = visits[c.id];
-      const status = visit?.status || 'pending';
-      if (status === 'visited' || status === 'interested' || status === 'wait_income') counts.visited++;
-      else if (status === 'no_answer' || status === 'not_home' || status === 'reschedule' || status === 'not_interested') counts.skipped++;
+      const status = (visit == null ? void 0 : visit.status) || "pending";
+      if (status === "visited" || status === "interested" || status === "wait_income") counts.visited++;
+      else if (status === "no_answer" || status === "not_home" || status === "reschedule" || status === "not_interested") counts.skipped++;
       else counts.pending++;
-
       const statusIcon = this.statusIcon(status);
-      const statusClass = ['visited', 'interested', 'wait_income', 'no_answer', 'not_home', 'reschedule', 'not_interested'].includes(status) ? status : '';
-      const itemClass = (status === 'visited' || status === 'interested' || status === 'wait_income') ? 'visited' : (status !== 'pending' ? 'skipped' : '');
-      // Debt badge (ย้ายมาจากแท็บเส้นทาง): บอกว่าเป็นหนี้ถึงกำหนดหรือค้าง
-      const debtBadge = c.debtType === 'overdue' ? '⚠️ ค้าง' : (c.debtType === 'current' ? '📅 ถึงกำหนด' : '');
-
-      // นัดชำระจากบันทึกเดิม (ถ้ามี) — โชว์ในรายการเข้าพบให้เห็นระหว่างออกพื้นที่
-      let promiseMeta = '';
-      if (visit && visit.promiseDate && typeof WorkCalendar !== 'undefined') {
+      const statusClass = ["visited", "interested", "wait_income", "no_answer", "not_home", "reschedule", "not_interested"].includes(status) ? status : "";
+      const itemClass = status === "visited" || status === "interested" || status === "wait_income" ? "visited" : status !== "pending" ? "skipped" : "";
+      const debtBadge = c.debtType === "overdue" ? "\u26A0\uFE0F \u0E04\u0E49\u0E32\u0E07" : c.debtType === "current" ? "\u{1F4C5} \u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14" : "";
+      let promiseMeta = "";
+      if (visit && visit.promiseDate && typeof WorkCalendar !== "undefined") {
         const cls = WorkCalendar.classify(visit.promiseDate, visit.promiseStatus);
-        promiseMeta = ' · 📅 นัดชำระ ' + WorkCalendar.fmtDate(visit.promiseDate) + ' (' + WorkCalendar.statusLabel(cls) + ')';
+        promiseMeta = " \xB7 \u{1F4C5} \u0E19\u0E31\u0E14\u0E0A\u0E33\u0E23\u0E30 " + WorkCalendar.fmtDate(visit.promiseDate) + " (" + WorkCalendar.statusLabel(cls) + ")";
       }
-
-      const item = document.createElement('div');
+      const item = document.createElement("div");
       item.className = `visit-item ${itemClass}`;
-      const goLabel = status === 'pending' ? '📝 บันทึก' : '✏️ แก้ไข';
+      const goLabel = status === "pending" ? "\u{1F4DD} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01" : "\u270F\uFE0F \u0E41\u0E01\u0E49\u0E44\u0E02";
       item.innerHTML = `
         <div class="visit-order">${idx + 1}</div>
-        <div class="visit-status ${statusClass}" title="คลิกเพื่อบันทึก">
+        <div class="visit-status ${statusClass}" title="\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01">
           ${statusIcon}
         </div>
         <div class="visit-info">
-          <div class="visit-name">${this.escapeHTML(c.name)}${debtBadge ? ` <span class="visit-debt">${debtBadge}</span>` : ''}</div>
-          <div class="visit-meta">${visit ? this.statusLabel(status) + ' · ' + this.timeAgo(visit.timestamp) + promiseMeta : '⏳ รอเยี่ยม — แตะเพื่อบันทึก'}</div>
+          <div class="visit-name">${this.escapeHTML(c.name)}${debtBadge ? ` <span class="visit-debt">${debtBadge}</span>` : ""}</div>
+          <div class="visit-meta">${visit ? this.statusLabel(status) + " \xB7 " + this.timeAgo(visit.timestamp) + promiseMeta : "\u23F3 \u0E23\u0E2D\u0E40\u0E22\u0E35\u0E48\u0E22\u0E21 \u2014 \u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"}</div>
         </div>
         <button type="button" class="visit-go-btn">${goLabel}</button>
       `;
       item.onclick = () => this.openLog(c.id);
       list.appendChild(item);
     });
-
-    document.getElementById('visit-pending').textContent = counts.pending;
-    document.getElementById('visit-completed').textContent = counts.visited;
-    document.getElementById('visit-skipped').textContent = counts.skipped;
-    // อัปเดตแถบแจ้งเตือนนัดชำระ + ตัวเลขแท็บปฏิทินทุกครั้งที่รายการเข้าพบเปลี่ยน
-    if (typeof WorkCalendar !== 'undefined' && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
+    document.getElementById("visit-pending").textContent = counts.pending;
+    document.getElementById("visit-completed").textContent = counts.visited;
+    document.getElementById("visit-skipped").textContent = counts.skipped;
+    if (typeof WorkCalendar !== "undefined" && WorkCalendar.refreshAlert) WorkCalendar.refreshAlert();
   },
-
   statusIcon(status) {
     return {
-      pending: '⏳',
-      visited: '✅',
-      no_answer: '❌',
-      not_home: '🚪',
-      reschedule: '📅',
-      interested: '🤝',
-      wait_income: '⏳',
-      not_interested: '🚫',
-    }[status] || '⏳';
+      pending: "\u23F3",
+      visited: "\u2705",
+      no_answer: "\u274C",
+      not_home: "\u{1F6AA}",
+      reschedule: "\u{1F4C5}",
+      interested: "\u{1F91D}",
+      wait_income: "\u23F3",
+      not_interested: "\u{1F6AB}"
+    }[status] || "\u23F3";
   },
-
   statusLabel(status) {
     return {
-      visited: '✅ พบลูกค้า',
-      no_answer: '❌ ไม่พบลูกค้า',
-      not_home: '🚪 ไม่อยู่บ้าน',
-      reschedule: '📅 นัดใหม่',
-      interested: '🤝 รับปากจ่าย',
-      wait_income: '⏳ รอรายได้',
-      not_interested: '🚫 ไม่จ่าย',
+      visited: "\u2705 \u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      no_answer: "\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      not_home: "\u{1F6AA} \u0E44\u0E21\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E1A\u0E49\u0E32\u0E19",
+      reschedule: "\u{1F4C5} \u0E19\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48",
+      interested: "\u{1F91D} \u0E23\u0E31\u0E1A\u0E1B\u0E32\u0E01\u0E08\u0E48\u0E32\u0E22",
+      wait_income: "\u23F3 \u0E23\u0E2D\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49",
+      not_interested: "\u{1F6AB} \u0E44\u0E21\u0E48\u0E08\u0E48\u0E32\u0E22"
     }[status] || status;
   },
-
   openLog(customerId) {
+    var _a;
     this.currentCustomerId = customerId;
-    const c = Storage.getCustomers().find(x => x.id === customerId);
+    const c = Storage.getCustomers().find((x) => x.id === customerId);
     if (!c) return;
-    document.getElementById('visit-modal-title').textContent = `📋 บันทึกการเข้าพบ: ${c.name}`;
+    document.getElementById("visit-modal-title").textContent = `\u{1F4CB} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E1A: ${c.name}`;
     const visits = Storage.getVisits();
     const existing = visits[customerId];
-    const form = document.getElementById('visit-log-form');
-    
-    // Set quick status buttons
-    const status = existing?.status || 'visited';
+    const form = document.getElementById("visit-log-form");
+    const status = (existing == null ? void 0 : existing.status) || "visited";
     this.setQuickStatus(status);
-    
-    form.elements.note.value = existing?.note || '';
-    // นัดชำระเดิม (ถ้ามี) — เติมให้แก้ต่อได้ ไม่ต้องกรอกใหม่
-    const pDate = document.getElementById('visit-promise-date');
-    const pAmt = document.getElementById('visit-promise-amount');
-    if (pDate) pDate.value = existing?.promiseDate || '';
-    if (pAmt) pAmt.value = existing?.promiseAmount ?? '';
+    form.elements.note.value = (existing == null ? void 0 : existing.note) || "";
+    const pDate = document.getElementById("visit-promise-date");
+    const pAmt = document.getElementById("visit-promise-amount");
+    if (pDate) pDate.value = (existing == null ? void 0 : existing.promiseDate) || "";
+    if (pAmt) pAmt.value = (_a = existing == null ? void 0 : existing.promiseAmount) != null ? _a : "";
     this._renderPromiseStatus(existing);
     this._updatePromiseVisibility(status);
-    // Phase 5: pre-fill GPS if previously recorded
-    form.elements.lat.value = existing?.lat || '';
-    form.elements.lng.value = existing?.lng || '';
-    form.elements.accuracy.value = existing?.accuracy || '';
-    this._renderGpsDisplay(existing?.lat, existing?.lng, existing?.accuracy);
+    form.elements.lat.value = (existing == null ? void 0 : existing.lat) || "";
+    form.elements.lng.value = (existing == null ? void 0 : existing.lng) || "";
+    form.elements.accuracy.value = (existing == null ? void 0 : existing.accuracy) || "";
+    this._renderGpsDisplay(existing == null ? void 0 : existing.lat, existing == null ? void 0 : existing.lng, existing == null ? void 0 : existing.accuracy);
     this._prefillGps();
-    document.getElementById('visit-log-modal').classList.remove('hidden');
+    document.getElementById("visit-log-modal").classList.remove("hidden");
   },
-
   // Set quick status (called by quick status buttons)
   setQuickStatus(status) {
-    // Update hidden select
-    const select = document.getElementById('visit-status-select');
+    const select = document.getElementById("visit-status-select");
     if (select) select.value = status;
-
-    // Update button states
-    document.querySelectorAll('.quick-status-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.status === status);
+    document.querySelectorAll(".quick-status-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.status === status);
     });
     this._updatePromiseVisibility(status);
   },
-
   // ช่องนัดชำระโผล่เฉพาะผล "รับปากจ่าย/นัดใหม่" — สถานะอื่นไม่ต้องใส่วันนัด
   _updatePromiseVisibility(status) {
-    const sec = document.getElementById('visit-promise-section');
+    const sec = document.getElementById("visit-promise-section");
     if (!sec) return;
-    sec.classList.toggle('hidden', !(status === 'interested' || status === 'reschedule'));
+    sec.classList.toggle("hidden", !(status === "interested" || status === "reschedule"));
   },
-
   _renderPromiseStatus(existing) {
-    const el = document.getElementById('visit-promise-status');
+    const el = document.getElementById("visit-promise-status");
     if (!el) return;
-    if (existing && existing.promiseDate && typeof WorkCalendar !== 'undefined') {
+    if (existing && existing.promiseDate && typeof WorkCalendar !== "undefined") {
       const cls = WorkCalendar.classify(existing.promiseDate, existing.promiseStatus);
-      const hist = Array.isArray(existing.promiseHistory) && existing.promiseHistory.length
-        ? ' · เคยนัด/เลื่อน ' + existing.promiseHistory.length + ' ครั้ง' : '';
-      el.textContent = '📌 นัดเดิม: ' + WorkCalendar.fmtDate(existing.promiseDate) + ' — ' + WorkCalendar.statusLabel(cls) + hist;
-      el.classList.remove('hidden');
+      const hist = Array.isArray(existing.promiseHistory) && existing.promiseHistory.length ? " \xB7 \u0E40\u0E04\u0E22\u0E19\u0E31\u0E14/\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19 " + existing.promiseHistory.length + " \u0E04\u0E23\u0E31\u0E49\u0E07" : "";
+      el.textContent = "\u{1F4CC} \u0E19\u0E31\u0E14\u0E40\u0E14\u0E34\u0E21: " + WorkCalendar.fmtDate(existing.promiseDate) + " \u2014 " + WorkCalendar.statusLabel(cls) + hist;
+      el.classList.remove("hidden");
     } else {
-      el.textContent = '';
-      el.classList.add('hidden');
+      el.textContent = "";
+      el.classList.add("hidden");
     }
   },
-
   // Phase 5: Render GPS display in visit modal
   _renderGpsDisplay(lat, lng, accuracy) {
-    const el = document.getElementById('gps-display');
+    const el = document.getElementById("gps-display");
     if (!el) return;
     if (lat && lng) {
-      const accText = accuracy ? `±${Math.round(accuracy)} ม.` : '';
+      const accText = accuracy ? `\xB1${Math.round(accuracy)} \u0E21.` : "";
       el.innerHTML = `
         <div class="gps-captured">
-          <span class="gps-coord">📍 ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span>
+          <span class="gps-coord">\u{1F4CD} ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span>
           <span class="gps-accuracy">${accText}</span>
         </div>
       `;
     } else {
-      el.innerHTML = '<span class="gps-empty">ยังไม่ได้บันทึก</span>';
+      el.innerHTML = '<span class="gps-empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01</span>';
     }
   },
-
   // Phase 5: Capture current GPS
   captureGPS() {
     if (!navigator.geolocation) {
-      Utils.toast('เบราว์เซอร์ไม่รองรับ GPS', 'error');
+      Utils.toast("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A GPS", "error");
       return;
     }
-    Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
-    const btn = document.getElementById('btn-capture-gps');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังค้นหา...'; }
+    Utils.toast("\u{1F4CD} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07...");
+    const btn = document.getElementById("btn-capture-gps");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32...";
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const acc = pos.coords.accuracy;
-        document.getElementById('visit-lat').value = lat.toFixed(6);
-        document.getElementById('visit-lng').value = lng.toFixed(6);
-        document.getElementById('visit-accuracy').value = Math.round(acc);
+        document.getElementById("visit-lat").value = lat.toFixed(6);
+        document.getElementById("visit-lng").value = lng.toFixed(6);
+        document.getElementById("visit-accuracy").value = Math.round(acc);
         this._renderGpsDisplay(lat, lng, acc);
-        Utils.toast('📍 บันทึกพิกัดแล้ว');
-        if (btn) { btn.disabled = false; btn.textContent = '📍 บันทึกพิกัดปัจจุบัน'; }
+        Utils.toast("\u{1F4CD} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E41\u0E25\u0E49\u0E27");
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "\u{1F4CD} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19";
+        }
       },
       (err) => {
-        Utils.toast('ไม่สามารถเข้าถึง GPS: ' + err.message, 'error');
-        if (btn) { btn.disabled = false; btn.textContent = '📍 บันทึกพิกัดปัจจุบัน'; }
+        Utils.toast("\u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E40\u0E02\u0E49\u0E32\u0E16\u0E36\u0E07 GPS: " + err.message, "error");
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "\u{1F4CD} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19";
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15e3 }
     );
   },
-
   // พิกัดอัตโนมัติ: เปิดฟอร์มแล้วจับพิกัดเงียบๆ ไว้ก่อน — กดบันทึกได้เลยไม่ต้องกดปุ่ม GPS
   // ถ้าจับไม่ได้ (เช่น บันทึกเก่ามีพิกัดแล้ว/เครื่องไม่รองรับ) ก็ข้ามเงียบๆ ปุ่มกดมือยังอยู่
   _prefillGps() {
     try {
-      const latEl = document.getElementById('visit-lat');
+      const latEl = document.getElementById("visit-lat");
       if (!latEl || latEl.value || !navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition((pos) => {
         if (latEl.value) return;
         latEl.value = pos.coords.latitude.toFixed(6);
-        document.getElementById('visit-lng').value = pos.coords.longitude.toFixed(6);
-        document.getElementById('visit-accuracy').value = Math.round(pos.coords.accuracy);
+        document.getElementById("visit-lng").value = pos.coords.longitude.toFixed(6);
+        document.getElementById("visit-accuracy").value = Math.round(pos.coords.accuracy);
         this._renderGpsDisplay(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-      }, () => {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
-    } catch {}
+      }, () => {
+      }, { enableHighAccuracy: true, timeout: 8e3, maximumAge: 6e4 });
+    } catch (e) {
+    }
   },
-
   // ปุ่มลัดวันนัด (เรียก TodayUI ตรงๆ — คณิตวันที่เทสได้ใน tests/test_today.mjs)
   setPromiseOffset(days) {
-    const el = document.getElementById('visit-promise-date');
-    if (!el || typeof TodayUI === 'undefined') return;
+    const el = document.getElementById("visit-promise-date");
+    if (!el || typeof TodayUI === "undefined") return;
     el.value = TodayUI.promiseDateOffset(days);
     el.focus();
   },
-
   setPromiseMonthEnd() {
-    const el = document.getElementById('visit-promise-date');
-    if (!el || typeof TodayUI === 'undefined') return;
+    const el = document.getElementById("visit-promise-date");
+    if (!el || typeof TodayUI === "undefined") return;
     el.value = TodayUI.monthEndStr();
     el.focus();
   },
-
   closeLog() {
     this.currentCustomerId = null;
-    document.getElementById('visit-log-modal').classList.add('hidden');
+    document.getElementById("visit-log-modal").classList.add("hidden");
   },
-
   async submit(form) {
     if (!this.currentCustomerId) return;
-    const status = document.getElementById('visit-status-select').value;
+    const status = document.getElementById("visit-status-select").value;
     const data = {
       status,
-      note: form.elements.note.value,
+      note: form.elements.note.value
     };
-    // นัดชำระ: บังคับใส่วันที่เมื่อผลเป็นรับปากจ่าย/นัดใหม่ กันนัดหลุดจากปฏิทิน
-    if (status === 'interested' || status === 'reschedule') {
-      const pDateEl = document.getElementById('visit-promise-date');
-      const pAmtEl = document.getElementById('visit-promise-amount');
-      const promiseDate = pDateEl ? pDateEl.value : '';
+    if (status === "interested" || status === "reschedule") {
+      const pDateEl = document.getElementById("visit-promise-date");
+      const pAmtEl = document.getElementById("visit-promise-amount");
+      const promiseDate = pDateEl ? pDateEl.value : "";
       if (!promiseDate) {
-        Utils.toast('กรุณาใส่วันที่รับปากชำระ/วันนัดใหม่ก่อนบันทึก', 'error');
+        Utils.toast("\u0E01\u0E23\u0E38\u0E13\u0E32\u0E43\u0E2A\u0E48\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E1B\u0E32\u0E01\u0E0A\u0E33\u0E23\u0E30/\u0E27\u0E31\u0E19\u0E19\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48\u0E01\u0E48\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01", "error");
         if (pDateEl) pDateEl.focus();
         return;
       }
       const existing = Storage.getVisits()[this.currentCustomerId] || {};
       const history = Array.isArray(existing.promiseHistory) ? [...existing.promiseHistory] : [];
       if (existing.promiseDate && existing.promiseDate !== promiseDate) {
-        history.push({ date: existing.promiseDate, result: 'rescheduled', newDate: promiseDate, at: new Date().toISOString() });
+        history.push({ date: existing.promiseDate, result: "rescheduled", newDate: promiseDate, at: (/* @__PURE__ */ new Date()).toISOString() });
       }
       data.promiseDate = promiseDate;
-      data.promiseAmount = pAmtEl && pAmtEl.value !== '' ? Number(pAmtEl.value) : '';
-      // วันนัดเดิม + ผลเดิมค้างอยู่ = คงสถานะชำระแล้วไว้; วันใหม่/นัดใหม่ = กลับเป็นรอติดตาม
-      data.promiseStatus = (existing.promiseDate === promiseDate && existing.promiseStatus === 'paid') ? 'paid' : 'pending';
+      data.promiseAmount = pAmtEl && pAmtEl.value !== "" ? Number(pAmtEl.value) : "";
+      data.promiseStatus = existing.promiseDate === promiseDate && existing.promiseStatus === "paid" ? "paid" : "pending";
       data.promiseHistory = history;
     }
-    // Phase 5: GPS coordinates (if captured)
     const lat = form.elements.lat.value;
     const lng = form.elements.lng.value;
     const accuracy = form.elements.accuracy.value;
@@ -2474,65 +2314,52 @@ const Visit = {
     const result = await Storage.saveVisit(this.currentCustomerId, data);
     this.closeLog();
     this.render();
-    Customers.renderMarkers(); // update marker colors
+    Customers.renderMarkers();
     if (result && result.synced) {
-      Utils.toast('💾 บันทึกการเข้าพบแล้ว · sync สำเร็จ');
+      Utils.toast("\u{1F4BE} \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E1A\u0E41\u0E25\u0E49\u0E27 \xB7 sync \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08");
     } else {
-      Utils.toast('⚠️ บันทึกแล้วแต่ sync ไม่สำเร็จ — กด 🔄 เพื่อลองใหม่', 'error');
+      Utils.toast("\u26A0\uFE0F \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E41\u0E15\u0E48 sync \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E01\u0E14 \u{1F504} \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48", "error");
     }
   },
-
   timeAgo(iso) {
     const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'เมื่อกี้';
-    if (mins < 60) return `${mins} นาทีที่แล้ว`;
+    const mins = Math.floor(diff / 6e4);
+    if (mins < 1) return "\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E01\u0E35\u0E49";
+    if (mins < 60) return `${mins} \u0E19\u0E32\u0E17\u0E35\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} ชม.ที่แล้ว`;
+    if (hours < 24) return `${hours} \u0E0A\u0E21.\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27`;
     const days = Math.floor(hours / 24);
-    return `${days} วันที่แล้ว`;
+    return `${days} \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27`;
   },
-
   escapeHTML(str) {
-    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  },
+    return String(str || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
+  }
 };
-
 window.Visit = Visit;
-// ===== Report: generate + export follow-up report =====
-// Phase 7-9: BAAC debt follow-up report
-// - Per day breakdown (visits + GPS + ค่าน้ำมัน)
-// - เบี้ยเลี้ยง 160฿/วัน เมื่อ ≥10 upcoming OR ≥5 overdue
-// - Export: HTML print, CSV, Share text
-
 const Report = {
   // ===== Constants =====
   ALLOWANCE_PER_DAY: 160,
-  THRESHOLD_UPCOMING: 10,  // หนี้ถึงกำหนด ≥ 10 ราย → ได้เบี้ยเลี้ยง
-  THRESHOLD_OVERDUE: 5,    // หนี้ค้าง ≥ 5 ราย → ได้เบี้ยเลี้ยง
-
+  THRESHOLD_UPCOMING: 10,
+  // หนี้ถึงกำหนด ≥ 10 ราย → ได้เบี้ยเลี้ยง
+  THRESHOLD_OVERDUE: 5,
+  // หนี้ค้าง ≥ 5 ราย → ได้เบี้ยเลี้ยง
   // ===== Open report modal =====
   open() {
-    document.getElementById('report-modal').classList.remove('hidden');
-    // Set default range to "this week"
-    this.setRange('week');
+    document.getElementById("report-modal").classList.remove("hidden");
+    this.setRange("week");
   },
-
   close() {
-    document.getElementById('report-modal').classList.add('hidden');
+    document.getElementById("report-modal").classList.add("hidden");
   },
-
   // ===== Render simple bar chart =====
   _renderBarChart(days) {
-    if (!days.length) return '';
-    
-    const maxVisits = Math.max(...days.map(d => d.visits.length), 1);
-    
+    if (!days.length) return "";
+    const maxVisits = Math.max(...days.map((d) => d.visits.length), 1);
     let html = '<div class="bar-chart">';
     for (const day of days) {
-      const pct = (day.visits.length / maxVisits) * 100;
-      const color = day.qualifies ? '#16a34a' : '#d32f2f';
-      const shortDate = day.dateLabel.split(' ').slice(0, 2).join(' ');
+      const pct = day.visits.length / maxVisits * 100;
+      const color = day.qualifies ? "#16a34a" : "#d32f2f";
+      const shortDate = day.dateLabel.split(" ").slice(0, 2).join(" ");
       html += `
         <div class="bar-item">
           <div class="bar-fill" style="height:${pct}%;background:${color}"></div>
@@ -2541,66 +2368,59 @@ const Report = {
         </div>
       `;
     }
-    html += '</div>';
+    html += "</div>";
     return html;
   },
-
   // ===== Status badge =====
   setRange(range) {
-    const today = new Date();
+    const today = /* @__PURE__ */ new Date();
     let from, to = new Date(today);
     to.setHours(23, 59, 59, 999);
-    if (range === 'today') {
+    if (range === "today") {
       from = new Date(today);
       from.setHours(0, 0, 0, 0);
-    } else if (range === 'week') {
+    } else if (range === "week") {
       from = new Date(today);
-      from.setDate(today.getDate() - today.getDay()); // start of week (Sunday)
+      from.setDate(today.getDate() - today.getDay());
       from.setHours(0, 0, 0, 0);
-    } else if (range === 'month') {
+    } else if (range === "month") {
       from = new Date(today.getFullYear(), today.getMonth(), 1);
-    } else if (range === 'custom') {
-      // Use the input fields
-      const fromEl = document.getElementById('report-from');
-      const toEl = document.getElementById('report-to');
-      from = fromEl.value ? new Date(fromEl.value + 'T00:00:00') : new Date(today);
-      to = toEl.value ? new Date(toEl.value + 'T23:59:59') : new Date(today);
+    } else if (range === "custom") {
+      const fromEl = document.getElementById("report-from");
+      const toEl = document.getElementById("report-to");
+      from = fromEl.value ? /* @__PURE__ */ new Date(fromEl.value + "T00:00:00") : new Date(today);
+      to = toEl.value ? /* @__PURE__ */ new Date(toEl.value + "T23:59:59") : new Date(today);
     }
-    document.getElementById('report-range-label').textContent =
-      `${Utils.formatThaiDate(from)} – ${Utils.formatThaiDate(to)}`;
-    document.getElementById('report-from').value = from.toISOString().slice(0, 10);
-    document.getElementById('report-to').value = to.toISOString().slice(0, 10);
-    // Show/hide custom inputs
-    document.getElementById('custom-range').classList.toggle('hidden', range !== 'custom');
+    document.getElementById("report-range-label").textContent = `${Utils.formatThaiDate(from)} \u2013 ${Utils.formatThaiDate(to)}`;
+    document.getElementById("report-from").value = from.toISOString().slice(0, 10);
+    document.getElementById("report-to").value = to.toISOString().slice(0, 10);
+    document.getElementById("custom-range").classList.toggle("hidden", range !== "custom");
     return { from, to };
   },
-
   // ===== Generate report =====
   generate() {
-    const range = this.setRange(document.getElementById('report-range').value);
-    const vehicleId = document.getElementById('report-vehicle').value;
+    const range = this.setRange(document.getElementById("report-range").value);
+    const vehicleId = document.getElementById("report-vehicle").value;
     const from = range.from;
     const to = range.to;
     const customers = Storage.getActiveCustomers();
     const visits = Storage.getVisits();
-
-    // Group visits by day (using timestamp)
     const byDay = {};
     for (const [cid, visit] of Object.entries(visits)) {
       const ts = new Date(visit.timestamp);
       if (ts < from || ts > to) continue;
-      const dayKey = ts.toISOString().slice(0, 10); // YYYY-MM-DD
+      const dayKey = ts.toISOString().slice(0, 10);
       if (!byDay[dayKey]) byDay[dayKey] = [];
-      const customer = customers.find(c => c.id === cid);
+      const customer = customers.find((c) => c.id === cid);
       if (customer) {
         byDay[dayKey].push({ customer, visit });
       }
     }
     const dayKeys = Object.keys(byDay).sort();
-
-    // Build report
     const reportData = {
-      from, to, vehicleId,
+      from,
+      to,
+      vehicleId,
       vehicleLabel: Fuel.getVehicle(vehicleId).label,
       fuelType: Fuel.getVehicle(vehicleId).fuelType,
       fuelPrice: Fuel.getPrice(Fuel.getVehicle(vehicleId).fuelType),
@@ -2614,25 +2434,27 @@ const Report = {
         totalDistance: 0,
         totalFuelBaht: 0,
         totalAllowance: 0,
-        qualifyingDays: 0,
-      },
+        qualifyingDays: 0
+      }
     };
-
     for (const dayKey of dayKeys) {
       const dayVisits = byDay[dayKey];
-      const upcoming = dayVisits.filter(v => v.customer.debtType === 'current').length;
-      const overdue = dayVisits.filter(v => v.customer.debtType === 'overdue').length;
+      const upcoming = dayVisits.filter((v) => v.customer.debtType === "current").length;
+      const overdue = dayVisits.filter((v) => v.customer.debtType === "overdue").length;
       const qualifies = upcoming >= this.THRESHOLD_UPCOMING || overdue >= this.THRESHOLD_OVERDUE;
       const allowance = qualifies ? this.ALLOWANCE_PER_DAY : 0;
-      // Distance estimate: avg 8 km between visits (rough — actual OSRM would need route)
       const distance = dayVisits.length * 8;
       const fuel = Fuel.calculate(distance, vehicleId);
       reportData.days.push({
         date: dayKey,
         dateLabel: Utils.formatThaiDate(new Date(dayKey)),
         visits: dayVisits,
-        upcoming, overdue, qualifies, allowance,
-        distance, fuel,
+        upcoming,
+        overdue,
+        qualifies,
+        allowance,
+        distance,
+        fuel
       });
       reportData.totals.days++;
       reportData.totals.totalVisits += dayVisits.length;
@@ -2643,81 +2465,74 @@ const Report = {
       reportData.totals.totalAllowance += allowance;
       if (qualifies) reportData.totals.qualifyingDays++;
     }
-
     this._currentReport = reportData;
     this._renderPreview(reportData);
   },
-
   // ===== Render preview in modal =====
   _renderPreview(data) {
-    const preview = document.getElementById('report-preview');
-    const exportBtns = document.getElementById('export-buttons');
+    const preview = document.getElementById("report-preview");
+    const exportBtns = document.getElementById("export-buttons");
     if (data.days.length === 0) {
-      preview.innerHTML = '<p class="empty-state">ไม่พบ visit ในช่วงวันที่เลือก</p>';
-      exportBtns.classList.add('hidden');
+      preview.innerHTML = '<p class="empty-state">\u0E44\u0E21\u0E48\u0E1E\u0E1A visit \u0E43\u0E19\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01</p>';
+      exportBtns.classList.add("hidden");
       return;
     }
-    exportBtns.classList.remove('hidden');
-
+    exportBtns.classList.remove("hidden");
     const t = data.totals;
     let html = `
       <div class="report-summary">
-        <h3>📊 สรุปภาพรวม</h3>
+        <h3>\u{1F4CA} \u0E2A\u0E23\u0E38\u0E1B\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21</h3>
         <div class="report-summary-grid">
-          <div class="summary-item"><span class="summary-num">${t.days}</span><span class="summary-label">วันทำงาน</span></div>
-          <div class="summary-item"><span class="summary-num">${t.totalVisits}</span><span class="summary-label">ครั้งที่ติดตาม</span></div>
-          <div class="summary-item"><span class="summary-num">${t.totalUpcoming}</span><span class="summary-label">หนี้ถึงกำหนด</span></div>
-          <div class="summary-item"><span class="summary-num">${t.totalOverdue}</span><span class="summary-label">หนี้ค้าง</span></div>
-          <div class="summary-item"><span class="summary-num">${t.qualifyingDays}</span><span class="summary-label">วันที่เบิกได้</span></div>
-          <div class="summary-item highlight"><span class="summary-num">${Utils.formatBaht(t.totalAllowance)}</span><span class="summary-label">เบี้ยเลี้ยงรวม</span></div>
+          <div class="summary-item"><span class="summary-num">${t.days}</span><span class="summary-label">\u0E27\u0E31\u0E19\u0E17\u0E33\u0E07\u0E32\u0E19</span></div>
+          <div class="summary-item"><span class="summary-num">${t.totalVisits}</span><span class="summary-label">\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21</span></div>
+          <div class="summary-item"><span class="summary-num">${t.totalUpcoming}</span><span class="summary-label">\u0E2B\u0E19\u0E35\u0E49\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14</span></div>
+          <div class="summary-item"><span class="summary-num">${t.totalOverdue}</span><span class="summary-label">\u0E2B\u0E19\u0E35\u0E49\u0E04\u0E49\u0E32\u0E07</span></div>
+          <div class="summary-item"><span class="summary-num">${t.qualifyingDays}</span><span class="summary-label">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49</span></div>
+          <div class="summary-item highlight"><span class="summary-num">${Utils.formatBaht(t.totalAllowance)}</span><span class="summary-label">\u0E40\u0E1A\u0E35\u0E49\u0E22\u0E40\u0E25\u0E35\u0E49\u0E22\u0E07\u0E23\u0E27\u0E21</span></div>
         </div>
         <div class="report-fuel-cost">
-          <span>⛽ ${data.vehicleLabel} · ${data.kmPerLiter} กม./ลิตร · ${Utils.formatBaht(data.fuelPrice)}/ลิตร</span>
-          <span>📏 ระยะทางประมาณการ: ${Utils.formatKm(t.totalDistance)} กม.</span>
-          <span>💰 ค่าน้ำมันประมาณการ: ${Utils.formatBaht(t.totalFuelBaht)}</span>
+          <span>\u26FD ${data.vehicleLabel} \xB7 ${data.kmPerLiter} \u0E01\u0E21./\u0E25\u0E34\u0E15\u0E23 \xB7 ${Utils.formatBaht(data.fuelPrice)}/\u0E25\u0E34\u0E15\u0E23</span>
+          <span>\u{1F4CF} \u0E23\u0E30\u0E22\u0E30\u0E17\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23: ${Utils.formatKm(t.totalDistance)} \u0E01\u0E21.</span>
+          <span>\u{1F4B0} \u0E04\u0E48\u0E32\u0E19\u0E49\u0E33\u0E21\u0E31\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23: ${Utils.formatBaht(t.totalFuelBaht)}</span>
         </div>
       </div>
       
       <!-- Simple bar chart -->
       <div class="report-chart">
-        <h3>📈 สรุปรายวัน</h3>
+        <h3>\u{1F4C8} \u0E2A\u0E23\u0E38\u0E1B\u0E23\u0E32\u0E22\u0E27\u0E31\u0E19</h3>
         <div class="chart-container">
           ${this._renderBarChart(data.days)}
         </div>
       </div>
       
       <div class="report-days">
-        <h3>📅 รายละเอียดรายวัน</h3>
+        <h3>\u{1F4C5} \u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E23\u0E32\u0E22\u0E27\u0E31\u0E19</h3>
     `;
     for (const day of data.days) {
-      const dayClass = day.qualifies ? 'day-qualifies' : 'day-no-qualify';
-      const allowanceBadge = day.qualifies
-        ? `<span class="badge-yes">✅ เบิกได้ ${Utils.formatBaht(day.allowance)}</span>`
-        : `<span class="badge-no">❌ ไม่ถึงเกณฑ์</span>`;
+      const dayClass = day.qualifies ? "day-qualifies" : "day-no-qualify";
+      const allowanceBadge = day.qualifies ? `<span class="badge-yes">\u2705 \u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49 ${Utils.formatBaht(day.allowance)}</span>` : `<span class="badge-no">\u274C \u0E44\u0E21\u0E48\u0E16\u0E36\u0E07\u0E40\u0E01\u0E13\u0E11\u0E4C</span>`;
       html += `
         <div class="report-day ${dayClass}">
           <div class="report-day-header">
             <strong>${day.dateLabel}</strong>
             ${allowanceBadge}
-            <span class="day-stats">📅 ${day.upcoming} ถึงกำหนด · ⚠️ ${day.overdue} ค้าง · 👥 ${day.visits.length} ราย</span>
+            <span class="day-stats">\u{1F4C5} ${day.upcoming} \u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14 \xB7 \u26A0\uFE0F ${day.overdue} \u0E04\u0E49\u0E32\u0E07 \xB7 \u{1F465} ${day.visits.length} \u0E23\u0E32\u0E22</span>
           </div>
           <table class="report-day-table">
-            <thead><tr><th>ลูกค้า</th><th>สถานะ</th><th>เวลา</th><th>พิกัด</th><th>หมายเหตุ</th></tr></thead>
+            <thead><tr><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th>\u0E40\u0E27\u0E25\u0E32</th><th>\u0E1E\u0E34\u0E01\u0E31\u0E14</th><th>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</th></tr></thead>
             <tbody>
       `;
       for (const v of day.visits) {
         const c = v.customer;
         const status = this._statusBadge(v.visit.status);
-        const time = v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-';
-        const coords = v.visit.lat && v.visit.lng
-          ? `<a href="https://www.google.com/maps?q=${v.visit.lat},${v.visit.lng}" target="_blank">📍 ${v.visit.lat.toFixed(4)}, ${v.visit.lng.toFixed(4)}</a>`
-          : '-';
-        const note = v.visit.note ? this._escapeHTML(v.visit.note) : '-';
+        const time = v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "-";
+        const coords = v.visit.lat && v.visit.lng ? `<a href="https://www.google.com/maps?q=${v.visit.lat},${v.visit.lng}" target="_blank">\u{1F4CD} ${v.visit.lat.toFixed(4)}, ${v.visit.lng.toFixed(4)}</a>` : "-";
+        const note = v.visit.note ? this._escapeHTML(v.visit.note) : "-";
         html += `
           <tr>
             <td>
               <div class="td-name">${this._escapeHTML(c.name)}</div>
-              <div class="td-sub">${c.phone || ''}</div>
+              <div class="td-sub">${c.phone || ""}</div>
             </td>
             <td>${status}</td>
             <td>${time}</td>
@@ -2728,36 +2543,35 @@ const Report = {
       }
       html += `</tbody></table></div>`;
     }
-    html += '</div>';
+    html += "</div>";
     preview.innerHTML = html;
   },
-
   // ===== Export: HTML (printable) =====
   exportHTML() {
+    var _a;
     if (!this._currentReport) return;
     const data = this._currentReport;
-    const officer = Auth.getUser()?.name || 'ไม่ระบุ';
+    const officer = ((_a = Auth.getUser()) == null ? void 0 : _a.name) || "\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38";
     const t = data.totals;
     const html = this._buildPrintHTML(data, officer, false);
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    Utils.toast('📄 เปิดรายงาน HTML แล้ว');
+    window.open(url, "_blank");
+    Utils.toast("\u{1F4C4} \u0E40\u0E1B\u0E34\u0E14\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19 HTML \u0E41\u0E25\u0E49\u0E27");
   },
-
   // ===== Export: PDF (auto-print) =====
   exportPDF() {
+    var _a;
     if (!this._currentReport) return;
     const data = this._currentReport;
-    const officer = Auth.getUser()?.name || 'ไม่ระบุ';
+    const officer = ((_a = Auth.getUser()) == null ? void 0 : _a.name) || "\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38";
     const t = data.totals;
     const html = this._buildPrintHTML(data, officer, true);
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    Utils.toast('📑 เปิดหน้าพิมพ์ PDF แล้ว — เลือก "Save as PDF"');
+    window.open(url, "_blank");
+    Utils.toast('\u{1F4D1} \u0E40\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E1E\u0E34\u0E21\u0E1E\u0E4C PDF \u0E41\u0E25\u0E49\u0E27 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 "Save as PDF"');
   },
-
   // ===== Build print-friendly HTML =====
   _buildPrintHTML(data, officer, autoPrint) {
     const t = data.totals;
@@ -2765,7 +2579,7 @@ const Report = {
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>รายงานติดตามหนี้ - ${officer}</title>
+<title>\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E2B\u0E19\u0E35\u0E49 - ${officer}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
   body { font-family: 'Sarabun', sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; color: #1a202c; }
@@ -2796,295 +2610,283 @@ const Report = {
 </style>
 </head>
 <body>
-  <h1>📋 รายงานการติดตามหนี้</h1>
+  <h1>\u{1F4CB} \u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E01\u0E32\u0E23\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E2B\u0E19\u0E35\u0E49</h1>
   <div class="meta">
-    <div><strong>เจ้าหน้าที่:</strong> ${this._escapeHTML(officer)}</div>
-    <div><strong>ช่วงวันที่:</strong> ${Utils.formatThaiDate(data.from)} – ${Utils.formatThaiDate(data.to)}</div>
-    <div><strong>ยานพาหนะ:</strong> ${this._escapeHTML(data.vehicleLabel)} (${data.kmPerLiter} กม./ลิตร, ${Utils.formatBaht(data.fuelPrice)}/ลิตร)</div>
-    <div><strong>วันที่ออกรายงาน:</strong> ${Utils.formatThaiDate(new Date())}</div>
+    <div><strong>\u0E40\u0E08\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48:</strong> ${this._escapeHTML(officer)}</div>
+    <div><strong>\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:</strong> ${Utils.formatThaiDate(data.from)} \u2013 ${Utils.formatThaiDate(data.to)}</div>
+    <div><strong>\u0E22\u0E32\u0E19\u0E1E\u0E32\u0E2B\u0E19\u0E30:</strong> ${this._escapeHTML(data.vehicleLabel)} (${data.kmPerLiter} \u0E01\u0E21./\u0E25\u0E34\u0E15\u0E23, ${Utils.formatBaht(data.fuelPrice)}/\u0E25\u0E34\u0E15\u0E23)</div>
+    <div><strong>\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19:</strong> ${Utils.formatThaiDate(/* @__PURE__ */ new Date())}</div>
   </div>
 
-  <h2>📊 สรุปภาพรวม</h2>
+  <h2>\u{1F4CA} \u0E2A\u0E23\u0E38\u0E1B\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21</h2>
   <div class="summary-grid">
-    <div class="summary-card"><span class="summary-num">${t.days}</span><span class="summary-label">วันทำงาน</span></div>
-    <div class="summary-card"><span class="summary-num">${t.totalVisits}</span><span class="summary-label">ครั้งที่ติดตาม</span></div>
-    <div class="summary-card"><span class="summary-num">${t.totalUpcoming}</span><span class="summary-label">หนี้ถึงกำหนด</span></div>
-    <div class="summary-card"><span class="summary-num">${t.totalOverdue}</span><span class="summary-label">หนี้ค้าง</span></div>
-    <div class="summary-card"><span class="summary-num">${t.qualifyingDays}</span><span class="summary-label">วันที่เบิกได้</span></div>
-    <div class="summary-card highlight"><span class="summary-num">${Utils.formatBaht(t.totalAllowance)}</span><span class="summary-label">เบี้ยเลี้ยงรวม</span></div>
+    <div class="summary-card"><span class="summary-num">${t.days}</span><span class="summary-label">\u0E27\u0E31\u0E19\u0E17\u0E33\u0E07\u0E32\u0E19</span></div>
+    <div class="summary-card"><span class="summary-num">${t.totalVisits}</span><span class="summary-label">\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21</span></div>
+    <div class="summary-card"><span class="summary-num">${t.totalUpcoming}</span><span class="summary-label">\u0E2B\u0E19\u0E35\u0E49\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14</span></div>
+    <div class="summary-card"><span class="summary-num">${t.totalOverdue}</span><span class="summary-label">\u0E2B\u0E19\u0E35\u0E49\u0E04\u0E49\u0E32\u0E07</span></div>
+    <div class="summary-card"><span class="summary-num">${t.qualifyingDays}</span><span class="summary-label">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49</span></div>
+    <div class="summary-card highlight"><span class="summary-num">${Utils.formatBaht(t.totalAllowance)}</span><span class="summary-label">\u0E40\u0E1A\u0E35\u0E49\u0E22\u0E40\u0E25\u0E35\u0E49\u0E22\u0E07\u0E23\u0E27\u0E21</span></div>
   </div>
-  <p>⛽ ค่าน้ำมันประมาณการ: ${Utils.formatBaht(t.totalFuelBaht)} (ระยะทาง ${Utils.formatKm(t.totalDistance)} กม.)</p>
+  <p>\u26FD \u0E04\u0E48\u0E32\u0E19\u0E49\u0E33\u0E21\u0E31\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23: ${Utils.formatBaht(t.totalFuelBaht)} (\u0E23\u0E30\u0E22\u0E30\u0E17\u0E32\u0E07 ${Utils.formatKm(t.totalDistance)} \u0E01\u0E21.)</p>
 
-  <h2>📅 รายละเอียดรายวัน</h2>
-  ${data.days.map(day => `
-    <div class="${day.qualifies ? 'day-qualifies' : 'day-no-qualify'}">
-      <h3>${day.dateLabel} ${day.qualifies ? '<span class="badge-yes">✅ เบิกได้ ' + Utils.formatBaht(day.allowance) + '</span>' : '<span class="badge-no">❌ ไม่ถึงเกณฑ์</span>'}</h3>
-      <p>📅 ${day.upcoming} ถึงกำหนด · ⚠️ ${day.overdue} ค้าง · 👥 ${day.visits.length} ราย</p>
+  <h2>\u{1F4C5} \u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E23\u0E32\u0E22\u0E27\u0E31\u0E19</h2>
+  ${data.days.map((day) => `
+    <div class="${day.qualifies ? "day-qualifies" : "day-no-qualify"}">
+      <h3>${day.dateLabel} ${day.qualifies ? '<span class="badge-yes">\u2705 \u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49 ' + Utils.formatBaht(day.allowance) + "</span>" : '<span class="badge-no">\u274C \u0E44\u0E21\u0E48\u0E16\u0E36\u0E07\u0E40\u0E01\u0E13\u0E11\u0E4C</span>'}</h3>
+      <p>\u{1F4C5} ${day.upcoming} \u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14 \xB7 \u26A0\uFE0F ${day.overdue} \u0E04\u0E49\u0E32\u0E07 \xB7 \u{1F465} ${day.visits.length} \u0E23\u0E32\u0E22</p>
       <table>
-        <thead><tr><th>ลูกค้า</th><th>สถานะ</th><th>เวลา</th><th>พิกัด</th><th>หมายเหตุ</th></tr></thead>
+        <thead><tr><th>\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</th><th>\u0E2A\u0E16\u0E32\u0E19\u0E30</th><th>\u0E40\u0E27\u0E25\u0E32</th><th>\u0E1E\u0E34\u0E01\u0E31\u0E14</th><th>\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38</th></tr></thead>
         <tbody>
-          ${day.visits.map(v => `
+          ${day.visits.map((v) => `
             <tr>
-              <td>${this._escapeHTML(v.customer.name)}<br><small>${this._escapeHTML(v.customer.phone || '')}</small></td>
+              <td>${this._escapeHTML(v.customer.name)}<br><small>${this._escapeHTML(v.customer.phone || "")}</small></td>
               <td>${this._statusLabel(v.visit.status)}</td>
-              <td>${v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-              <td>${v.visit.lat && v.visit.lng ? v.visit.lat.toFixed(4) + ', ' + v.visit.lng.toFixed(4) : '-'}</td>
-              <td>${this._escapeHTML(v.visit.note || '-')}</td>
+              <td>${v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+              <td>${v.visit.lat && v.visit.lng ? v.visit.lat.toFixed(4) + ", " + v.visit.lng.toFixed(4) : "-"}</td>
+              <td>${this._escapeHTML(v.visit.note || "-")}</td>
             </tr>
-          `).join('')}
+          `).join("")}
         </tbody>
       </table>
     </div>
-  `).join('')}
+  `).join("")}
 
   <div class="signature">
-    <div class="signature-box">ลงชื่อ .....................................<br><small>ผู้ติดตาม (${this._escapeHTML(officer)})</small></div>
-    <div class="signature-box">ลงชื่อ .....................................<br><small>หัวหน้างาน</small></div>
+    <div class="signature-box">\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D .....................................<br><small>\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21 (${this._escapeHTML(officer)})</small></div>
+    <div class="signature-box">\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D .....................................<br><small>\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E07\u0E32\u0E19</small></div>
   </div>
 
   <div class="no-print">
-    <button onclick="window.print()">🖨️ พิมพ์ / Save PDF</button>
-    <button onclick="window.close()">✖️ ปิด</button>
+    <button onclick="window.print()">\u{1F5A8}\uFE0F \u0E1E\u0E34\u0E21\u0E1E\u0E4C / Save PDF</button>
+    <button onclick="window.close()">\u2716\uFE0F \u0E1B\u0E34\u0E14</button>
   </div>
-  ${autoPrint ? '<script>window.onload = () => setTimeout(() => window.print(), 500);</script>' : ''}
+  ${autoPrint ? "<script>window.onload = () => setTimeout(() => window.print(), 500);<\/script>" : ""}
 </body>
 </html>`;
   },
-
   // ===== Export: CSV =====
   exportCSV() {
+    var _a;
     if (!this._currentReport) return;
     const data = this._currentReport;
     const t = data.totals;
     const rows = [
-      ['รายงานการติดตามหนี้'],
-      ['เจ้าหน้าที่', Auth.getUser()?.name || ''],
-      ['ช่วงวันที่', `${Utils.formatThaiDate(data.from)} – ${Utils.formatThaiDate(data.to)}`],
-      ['ยานพาหนะ', `${data.vehicleLabel} (${data.kmPerLiter} กม./ลิตร, ${data.fuelPrice}฿/ลิตร)`],
+      ["\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E01\u0E32\u0E23\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E2B\u0E19\u0E35\u0E49"],
+      ["\u0E40\u0E08\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48", ((_a = Auth.getUser()) == null ? void 0 : _a.name) || ""],
+      ["\u0E0A\u0E48\u0E27\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", `${Utils.formatThaiDate(data.from)} \u2013 ${Utils.formatThaiDate(data.to)}`],
+      ["\u0E22\u0E32\u0E19\u0E1E\u0E32\u0E2B\u0E19\u0E30", `${data.vehicleLabel} (${data.kmPerLiter} \u0E01\u0E21./\u0E25\u0E34\u0E15\u0E23, ${data.fuelPrice}\u0E3F/\u0E25\u0E34\u0E15\u0E23)`],
       [],
-      ['สรุปภาพรวม'],
-      ['วันทำงาน', t.days],
-      ['ครั้งที่ติดตาม', t.totalVisits],
-      ['หนี้ถึงกำหนด', t.totalUpcoming],
-      ['หนี้ค้าง', t.totalOverdue],
-      ['วันที่เบิกได้', t.qualifyingDays],
-      ['เบี้ยเลี้ยงรวม (฿)', t.totalAllowance],
-      ['ค่าน้ำมันประมาณการ (฿)', Math.round(t.totalFuelBaht)],
-      ['ระยะทางประมาณการ (กม.)', Math.round(t.totalDistance)],
+      ["\u0E2A\u0E23\u0E38\u0E1B\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21"],
+      ["\u0E27\u0E31\u0E19\u0E17\u0E33\u0E07\u0E32\u0E19", t.days],
+      ["\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21", t.totalVisits],
+      ["\u0E2B\u0E19\u0E35\u0E49\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14", t.totalUpcoming],
+      ["\u0E2B\u0E19\u0E35\u0E49\u0E04\u0E49\u0E32\u0E07", t.totalOverdue],
+      ["\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49", t.qualifyingDays],
+      ["\u0E40\u0E1A\u0E35\u0E49\u0E22\u0E40\u0E25\u0E35\u0E49\u0E22\u0E07\u0E23\u0E27\u0E21 (\u0E3F)", t.totalAllowance],
+      ["\u0E04\u0E48\u0E32\u0E19\u0E49\u0E33\u0E21\u0E31\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23 (\u0E3F)", Math.round(t.totalFuelBaht)],
+      ["\u0E23\u0E30\u0E22\u0E30\u0E17\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23 (\u0E01\u0E21.)", Math.round(t.totalDistance)],
       [],
-      ['รายละเอียดรายวัน'],
-      ['วันที่', 'ชื่อลูกค้า', 'เบอร์โทร', 'ประเภทหนี้', 'ระดับความเสี่ยง', 'สถานะเข้าพบ', 'เวลา', 'ละติจูด', 'ลองจิจูด', 'หมายเหตุ', 'เบิกเบี้ยเลี้ยงได้'],
+      ["\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E23\u0E32\u0E22\u0E27\u0E31\u0E19"],
+      ["\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", "\u0E0A\u0E37\u0E48\u0E2D\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32", "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E2B\u0E19\u0E35\u0E49", "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2A\u0E35\u0E48\u0E22\u0E07", "\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E1A", "\u0E40\u0E27\u0E25\u0E32", "\u0E25\u0E30\u0E15\u0E34\u0E08\u0E39\u0E14", "\u0E25\u0E2D\u0E07\u0E08\u0E34\u0E08\u0E39\u0E14", "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", "\u0E40\u0E1A\u0E34\u0E01\u0E40\u0E1A\u0E35\u0E49\u0E22\u0E40\u0E25\u0E35\u0E49\u0E22\u0E07\u0E44\u0E14\u0E49"]
     ];
     for (const day of data.days) {
       for (const v of day.visits) {
         const c = v.customer;
         rows.push([
           day.dateLabel,
-          c.name || '',
-          c.phone || '',
-          c.debtType === 'current' ? 'หนี้ถึงกำหนด' : (c.debtType === 'overdue' ? 'หนี้ค้าง' : '-'),
+          c.name || "",
+          c.phone || "",
+          c.debtType === "current" ? "\u0E2B\u0E19\u0E35\u0E49\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14" : c.debtType === "overdue" ? "\u0E2B\u0E19\u0E35\u0E49\u0E04\u0E49\u0E32\u0E07" : "-",
           this._riskLabel(c.riskLevel),
           this._statusLabel(v.visit.status),
-          v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString('th-TH') : '',
-          v.visit.lat || '',
-          v.visit.lng || '',
-          v.visit.note || '',
-          day.qualifies ? 'ได้ ' + Utils.formatBaht(day.allowance) : 'ไม่ได้',
+          v.visit.timestamp ? new Date(v.visit.timestamp).toLocaleTimeString("th-TH") : "",
+          v.visit.lat || "",
+          v.visit.lng || "",
+          v.visit.note || "",
+          day.qualifies ? "\u0E44\u0E14\u0E49 " + Utils.formatBaht(day.allowance) : "\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"
         ]);
       }
     }
-    // Add UTF-8 BOM for Excel
-    const csv = '\ufeff' + rows.map(r => r.map(cell => {
+    const csv = "\uFEFF" + rows.map((r) => r.map((cell) => {
       const s = String(cell);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    }).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    }).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `report-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    Utils.toast('📊 ดาวน์โหลด CSV แล้ว');
+    Utils.toast("\u{1F4CA} \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 CSV \u0E41\u0E25\u0E49\u0E27");
   },
-
   // ===== Export: Share text =====
   shareText() {
+    var _a;
     if (!this._currentReport) return;
     const data = this._currentReport;
     const t = data.totals;
-    const officer = Auth.getUser()?.name || '';
+    const officer = ((_a = Auth.getUser()) == null ? void 0 : _a.name) || "";
     const lines = [
-      `📋 *รายงานติดตามหนี้*`,
-      `👤 เจ้าหน้าที่: ${officer}`,
-      `📅 ช่วง: ${Utils.formatThaiDate(data.from)} – ${Utils.formatThaiDate(data.to)}`,
-      `🚗 ${data.vehicleLabel}`,
+      `\u{1F4CB} *\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E2B\u0E19\u0E35\u0E49*`,
+      `\u{1F464} \u0E40\u0E08\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48: ${officer}`,
+      `\u{1F4C5} \u0E0A\u0E48\u0E27\u0E07: ${Utils.formatThaiDate(data.from)} \u2013 ${Utils.formatThaiDate(data.to)}`,
+      `\u{1F697} ${data.vehicleLabel}`,
       ``,
-      `📊 *สรุป*`,
-      `• ${t.days} วันทำงาน · ${t.totalVisits} ครั้ง`,
-      `• หนี้ถึงกำหนด: ${t.totalUpcoming} ราย`,
-      `• หนี้ค้าง: ${t.totalOverdue} ราย`,
-      `• วันที่เบิกได้: ${t.qualifyingDays}/${t.days}`,
-      `• *เบี้ยเลี้ยงรวม: ${Utils.formatBaht(t.totalAllowance)}*`,
-      `• ค่าน้ำมันประมาณการ: ${Utils.formatBaht(t.totalFuelBaht)}`,
-      ``,
+      `\u{1F4CA} *\u0E2A\u0E23\u0E38\u0E1B*`,
+      `\u2022 ${t.days} \u0E27\u0E31\u0E19\u0E17\u0E33\u0E07\u0E32\u0E19 \xB7 ${t.totalVisits} \u0E04\u0E23\u0E31\u0E49\u0E07`,
+      `\u2022 \u0E2B\u0E19\u0E35\u0E49\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14: ${t.totalUpcoming} \u0E23\u0E32\u0E22`,
+      `\u2022 \u0E2B\u0E19\u0E35\u0E49\u0E04\u0E49\u0E32\u0E07: ${t.totalOverdue} \u0E23\u0E32\u0E22`,
+      `\u2022 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49: ${t.qualifyingDays}/${t.days}`,
+      `\u2022 *\u0E40\u0E1A\u0E35\u0E49\u0E22\u0E40\u0E25\u0E35\u0E49\u0E22\u0E07\u0E23\u0E27\u0E21: ${Utils.formatBaht(t.totalAllowance)}*`,
+      `\u2022 \u0E04\u0E48\u0E32\u0E19\u0E49\u0E33\u0E21\u0E31\u0E19\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E01\u0E32\u0E23: ${Utils.formatBaht(t.totalFuelBaht)}`,
+      ``
     ];
     for (const day of data.days) {
-      lines.push(`📅 *${day.dateLabel}* ${day.qualifies ? '✅ เบิกได้' : '❌'}`);
-      lines.push(`  ถึงกำหนด: ${day.upcoming} · ค้าง: ${day.overdue} · ราย: ${day.visits.length}`);
+      lines.push(`\u{1F4C5} *${day.dateLabel}* ${day.qualifies ? "\u2705 \u0E40\u0E1A\u0E34\u0E01\u0E44\u0E14\u0E49" : "\u274C"}`);
+      lines.push(`  \u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14: ${day.upcoming} \xB7 \u0E04\u0E49\u0E32\u0E07: ${day.overdue} \xB7 \u0E23\u0E32\u0E22: ${day.visits.length}`);
       for (const v of day.visits.slice(0, 5)) {
         const status = this._statusEmoji(v.visit.status);
-        const coords = v.visit.lat ? ` 📍${v.visit.lat.toFixed(3)},${v.visit.lng.toFixed(3)}` : '';
+        const coords = v.visit.lat ? ` \u{1F4CD}${v.visit.lat.toFixed(3)},${v.visit.lng.toFixed(3)}` : "";
         lines.push(`  ${status} ${v.customer.name}${coords}`);
       }
-      if (day.visits.length > 5) lines.push(`  ... +${day.visits.length - 5} ราย`);
+      if (day.visits.length > 5) lines.push(`  ... +${day.visits.length - 5} \u0E23\u0E32\u0E22`);
     }
-    const text = lines.join('\n');
+    const text = lines.join("\n");
     if (navigator.share) {
-      navigator.share({ title: 'รายงานติดตามหนี้', text }).catch(() => {
+      navigator.share({ title: "\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E2B\u0E19\u0E35\u0E49", text }).catch(() => {
         this._copyToClipboard(text);
       });
     } else {
       this._copyToClipboard(text);
     }
   },
-
   _copyToClipboard(text) {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => Utils.toast('📋 คัดลอกรายงานแล้ว'));
+      navigator.clipboard.writeText(text).then(() => Utils.toast("\u{1F4CB} \u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27"));
     } else {
-      // Fallback
-      const ta = document.createElement('textarea');
+      const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand('copy');
+      document.execCommand("copy");
       document.body.removeChild(ta);
-      Utils.toast('📋 คัดลอกรายงานแล้ว');
+      Utils.toast("\u{1F4CB} \u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E41\u0E25\u0E49\u0E27");
     }
   },
-
   // ===== Helpers =====
   _statusBadge(status) {
     const label = this._statusLabel(status);
     const cls = {
-      visited: 'badge-yes',
-      interested: 'badge-yes',
-      wait_income: 'badge-warn',
-      no_answer: 'badge-no',
-      not_home: 'badge-no',
-      not_interested: 'badge-no',
-      reschedule: 'badge-warn',
-    }[status] || 'badge-warn';
+      visited: "badge-yes",
+      interested: "badge-yes",
+      wait_income: "badge-warn",
+      no_answer: "badge-no",
+      not_home: "badge-no",
+      not_interested: "badge-no",
+      reschedule: "badge-warn"
+    }[status] || "badge-warn";
     return `<span class="${cls}">${label}</span>`;
   },
   _statusLabel(status) {
     return {
-      visited: '✅ พบลูกค้า',
-      no_answer: '❌ ไม่พบลูกค้า',
-      not_home: '🚪 ไม่อยู่บ้าน',
-      reschedule: '📅 นัดใหม่',
-      interested: '🤝 รับปากจ่าย',
-      wait_income: '⏳ รอรายได้',
-      not_interested: '🚫 ไม่จ่าย',
-      pending: '⏳ รอ',
-    }[status] || status || '-';
+      visited: "\u2705 \u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      no_answer: "\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32",
+      not_home: "\u{1F6AA} \u0E44\u0E21\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E1A\u0E49\u0E32\u0E19",
+      reschedule: "\u{1F4C5} \u0E19\u0E31\u0E14\u0E43\u0E2B\u0E21\u0E48",
+      interested: "\u{1F91D} \u0E23\u0E31\u0E1A\u0E1B\u0E32\u0E01\u0E08\u0E48\u0E32\u0E22",
+      wait_income: "\u23F3 \u0E23\u0E2D\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49",
+      not_interested: "\u{1F6AB} \u0E44\u0E21\u0E48\u0E08\u0E48\u0E32\u0E22",
+      pending: "\u23F3 \u0E23\u0E2D"
+    }[status] || status || "-";
   },
   _statusEmoji(status) {
     return {
-      visited: '✅', no_answer: '❌', not_home: '🚪',
-      reschedule: '📅', interested: '🤝', wait_income: '⏳', not_interested: '🚫', pending: '⏳',
-    }[status] || '•';
+      visited: "\u2705",
+      no_answer: "\u274C",
+      not_home: "\u{1F6AA}",
+      reschedule: "\u{1F4C5}",
+      interested: "\u{1F91D}",
+      wait_income: "\u23F3",
+      not_interested: "\u{1F6AB}",
+      pending: "\u23F3"
+    }[status] || "\u2022";
   },
   _riskLabel(level) {
     return {
-      good: '🟢 ดี',
-      warning: '🟡 เริ่มมีปัญหา',
-      bad: '🔴 มีปัญหามาก',
-      unclassified: '❓ ยังไม่จัด',
-    }[level] || '-';
+      good: "\u{1F7E2} \u0E14\u0E35",
+      warning: "\u{1F7E1} \u0E40\u0E23\u0E34\u0E48\u0E21\u0E21\u0E35\u0E1B\u0E31\u0E0D\u0E2B\u0E32",
+      bad: "\u{1F534} \u0E21\u0E35\u0E1B\u0E31\u0E0D\u0E2B\u0E32\u0E21\u0E32\u0E01",
+      unclassified: "\u2753 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E08\u0E31\u0E14"
+    }[level] || "-";
   },
   _escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
+    const div = document.createElement("div");
+    div.textContent = str || "";
     return div.innerHTML;
-  },
+  }
 };
-
 window.Report = Report;
-// ===== Main App — orchestration + event handlers =====
-
-// ===== Office location (single source of truth) =====
-// Used as: initial map view, mini-map default, quick-route / route-planner
-// start point. Update here and every screen picks it up automatically.
-// Was previously hardcoded as Bangkok coords [13.7563, 100.5018] in 7 places
-// — that's why the map kept centering on Bangkok even though the comment
-// said "BAAC Wang Tha Chang".
 const OFFICE_LOCATION = {
   lat: 13.7760801,
   lng: 101.8907475,
-  name: 'BAAC สาขาวังท่าช้าง',
-  accuracy: 50, // meters — used for the GPS pin accuracy circle
+  name: "BAAC \u0E2A\u0E32\u0E02\u0E32\u0E27\u0E31\u0E07\u0E17\u0E48\u0E32\u0E0A\u0E49\u0E32\u0E07",
+  accuracy: 50
+  // meters — used for the GPS pin accuracy circle
 };
 window.OFFICE_LOCATION = OFFICE_LOCATION;
-
 const App = {
   // Known server version (updated on every fetch from version.json)
   _knownVersion: null,
   _versionCheckTimer: null,
-
   // Init
   async init() {
-    // attachEvents + version watcher MUST bind even before login resolves.
-    // afterLogin is async (network/sync) and can be slow or throw — if we await
-    // it first, header/panel buttons (help/report/refresh/logout)
-    // never get their listeners until login fully settles. Bind early instead.
     this.attachEvents();
     this.startVersionWatcher();
-    // ยก panel/modal พ้นแป้นพิมพ์มือถือ (iOS keyboard guardian)
-    if (typeof Utils !== 'undefined' && Utils.initKeyboardGuard) Utils.initKeyboardGuard();
-    // แจ้งเตือนถ้าเพิ่งกดปุ่มอัปเดตแล้ว reload เสร็จ
+    if (typeof Utils !== "undefined" && Utils.initKeyboardGuard) Utils.initKeyboardGuard();
     this._notifyUpdateCompleted();
-    // เฟส 2-3: รายชื่ออยู่ใน IndexedDB — รอโหลดก่อน (ไม่งั้นจอแรกเห็น 0 รายแล้ว import ซ้ำ)
-    try { if (typeof Storage !== 'undefined' && Storage.ready) await Storage.ready; } catch {}
+    try {
+      if (typeof Storage !== "undefined" && Storage.ready) await Storage.ready;
+    } catch (e) {
+    }
     try {
       if (Auth.isLoggedIn()) {
         Auth.showApp();
         await this.afterLogin();
       } else {
         Auth.showLogin();
-        // เปิดมาเจอช่อง PIN เลย (ทางเข้าเดียว — เลิกรหัสผ่าน 17 ต.ค.69)
         try {
-          document.getElementById('login-screen').classList.add('login-mode');
-          const pinForm = document.getElementById('pin-form');
+          document.getElementById("login-screen").classList.add("login-mode");
+          const pinForm = document.getElementById("pin-form");
           if (pinForm) {
-            pinForm.classList.remove('hidden');
-            // โหลดปุ่มรายชื่อพนักงาน (แตะชื่อ+PIN) — พังก็ช่าง ยังใส่ PIN แอดมินได้
-            try { this.loadStaffGrid(); } catch {}
+            pinForm.classList.remove("hidden");
+            try {
+              this.loadStaffGrid();
+            } catch (e) {
+            }
           }
-        } catch {}
+        } catch (e) {
+        }
       }
     } catch (e) {
-      console.warn('[App.init] afterLogin error:', e?.message);
+      console.warn("[App.init] afterLogin error:", e == null ? void 0 : e.message);
     }
   },
-
   // ===== แจ้งเตือน "อัปเดตเสร็จแล้ว" หลัง reload จากปุ่ม 🔄 =====
   _notifyUpdateCompleted() {
-    const flag = sessionStorage.getItem('bfr_update_done');
+    const flag = sessionStorage.getItem("bfr_update_done");
     if (!flag) return;
-    sessionStorage.removeItem('bfr_update_done');
-    if (typeof Utils !== 'undefined' && Utils.toast) {
+    sessionStorage.removeItem("bfr_update_done");
+    if (typeof Utils !== "undefined" && Utils.toast) {
       setTimeout(() => {
-        Utils.toast('✅ อัปเดตเว็บเป็นเวอร์ชันใหม่เรียบร้อย', 'success');
+        Utils.toast("\u2705 \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22", "success");
       }, 800);
     }
   },
-
   // ===== Version watcher (auto-detect new deploys) =====
   async fetchServerVersion() {
     try {
-      const res = await fetch('/version.json?_=' + Date.now(), { cache: 'no-store' });
+      const res = await fetch("/version.json?_=" + Date.now(), { cache: "no-store" });
       if (!res.ok) return null;
       const data = await res.json();
       return data.version || null;
@@ -3092,117 +2894,96 @@ const App = {
       return null;
     }
   },
-
   // ===== Show current version in header label =====
   _renderVersionLabel(ver) {
-    const el = document.getElementById('version-label');
+    const el = document.getElementById("version-label");
     if (!el) return;
     el.textContent = `v${ver}`;
-    el.style.cursor = 'default';
-    el.title = 'เวอร์ชันปัจจุบันของเว็บ';
+    el.style.cursor = "default";
+    el.title = "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E02\u0E2D\u0E07\u0E40\u0E27\u0E47\u0E1A";
   },
-
   // ===== Initialize header components =====
   _initHeader() {
-    // Set user avatar initial
     const user = Auth.getUser();
     if (user && user.name) {
       const initial = user.name.charAt(0).toUpperCase();
-      const avatarEl = document.getElementById('avatar-initial');
+      const avatarEl = document.getElementById("avatar-initial");
       if (avatarEl) avatarEl.textContent = initial;
     }
-
-    // More menu toggle
-    const moreBtn = document.getElementById('more-menu-btn');
-    const moreDropdown = document.getElementById('more-menu-dropdown');
+    const moreBtn = document.getElementById("more-menu-btn");
+    const moreDropdown = document.getElementById("more-menu-dropdown");
     if (moreBtn && moreDropdown) {
-      moreBtn.addEventListener('click', (e) => {
+      moreBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        moreDropdown.classList.toggle('active');
+        moreDropdown.classList.toggle("active");
       });
-      
-      // Close on outside click
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.header-more-menu')) {
-          moreDropdown.classList.remove('active');
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".header-more-menu")) {
+          moreDropdown.classList.remove("active");
         }
       });
-      
-      // Close on item click
-      moreDropdown.querySelectorAll('.more-menu-item').forEach(item => {
-        item.addEventListener('click', () => {
-          moreDropdown.classList.remove('active');
+      moreDropdown.querySelectorAll(".more-menu-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          moreDropdown.classList.remove("active");
         });
       });
     }
-
-    // Sync badge click
-    const syncBadge = document.getElementById('sync-badge-header');
+    const syncBadge = document.getElementById("sync-badge-header");
     if (syncBadge) {
-      syncBadge.addEventListener('click', () => {
-        if (typeof Storage !== 'undefined' && Storage.retrySync) {
+      syncBadge.addEventListener("click", () => {
+        if (typeof Storage !== "undefined" && Storage.retrySync) {
           Storage.retrySync();
         }
       });
     }
   },
-
   async checkForUpdate() {
     const serverVer = await this.fetchServerVersion();
     if (!serverVer) return false;
-    const stored = localStorage.getItem('app_version') || '0';
-    const btn = document.getElementById('refresh-btn');
-    const label = document.getElementById('version-label');
+    const stored = localStorage.getItem("app_version") || "0";
+    const btn = document.getElementById("refresh-btn");
+    const label = document.getElementById("version-label");
     if (serverVer !== stored && !this._skipFirstNotify) {
-      // New version detected (don't show on first load)
       if (btn) {
-        btn.classList.add('has-update');
-        btn.title = `เวอร์ชันใหม่ ${serverVer} พร้อมใช้งาน! (กดเพื่ออัพเดท)`;
+        btn.classList.add("has-update");
+        btn.title = `\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E43\u0E2B\u0E21\u0E48 ${serverVer} \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19! (\u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17)`;
       }
       if (label) {
         label.textContent = `v${serverVer}`;
-        label.classList.add('has-update');
-        label.title = 'มีเวอร์ชันใหม่ — ระบบกำลังอัปเดตให้อัตโนมัติ';
+        label.classList.add("has-update");
+        label.title = "\u0E21\u0E35\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E43\u0E2B\u0E21\u0E48 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34";
       }
-      // ===== AUTO-UPDATE: สั่ง SW ใหม่เข้าควบคุมทันที =====
-      // ไม่ต้องรอให้ผู้ใช้กดปุ่ม — เว็บอัปเดตตัวเองอัตโนมัติ
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
+      if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((reg) => {
           if (reg.waiting) {
-            // SW ใหม่กำลังรอ → สั่งเข้าควบคุมทันที
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
           } else {
-            // ตรวจหา SW ใหม่
             reg.update();
           }
         });
       }
-      // Auto-notify with banner (auto-reload after 8 seconds — fallback ถ้า SW ไม่ reload)
-      if (!this._updateNotified && typeof Utils !== 'undefined') {
+      if (!this._updateNotified && typeof Utils !== "undefined") {
         this._updateNotified = true;
         this._showUpdateToast(serverVer);
       }
       return true;
     }
     if (btn) {
-      btn.classList.remove('has-update');
-      btn.title = 'กดเพื่ออัปเดตเว็บเป็นเวอร์ชันล่าสุด (เคลียร์ cache)';
+      btn.classList.remove("has-update");
+      btn.title = "\u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 (\u0E40\u0E04\u0E25\u0E35\u0E22\u0E23\u0E4C cache)";
     }
     if (label) {
-      label.classList.remove('has-update');
+      label.classList.remove("has-update");
       label.textContent = `v${stored}`;
-      label.title = 'เวอร์ชันปัจจุบันของเว็บ';
+      label.title = "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E02\u0E2D\u0E07\u0E40\u0E27\u0E47\u0E1A";
     }
     return false;
   },
-
   _showUpdateToast(newVer) {
-    // Build a persistent toast banner at top of screen
-    const existing = document.getElementById('update-banner');
+    const existing = document.getElementById("update-banner");
     if (existing) existing.remove();
-
-    const banner = document.createElement('div');
-    banner.id = 'update-banner';
+    const banner = document.createElement("div");
+    banner.id = "update-banner";
     banner.style.cssText = `
       position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
       background: #0a8f3c; color: #fff; text-align: center;
@@ -3212,62 +2993,52 @@ const App = {
       justify-content: center; gap: 10px;
     `;
     banner.innerHTML = `
-      <span>🔄 อัปเดตเวอร์ชัน ${newVer} — กดเพื่อโหลดใหม่ทันที</span>
-      <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-size:13px" id="update-countdown">⏳ 8 วิ</span>
+      <span>\u{1F504} \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 ${newVer} \u2014 \u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E2B\u0E25\u0E14\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E19\u0E17\u0E35</span>
+      <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:4px;font-size:13px" id="update-countdown">\u23F3 8 \u0E27\u0E34</span>
     `;
-    banner.addEventListener('click', () => {
-      if (typeof App !== 'undefined') App.applyUpdate();
+    banner.addEventListener("click", () => {
+      if (typeof App !== "undefined") App.applyUpdate();
     });
     document.body.prepend(banner);
-
-    // Countdown then auto-reload
     let sec = 8;
-    const countEl = document.getElementById('update-countdown');
+    const countEl = document.getElementById("update-countdown");
     this._updateTimer = setInterval(() => {
       sec--;
-      if (countEl) countEl.textContent = `⏳ ${sec} วิ`;
+      if (countEl) countEl.textContent = `\u23F3 ${sec} \u0E27\u0E34`;
       if (sec <= 0) {
         clearInterval(this._updateTimer);
-        if (typeof App !== 'undefined') App.applyUpdate();
+        if (typeof App !== "undefined") App.applyUpdate();
       }
-    }, 1000);
+    }, 1e3);
   },
-
   startVersionWatcher() {
-    // Set known version on first load (ครั้งแรกยังไม่แจ้ง — กันเตือนตอนเปิดใหม่)
-    // หมายเหตุ: ใช้ธง _skipFirstNotify แทนการเช็ค _knownVersion เพราะถ้า fetch
-    // รอบแรกพลาด (เน็ตกระตุกตอนเปิด) ธงเก่าจะล็อกเงียบตลอดไปจนกว่าจะ reload
     this._skipFirstNotify = true;
-    setTimeout(() => { this._skipFirstNotify = false; }, 15000);
-    this.fetchServerVersion().then(v => {
+    setTimeout(() => {
+      this._skipFirstNotify = false;
+    }, 15e3);
+    this.fetchServerVersion().then((v) => {
       if (v) {
         this._knownVersion = v;
-        localStorage.setItem('app_version', v);
+        localStorage.setItem("app_version", v);
         this._renderVersionLabel(v);
       }
       this._skipFirstNotify = false;
     });
-    // Check every 60 seconds (เร็วขึ้นจาก 5 นาที)
     if (this._versionCheckTimer) clearInterval(this._versionCheckTimer);
-    this._versionCheckTimer = setInterval(() => this.checkForUpdate(), 60 * 1000);
-    // Also re-check when tab regains focus
-    document.addEventListener('visibilitychange', () => {
+    this._versionCheckTimer = setInterval(() => this.checkForUpdate(), 60 * 1e3);
+    document.addEventListener("visibilitychange", () => {
       if (!document.hidden) this.checkForUpdate();
     });
-    // ===== AUTO-UPDATE: เมื่อ SW ใหม่เข้าควบคุม → reload อัตโนมัติ =====
-    // ไม่ต้องรอให้ผู้ใช้กดปุ่ม — เว็บอัปเดตตัวเองทันที
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // SW ใหม่เข้าควบคุมแล้ว → reload หน้า (ใช้ flag กัน reload ซ้ำ)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
         if (!this._swReloading) {
           this._swReloading = true;
-          sessionStorage.setItem('bfr_update_done', '1');
+          sessionStorage.setItem("bfr_update_done", "1");
           window.location.reload();
         }
       });
     }
   },
-
   // Backfill เครื่องเก่าด้วยข้อมูลสดจากฐานกลาง (22 ต.ค.69)
   // ที่มา: เข้าแอปด้วย user เดิมบนเครื่องที่เคยโหลดไว้ → afterLogin ข้าม import (ของไม่ว่าง)
   // เติมแค่ overlay → หมุดที่ปักจากเครื่องอื่น (อยู่ใน D1 แต่ไม่อยู่ใน overlay) ไม่เข้าเครื่องนี้เลย
@@ -3275,24 +3046,23 @@ const App = {
   // กฎ: เติมเฉพาะ 4 ช่องที่ server เป็นเจ้าของ (branch/zone/lat/lng) ห้ามแตะชื่อ/เบอร์ฝีมือคนแก้
   _backfillFromCentralDB() {
     try {
-      if (typeof CustomerDB === 'undefined' || !CustomerDB._loaded || !CustomerDB._byCif) return 0;
-      if (typeof Storage === 'undefined' || !Storage.getCustomers) return 0;
+      if (typeof CustomerDB === "undefined" || !CustomerDB._loaded || !CustomerDB._byCif) return 0;
+      if (typeof Storage === "undefined" || !Storage.getCustomers) return 0;
       const list = Storage.getCustomers();
       if (!list.length) return 0;
-      const byCif = new Map(list.map(c => [String(c.cif || '').trim(), c]));
+      const byCif = new Map(list.map((c) => [String(c.cif || "").trim(), c]));
       let n = 0;
       CustomerDB._byCif.forEach((r, key) => {
+        var _a, _b, _c, _d;
         if (!r) return;
-        const old = byCif.get(String(key || '').trim());
+        const old = byCif.get(String(key || "").trim());
         if (!old) return;
-        const nLat = (r.lat ?? null), nLng = (r.lng ?? null);
-        const nAddr = (typeof Storage._fullAddress === 'function') ? Storage._fullAddress(r) : (r.address || '');
-        const addrStale = nAddr && old.address !== nAddr &&
-          (!old.address || old.address === (r.address || '') || old.address === '-');
-        if ((old.branch || '') !== (r.branch || '') || (old.zone || '') !== (r.zone || '') ||
-            (old.lat ?? null) !== nLat || (old.lng ?? null) !== nLng || addrStale) {
-          old.branch = r.branch || '';
-          old.zone = r.zone || '';
+        const nLat = (_a = r.lat) != null ? _a : null, nLng = (_b = r.lng) != null ? _b : null;
+        const nAddr = typeof Storage._fullAddress === "function" ? Storage._fullAddress(r) : r.address || "";
+        const addrStale = nAddr && old.address !== nAddr && (!old.address || old.address === (r.address || "") || old.address === "-");
+        if ((old.branch || "") !== (r.branch || "") || (old.zone || "") !== (r.zone || "") || ((_c = old.lat) != null ? _c : null) !== nLat || ((_d = old.lng) != null ? _d : null) !== nLng || addrStale) {
+          old.branch = r.branch || "";
+          old.zone = r.zone || "";
           old.lat = nLat;
           old.lng = nLng;
           if (addrStale) old.address = nAddr;
@@ -3301,727 +3071,683 @@ const App = {
       });
       if (n > 0) {
         Storage.saveCustomers(list);
-        if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
-        if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📍 อัพเดทพิกัดจากฐานกลาง ${n} รายการ`);
+        if (typeof Customers !== "undefined" && Customers.renderAll) Customers.renderAll();
+        if (typeof Utils !== "undefined" && Utils.toast) Utils.toast(`\u{1F4CD} \u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E01\u0E25\u0E32\u0E07 ${n} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`);
       }
       return n;
     } catch (e) {
-      console.warn('[backfill] failed:', e.message);
+      console.warn("[backfill] failed:", e.message);
       return 0;
     }
   },
-
   // After login — load data
   async afterLogin() {
-    // เปลี่ยนคนใช้เครื่องเดิม → ล้างข้อมูลคนเก่า โหลดของคนใหม่ (17 ต.ค.69)
-    // อาการ: เข้าด้วย kbb บนเครื่องที่เคยเข้า wtc → เห็นรายชื่อ wtc ไม่มี kbb เลย
-    // สาเหตุ: bfr_customers ใช้ร่วมกันทุก login + logout ไม่ล้าง + เข้าใหม่ไม่โหลดซ้ำถ้ามีของเก่า
+    var _a, _b, _c;
     try {
-      const me = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+      const me = typeof Auth !== "undefined" && Auth.getUser ? Auth.getUser() : null;
       const myId = me && (me.id || me.username);
       let lastId = null;
-      try { lastId = localStorage.getItem('bfr_login_id'); } catch {}
-      if (myId && !lastId) {
-        try { localStorage.setItem('bfr_login_id', myId); } catch {}
-      } else if (myId && lastId && lastId !== myId) {
-        try { await Storage.push(); } catch {}   // ส่งงานค้างคนเก่าก่อน (ตอนสลับ user เน็ตใช้ได้เสมอเพราะ login ผ่านเน็ต)
-        try {
-          Storage.saveCustomers([]);             // ล้างรายชื่อคนเก่าทั้งหมด — เดี๋ยว import ของคนใหม่ต่อข้างล่าง
-          if (typeof CustomerDB !== 'undefined') CustomerDB._loaded = false;
-          if (typeof DebtDB !== 'undefined') DebtDB._loaded = false;
-        } catch {}
-        try { localStorage.setItem('bfr_login_id', myId); } catch {}
-        if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('🔄 เปลี่ยนผู้ใช้ — กำลังโหลดข้อมูลใหม่');
+      try {
+        lastId = localStorage.getItem("bfr_login_id");
+      } catch (e) {
       }
-    } catch {}
-    // Phase 1: Migrate old customers to new schema (riskLevel + debtType)
+      if (myId && !lastId) {
+        try {
+          localStorage.setItem("bfr_login_id", myId);
+        } catch (e) {
+        }
+      } else if (myId && lastId && lastId !== myId) {
+        try {
+          await Storage.push();
+        } catch (e) {
+        }
+        try {
+          Storage.saveCustomers([]);
+          if (typeof CustomerDB !== "undefined") CustomerDB._loaded = false;
+          if (typeof DebtDB !== "undefined") DebtDB._loaded = false;
+        } catch (e) {
+        }
+        try {
+          localStorage.setItem("bfr_login_id", myId);
+        } catch (e) {
+        }
+        if (typeof Utils !== "undefined" && Utils.toast) Utils.toast("\u{1F504} \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 \u2014 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E21\u0E48");
+      }
+    } catch (e) {
+    }
     Storage.migrateCustomers();
-
-    // Initialize header components (avatar, more menu, sync badge)
     this._initHeader();
-    this.applyFieldBig();   // B (17 ต.ค.69): ติดโหมดตัวใหญ่ที่จำไว้ (ถ้าเคยเปิด)
-
+    this.applyFieldBig();
     Customers.initMap();
-    // Initial load: NO fitBounds — เปิดมาเห็นจังหวัดปราจีนบุรี zoom 12 ตาม default
-    // (fitBounds ดัน view ไปยึด marker GPS ทั้งหมด ทำให้ไม่เห็นภาพรวมจังหวัด)
     Customers.renderAll();
-    // A1 (17 ต.ค.69): บังคับเปิดที่สำนักงานซูม 13 ทุกครั้งหลัง login
-    // (เจอจริงบนเว็บ: เปิดมา center 7.11,50.98 zoom 4 กลางทะเล ทั้งที่ initMap ตั้ง office ไว้)
     try {
       const _office = window.OFFICE_LOCATION || { lat: 13.7760801, lng: 101.8907475 };
       if (Customers.map) Customers.map.setView([_office.lat, _office.lng], 13);
-    } catch {}
+    } catch (e) {
+    }
     Visit.render();
     Route.attachEvents();
     this.updateRouteUI();
     this.updateAdminUI();
-    // Init bottom sheet (map-as-canvas mode)
     this.initBottomSheet();
-    // PERF 20261117: ไม่โหลดฐานรายชื่อทั้งก้อน (11,785 แถว ~6MB) ตอนเปิดแอปอีกต่อไป
-    // → โหลดเมื่อผู้ใช้เปิดแท็บลูกค้า/ค้นหา/เปิดการ์ด (CustomerDB.ensure) แล้วค่อย backfill พิกัดให้
     const _custPromise = Promise.resolve();
-    if (typeof CustomerDB !== 'undefined' && CustomerDB.ensure) {
-      document.addEventListener('customerdb:loaded', () => {
-        try { this._backfillFromCentralDB(); } catch {}
+    if (typeof CustomerDB !== "undefined" && CustomerDB.ensure) {
+      document.addEventListener("customerdb:loaded", () => {
+        try {
+          this._backfillFromCentralDB();
+        } catch (e) {
+        }
       }, { once: true });
     }
-
-    // 17 พ.ย.69: เครื่องที่เคยดึงลูกค้าแค่ 10,000 (เพดานเดิม) → เติมให้ครบตามยอดจริงในเซิร์ฟเวอร์
-    // (เดิมเกจขึ้น "952/10,000" เพราะในเครื่องมีแค่ 10,000 จาก 11,785)
-    if (typeof Storage !== 'undefined' && Storage.importFromStaticDB) {
+    if (typeof Storage !== "undefined" && Storage.importFromStaticDB) {
       const _topUp = async () => {
         try {
-          const st = await API.get('/api/customers/stats');
+          const st = await API.get("/api/customers/stats");
           if (!st || !st.success || !st.total_customers) return;
           const have = Storage.getActiveCustomers().length;
           if (have > 0 && have < st.total_customers) {
             const r = await Storage.importFromStaticDB();
             if (r && r.imported > 0) {
-              if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
-              if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📥 เติมลูกค้าให้ครบ ${r.imported.toLocaleString()} ราย`);
+              if (typeof Customers !== "undefined" && Customers.renderAll) Customers.renderAll();
+              if (typeof Utils !== "undefined" && Utils.toast) Utils.toast(`\u{1F4E5} \u0E40\u0E15\u0E34\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A ${r.imported.toLocaleString()} \u0E23\u0E32\u0E22`);
             }
           }
-        } catch { /* เงียบ — ลองใหม่รอบหน้า */ }
-      };
-      if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_topUp, { timeout: 5000 });
-      else setTimeout(_topUp, 3000);
-    }
-    const _debtPromise = (typeof DebtDB !== 'undefined' && DebtDB.load) ? DebtDB.load().then(() => {
-        if (typeof Customers !== 'undefined' && Customers.initDebtFilter) Customers.initDebtFilter();
-        if (typeof Customers !== 'undefined' && Customers.renderAll) Customers.renderAll();
-        // หนี้พร้อมแล้วค่อยวาดหน้า "งานวันนี้" แบบ idle (ไม่บล็อกแผนที่)
-        if (typeof TodayUI !== 'undefined') {
-          const _doToday = () => { try { TodayUI.refresh(); } catch(e){} };
-          if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(_doToday, {timeout: 1200});
-          else setTimeout(_doToday, 60);
+        } catch (e) {
         }
-    }).catch(() => {}) : Promise.resolve();
-
-    this.renderTodayRoute();
-    // เปิดแท็บงานวันนี้แบบเบา: วาดแค่ collect+promise ก่อน (ไม่ต้องกรองหนี้ 9k)
-    try { this.switchSheetTab('today'); } catch {}
-    if (typeof TodayUI !== 'undefined') {
-      // วาดคิวก่อนด้วยข้อมูลในเครื่อง (DebtDB อาจยังไม่เสร็จ — badge หนี้จะเติมทีหลัง)
-      try { TodayUI.refreshCollect(); TodayUI.refreshPromise(); } catch (e) {}
+      };
+      if (typeof requestIdleCallback !== "undefined") requestIdleCallback(_topUp, { timeout: 5e3 });
+      else setTimeout(_topUp, 3e3);
     }
-
-    // Init floating map search bar (Google Maps-style)
-    if (typeof MapSearch !== 'undefined') MapSearch.init();
-    // Q-FILTER 8ก.ย.69: แผงตัวกรองพับได้ (default พับเหลือแค่ค้นหา)
-    if (typeof FilterPanel !== 'undefined') FilterPanel.init();
-
-    // Auto-import static DB on first run (empty localStorage — new device / cleared cache)
+    const _debtPromise = typeof DebtDB !== "undefined" && DebtDB.load ? DebtDB.load().then(() => {
+      if (typeof Customers !== "undefined" && Customers.initDebtFilter) Customers.initDebtFilter();
+      if (typeof Customers !== "undefined" && Customers.renderAll) Customers.renderAll();
+      if (typeof TodayUI !== "undefined") {
+        const _doToday = () => {
+          try {
+            TodayUI.refresh();
+          } catch (e) {
+          }
+        };
+        if (typeof requestIdleCallback !== "undefined") requestIdleCallback(_doToday, { timeout: 1200 });
+        else setTimeout(_doToday, 60);
+      }
+    }).catch(() => {
+    }) : Promise.resolve();
+    this.renderTodayRoute();
+    try {
+      this.switchSheetTab("today");
+    } catch (e) {
+    }
+    if (typeof TodayUI !== "undefined") {
+      try {
+        TodayUI.refreshCollect();
+        TodayUI.refreshPromise();
+      } catch (e) {
+      }
+    }
+    if (typeof MapSearch !== "undefined") MapSearch.init();
+    if (typeof FilterPanel !== "undefined") FilterPanel.init();
     if (Storage.getCustomers().length === 0) {
       try {
         const r = await Storage.importFromStaticDB();
         if (r && r.imported > 0) {
-          Customers.renderAll(undefined, { fitBounds: true });
-          Utils.toast(`📥 โหลดลูกค้า ${r.imported} รายการจากฐานข้อมูลกลาง (${r.withGPS} มีพิกัด)`);
+          Customers.renderAll(void 0, { fitBounds: true });
+          Utils.toast(`\u{1F4E5} \u0E42\u0E2B\u0E25\u0E14\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 ${r.imported} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E25\u0E32\u0E07 (${r.withGPS} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14)`);
         }
       } catch (e) {
-        console.warn('[afterLogin] auto-import failed:', e.message);
+        console.warn("[afterLogin] auto-import failed:", e.message);
       }
     } else {
-      // Existing device: re-apply server GPS overlay so coords match the web
-      // (server-authoritative — uploaded coords overwrite this device's copy)
       try {
         const n = await Storage.applyGpsOverlay();
         if (n > 0) {
           Customers.renderAll();
-          Utils.toast(`📍 อัพเดทพิกัดจากเว็บ ${n} รายการ`);
+          Utils.toast(`\u{1F4CD} \u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A ${n} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`);
         }
       } catch (e) {
-        console.warn('[afterLogin] gps-overlay apply failed:', e.message);
+        console.warn("[afterLogin] gps-overlay apply failed:", e.message);
       }
     }
-
-    // Initial sync (push local + pull remote)
     const sync = await Storage.sync();
     if (sync && sync.success) {
       const c = sync.counts || {};
-      Utils.toast(`☁️ Sync: ${c.customers ?? 0} ลูกค้า, ${c.visits ?? 0} visits, ${c.savedRoutes ?? 0} เส้นทาง`);
+      Utils.toast(`\u2601\uFE0F Sync: ${(_a = c.customers) != null ? _a : 0} \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32, ${(_b = c.visits) != null ? _b : 0} visits, ${(_c = c.savedRoutes) != null ? _c : 0} \u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07`);
       Customers.renderAll();
       this.updateRouteUI();
     } else if (sync && sync.error) {
-      Utils.toast('⚠️ Sync ไม่สำเร็จ — ใช้ข้อมูล local', 'warn');
+      Utils.toast("\u26A0\uFE0F Sync \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E43\u0E0A\u0E49\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 local", "warn");
     }
-
-    // Start real-time polling — 20 วิ/รอบ (เดิม 60): เครื่องอื่นเห็นหมุด/ข้อมูลใหม่ไวกว่า
-    // ต้นทุนจริง ~1 rows_read/รอบ ตอนไม่มีข้อมูลใหม่ (etag cache hit) → ยังห่างโควตา D1 5M/วันมาก
     this._wireSyncEvents();
-    Storage.startPolling(20000);
-    // กลับเข้าแอป / เน็ตกลับมา → เช็คข้อมูลใหม่ทันที ไม่ต้องรอรอบถัดไป
+    Storage.startPolling(2e4);
     if (!this._pollNowBound) {
       this._pollNowBound = true;
-      const pollNow = () => { if (!document.hidden && navigator.onLine) Storage.pollOnce(); };
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) pollNow(); });
-      window.addEventListener('focus', pollNow);
-      // เน็ตกลับมา → ส่งงานที่ทำค้างไว้ในเครื่องก่อน แล้วค่อยเช็คของใหม่
-      // (เดิมทำแค่ poll = ดึงของใหม่ งานที่ปักหมุด/บันทึกตอนเน็ตหลุดไม่ถูกส่งขึ้นเว็บ
-      //  จนกว่าจะมีการบันทึกครั้งถัดไป — ถ้าเครื่อง/เบราว์เซอร์ล้างข้อมูลก็หายถาวร)
-      window.addEventListener('online', async () => {
+      const pollNow = () => {
+        if (!document.hidden && navigator.onLine) Storage.pollOnce();
+      };
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) pollNow();
+      });
+      window.addEventListener("focus", pollNow);
+      window.addEventListener("online", async () => {
         if (!navigator.onLine) return;
         const pending = Storage.pendingCount();
-        if (pending > 0) Utils.toast(`📤 เน็ตกลับมาแล้ว — กำลังส่งงานค้าง ${pending} รายการ`);
+        if (pending > 0) Utils.toast(`\u{1F4E4} \u0E40\u0E19\u0E47\u0E15\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E48\u0E07\u0E07\u0E32\u0E19\u0E04\u0E49\u0E32\u0E07 ${pending} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`);
         const res = await Storage.push();
         if (res && res.success) {
-          Storage.clearAllDirty();   // ส่งขึ้นเว็บครบแล้ว → ล้างตัวนับงานค้าง
-          if (pending > 0) Utils.toast(`✅ ส่งงานค้างขึ้นเว็บแล้ว ${pending} รายการ`);
+          Storage.clearAllDirty();
+          if (pending > 0) Utils.toast(`\u2705 \u0E2A\u0E48\u0E07\u0E07\u0E32\u0E19\u0E04\u0E49\u0E32\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E41\u0E25\u0E49\u0E27 ${pending} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23`);
         } else if (res && res.error) {
-          Utils.toast('⚠️ ยังส่งงานค้างไม่สำเร็จ — จะลองใหม่เมื่อเน็ตกลับมา', 'error');
+          Utils.toast("\u26A0\uFE0F \u0E22\u0E31\u0E07\u0E2A\u0E48\u0E07\u0E07\u0E32\u0E19\u0E04\u0E49\u0E32\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \u2014 \u0E08\u0E30\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E19\u0E47\u0E15\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32", "error");
         }
         pollNow();
       });
     }
-
-    // ป๊อบอัพ "วันนี้ทำอะไร" เลิกเด้งอัตโนมัติแล้ว (31 ต.ค.69) — หน้า "งานวันนี้"
-    // เป็นจุดเริ่มเอง (นัดวันนี้ + ตามหนี้ + คิวเก็บพิกัด) ยังเรียกจากเมนู ⋮ ได้
-    this.initPwaInstall();   // ชวนติดตั้งลงหน้าจอ (PWA — 17 ต.ค.69 พ่อสั่ง)
-
-    // Deep link: เปิด baacroute.shop/#debtsummary → ข้ามไปแท็บสรุปหนี้ทันทีหลัง login
+    this.initPwaInstall();
     try {
-      if (typeof location !== 'undefined' && location.hash === '#debtsummary') {
-        this.switchSheetTab('debtsummary');
+      if (typeof location !== "undefined" && location.hash === "#debtsummary") {
+        this.switchSheetTab("debtsummary");
         if (window.DebtSummary) DebtSummary.render();
       }
-    } catch (e) { /* ไม่ขวาง login */ }
+    } catch (e) {
+    }
   },
-
   // ===== ป๊อบอัพ "วันนี้ทำอะไร" — โผล่หลัง login (ข้ามได้ถ้าเคยติ๊กจำไว้) =====
   // force=true = เปิดจากเมนู "🏠 เริ่มตรงนี้" (ข้ามธงจำไว้ได้)
   showStartModePopup(force) {
+    var _a;
     try {
-      if (!force && localStorage.getItem('bfr_start_mode_skip') === '1') return;
-      if (document.getElementById('start-mode-overlay')) return;
-    } catch { return; }
-    const overlay = document.createElement('div');
-    overlay.id = 'start-mode-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+      if (!force && localStorage.getItem("bfr_start_mode_skip") === "1") return;
+      if (document.getElementById("start-mode-overlay")) return;
+    } catch (e) {
+      return;
+    }
+    const overlay = document.createElement("div");
+    overlay.id = "start-mode-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;";
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:16px;max-width:360px;width:100%;padding:24px 20px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-        <div style="font-size:20px;font-weight:700;margin-bottom:4px;">วันนี้ทำอะไร?</div>
-        <div style="font-size:14px;color:#666;margin-bottom:14px;">เลือกแล้วเว็บพาไปหน้านั้นเลย</div>
-        <button data-mode="gps" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#f1f8f1;font-size:18px;cursor:pointer;">📍 ดูลูกค้า / เก็บพิกัด</button>
-        <button data-mode="route" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#eef4ff;font-size:18px;cursor:pointer;">🧭 ออกพื้นที่</button>
-        <button data-mode="summary" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#fff8ec;font-size:18px;cursor:pointer;">📊 ดูสรุป</button>
-        <button data-close="1" style="display:block;width:100%;margin:8px 0 0;padding:12px;min-height:50px;border-radius:12px;border:1px solid #ccc;background:#fff;font-size:16px;color:#555;cursor:pointer;">ไว้ทีหลัง ✕</button>
+        <div style="font-size:20px;font-weight:700;margin-bottom:4px;">\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E17\u0E33\u0E2D\u0E30\u0E44\u0E23?</div>
+        <div style="font-size:14px;color:#666;margin-bottom:14px;">\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E40\u0E27\u0E47\u0E1A\u0E1E\u0E32\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E31\u0E49\u0E19\u0E40\u0E25\u0E22</div>
+        <button data-mode="gps" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#f1f8f1;font-size:18px;cursor:pointer;">\u{1F4CD} \u0E14\u0E39\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 / \u0E40\u0E01\u0E47\u0E1A\u0E1E\u0E34\u0E01\u0E31\u0E14</button>
+        <button data-mode="route" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#eef4ff;font-size:18px;cursor:pointer;">\u{1F9ED} \u0E2D\u0E2D\u0E01\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48</button>
+        <button data-mode="summary" style="display:block;width:100%;margin:8px 0;padding:14px;min-height:56px;border-radius:12px;border:1px solid #ddd;background:#fff8ec;font-size:18px;cursor:pointer;">\u{1F4CA} \u0E14\u0E39\u0E2A\u0E23\u0E38\u0E1B</button>
+        <button data-close="1" style="display:block;width:100%;margin:8px 0 0;padding:12px;min-height:50px;border-radius:12px;border:1px solid #ccc;background:#fff;font-size:16px;color:#555;cursor:pointer;">\u0E44\u0E27\u0E49\u0E17\u0E35\u0E2B\u0E25\u0E31\u0E07 \u2715</button>
         <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:14px;color:#666;cursor:pointer;min-height:44px;">
-          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> จำไว้ ไม่ถามอีก (เรียกกลับ: ⋯ → 🏠 เริ่มตรงนี้)
+          <input type="checkbox" id="start-mode-remember" style="width:22px;height:22px;"> \u0E08\u0E33\u0E44\u0E27\u0E49 \u0E44\u0E21\u0E48\u0E16\u0E32\u0E21\u0E2D\u0E35\u0E01 (\u0E40\u0E23\u0E35\u0E22\u0E01\u0E01\u0E25\u0E31\u0E1A: \u22EF \u2192 \u{1F3E0} \u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49)
         </label>
       </div>`;
     const close = (mode) => {
+      var _a2;
       try {
-        if (overlay.querySelector('#start-mode-remember')?.checked && mode) {
-          localStorage.setItem('bfr_start_mode_skip', '1');
-          localStorage.setItem('bfr_start_mode', mode);
+        if (((_a2 = overlay.querySelector("#start-mode-remember")) == null ? void 0 : _a2.checked) && mode) {
+          localStorage.setItem("bfr_start_mode_skip", "1");
+          localStorage.setItem("bfr_start_mode", mode);
         }
-      } catch {}
+      } catch (e) {
+      }
       overlay.remove();
-      if (mode === 'gps') this.switchTab('customers');
-      else if (mode === 'route') this.switchSheetTab('planvisit');
-      else if (mode === 'summary') this.switchSheetTab('debtsummary');
+      if (mode === "gps") this.switchTab("customers");
+      else if (mode === "route") this.switchSheetTab("planvisit");
+      else if (mode === "summary") this.switchSheetTab("debtsummary");
     };
-    overlay.querySelectorAll('button[data-mode]').forEach(b => {
-      b.addEventListener('click', () => close(b.dataset.mode));
+    overlay.querySelectorAll("button[data-mode]").forEach((b) => {
+      b.addEventListener("click", () => close(b.dataset.mode));
     });
-    overlay.querySelector('button[data-close]')?.addEventListener('click', () => close(null));
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    (_a = overlay.querySelector("button[data-close]")) == null ? void 0 : _a.addEventListener("click", () => close(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
     document.body.appendChild(overlay);
   },
-
   // ===== B (17 ต.ค.69): โหมดตัวใหญ่สำหรับหน้างาน — สลับ class ที่ body + จำค่าในเครื่อง =====
-  isFieldBig() { try { return localStorage.getItem('bfr_field_big') === '1'; } catch { return false; } },
+  isFieldBig() {
+    try {
+      return localStorage.getItem("bfr_field_big") === "1";
+    } catch (e) {
+      return false;
+    }
+  },
   applyFieldBig() {
     const on = this.isFieldBig();
-    try { document.body.classList.toggle('field-big', on); } catch {}
-    const s = document.getElementById('field-big-state');
-    if (s) s.textContent = on ? 'เปิด' : 'ปิด';
+    try {
+      document.body.classList.toggle("field-big", on);
+    } catch (e) {
+    }
+    const s = document.getElementById("field-big-state");
+    if (s) s.textContent = on ? "\u0E40\u0E1B\u0E34\u0E14" : "\u0E1B\u0E34\u0E14";
   },
   toggleFieldBig() {
-    try { localStorage.setItem('bfr_field_big', this.isFieldBig() ? '0' : '1'); } catch {}
+    try {
+      localStorage.setItem("bfr_field_big", this.isFieldBig() ? "0" : "1");
+    } catch (e) {
+    }
     this.applyFieldBig();
   },
-
   // ===== ติดตั้งลงหน้าจอ PWA (17 ต.ค.69 — พ่อสั่ง: เปิดเว็บแล้วชวนลงหน้าจอ) =====
   _pwaEvent: null,
   initPwaInstall() {
     if (this._pwaSnoozed()) return;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      try { e.preventDefault(); } catch {}
+    window.addEventListener("beforeinstallprompt", (e) => {
+      try {
+        e.preventDefault();
+      } catch (e2) {
+      }
       this._pwaEvent = e;
       this.showPwaBanner(false);
     });
-    window.addEventListener('appinstalled', () => this._pwaHide(true));
-    // iOS ไม่มี event นี้ — เปิดด้วย Safari แล้วยังไม่ติดตั้ง → โชว์วิธีทำมือ
+    window.addEventListener("appinstalled", () => this._pwaHide(true));
     try {
-      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
-      const standalone = (navigator.standalone === true)
-        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
+      const standalone = navigator.standalone === true || window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
       if (ios && !standalone) this.showPwaBanner(true);
-    } catch {}
+    } catch (e) {
+    }
   },
   _pwaSnoozed() {
-    try { return Date.now() < (+localStorage.getItem('bfr_pwa_snooze') || 0); }
-    catch { return false; }
+    try {
+      return Date.now() < (+localStorage.getItem("bfr_pwa_snooze") || 0);
+    } catch (e) {
+      return false;
+    }
   },
   _pwaSnooze(days) {
-    try { localStorage.setItem('bfr_pwa_snooze', String(Date.now() + days * 864e5)); } catch {}
+    try {
+      localStorage.setItem("bfr_pwa_snooze", String(Date.now() + days * 864e5));
+    } catch (e) {
+    }
   },
   showPwaBanner(isIOS) {
-    if (document.getElementById('pwa-install-banner')) return;
+    if (document.getElementById("pwa-install-banner")) return;
     if (this._pwaSnoozed()) return;
-    const bar = document.createElement('div');
-    bar.id = 'pwa-install-banner';
-    bar.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;max-width:420px;margin:0 auto;background:#fff;border:2px solid #0a8f3c;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:9000;padding:14px 14px 12px;';
-    const howto = isIOS
-      ? 'แตะปุ่ม <b>แชร์</b> ของ Safari แล้วเลือก <b>เพิ่มไปที่หน้าจอโฮม</b>'
-      : 'กดปุ่มด้านล่างครั้งเดียว เปิดครั้งหน้าแตะไอคอนได้เลย ไม่ต้องพิมพ์เว็บ';
-    bar.innerHTML =
-      '<div style="display:flex;gap:10px;align-items:center;">' +
-      '<div style="font-size:28px;">📌</div>' +
-      '<div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:700;">ติดตั้งแอปลงหน้าจอ</div>' +
-      '<div style="font-size:13px;color:#444;">' + howto + '</div></div>' +
-      '<button id="pwa-banner-close" style="min-width:44px;min-height:44px;border:none;background:none;font-size:20px;cursor:pointer;" aria-label="ปิด">✕</button></div>' +
-      (isIOS
-        ? '<button id="pwa-banner-ok" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">เข้าใจแล้ว</button>'
-        : '<button id="pwa-banner-install" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">📌 ติดตั้งเลย</button>');
+    const bar = document.createElement("div");
+    bar.id = "pwa-install-banner";
+    bar.style.cssText = "position:fixed;top:64px;left:12px;right:12px;max-width:420px;margin:0 auto;background:#fff;border:2px solid #0a8f3c;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:9000;padding:14px 14px 12px;";
+    const howto = isIOS ? "\u0E41\u0E15\u0E30\u0E1B\u0E38\u0E48\u0E21 <b>\u0E41\u0E0A\u0E23\u0E4C</b> \u0E02\u0E2D\u0E07 Safari \u0E41\u0E25\u0E49\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01 <b>\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E44\u0E1B\u0E17\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D\u0E42\u0E2E\u0E21</b>" : "\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u0E40\u0E1B\u0E34\u0E14\u0E04\u0E23\u0E31\u0E49\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E41\u0E15\u0E30\u0E44\u0E2D\u0E04\u0E2D\u0E19\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E27\u0E47\u0E1A";
+    bar.innerHTML = '<div style="display:flex;gap:10px;align-items:center;"><div style="font-size:28px;">\u{1F4CC}</div><div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:700;">\u0E15\u0E34\u0E14\u0E15\u0E31\u0E49\u0E07\u0E41\u0E2D\u0E1B\u0E25\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E08\u0E2D</div><div style="font-size:13px;color:#444;">' + howto + '</div></div><button id="pwa-banner-close" style="min-width:44px;min-height:44px;border:none;background:none;font-size:20px;cursor:pointer;" aria-label="\u0E1B\u0E34\u0E14">\u2715</button></div>' + (isIOS ? '<button id="pwa-banner-ok" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">\u0E40\u0E02\u0E49\u0E32\u0E43\u0E08\u0E41\u0E25\u0E49\u0E27</button>' : '<button id="pwa-banner-install" style="display:block;width:100%;margin-top:10px;padding:12px;min-height:52px;border-radius:12px;border:none;background:#0a8f3c;color:#fff;font-size:17px;font-weight:700;cursor:pointer;">\u{1F4CC} \u0E15\u0E34\u0E14\u0E15\u0E31\u0E49\u0E07\u0E40\u0E25\u0E22</button>');
     document.body.appendChild(bar);
-    const close = (days) => { this._pwaSnooze(days); bar.remove(); };
-    const c = document.getElementById('pwa-banner-close');
-    if (c) c.addEventListener('click', () => close(7));
-    const ok = document.getElementById('pwa-banner-ok');
-    if (ok) ok.addEventListener('click', () => close(7));
-    const go = document.getElementById('pwa-banner-install');
-    if (go) go.addEventListener('click', async () => {
+    const close = (days) => {
+      this._pwaSnooze(days);
+      bar.remove();
+    };
+    const c = document.getElementById("pwa-banner-close");
+    if (c) c.addEventListener("click", () => close(7));
+    const ok = document.getElementById("pwa-banner-ok");
+    if (ok) ok.addEventListener("click", () => close(7));
+    const go = document.getElementById("pwa-banner-install");
+    if (go) go.addEventListener("click", async () => {
       try {
         if (this._pwaEvent && this._pwaEvent.prompt) {
           await this._pwaEvent.prompt();
           const ch = this._pwaEvent.userChoice ? await this._pwaEvent.userChoice : null;
           this._pwaEvent = null;
-          close(ch && ch.outcome === 'accepted' ? 30 : 7);
+          close(ch && ch.outcome === "accepted" ? 30 : 7);
           return;
         }
-      } catch {}
+      } catch (e) {
+      }
       close(7);
     });
   },
   _pwaHide(forever) {
-    const bar = document.getElementById('pwa-install-banner');
+    const bar = document.getElementById("pwa-install-banner");
     if (bar) bar.remove();
     this._pwaEvent = null;
     this._pwaSnooze(forever ? 30 : 7);
   },
-
   // Listen for sync events to update UI badge
   _wireSyncEvents() {
     this._unsubSync = Storage.onSyncEvent((evt) => {
       this._updateSyncBadge(evt);
-      if (evt.status === 'synced' && evt.counts) {
-        // Re-render to show new data
+      if (evt.status === "synced" && evt.counts) {
         Customers.renderAll();
-        if (typeof Visit !== 'undefined') Visit.render();
+        if (typeof Visit !== "undefined") Visit.render();
         this.updateRouteUI();
       }
     });
   },
-
   // ให้ส่วนอื่นสั่งสถานะบนจอได้ (saving = กำลังบันทึก, saved = เสร็จแล้ว, error)
   // ใช้ป้ายลอยมุมขวาล่างตัวเดียวกับ sync badge
   setSaveStatus(state) {
     try {
-      if (state === 'saving') this._updateSyncBadge({ status: 'saving' });
-      else if (state === 'saved') this._updateSyncBadge({ status: 'saved' });
-      else this._updateSyncBadge({ status: 'error', error: 'save-failed' });
-    } catch (e) { /* ไม่ขวางการบันทึก */ }
+      if (state === "saving") this._updateSyncBadge({ status: "saving" });
+      else if (state === "saved") this._updateSyncBadge({ status: "saved" });
+      else this._updateSyncBadge({ status: "error", error: "save-failed" });
+    } catch (e) {
+    }
   },
-
   _updateSyncBadge(evt) {
-    let badge = document.getElementById('sync-badge');
+    var _a, _b;
+    let badge = document.getElementById("sync-badge");
     if (!badge) {
-      badge = document.createElement('div');
-      badge.id = 'sync-badge';
-      badge.style.cssText = 'position:fixed;bottom:8px;right:8px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999;background:#4caf50;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:opacity 0.3s;cursor:pointer;';
-      badge.title = 'กดเพื่อ retry sync';
-      badge.addEventListener('click', () => Storage.retrySync());
+      badge = document.createElement("div");
+      badge.id = "sync-badge";
+      badge.style.cssText = "position:fixed;bottom:8px;right:8px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999;background:#4caf50;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:opacity 0.3s;cursor:pointer;";
+      badge.title = "\u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D retry sync";
+      badge.addEventListener("click", () => Storage.retrySync());
       document.body.appendChild(badge);
     }
-    badge.style.display = '';
-    if (evt.status === 'saving') {
-      badge.textContent = '⏳ กำลังบันทึกพิกัด...';
-      badge.style.background = '#ff9800';
-      badge.style.cursor = 'wait';
-    } else if (evt.status === 'saved') {
-      badge.textContent = '✅ บันทึกพิกัดแล้ว';
-      badge.style.background = '#4caf50';
-      badge.style.cursor = 'pointer';
-      // ซ่อนเองใน 5 วิ (ไม่ให้ป้ายบังจอ)
+    badge.style.display = "";
+    if (evt.status === "saving") {
+      badge.textContent = "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14...";
+      badge.style.background = "#ff9800";
+      badge.style.cursor = "wait";
+    } else if (evt.status === "saved") {
+      badge.textContent = "\u2705 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E41\u0E25\u0E49\u0E27";
+      badge.style.background = "#4caf50";
+      badge.style.cursor = "pointer";
       clearTimeout(this._badgeHideTimer);
       this._badgeHideTimer = setTimeout(() => {
-        const b = document.getElementById('sync-badge');
-        if (b && b.textContent.indexOf('✅ บันทึกพิกัด') === 0) b.style.display = 'none';
-      }, 5000);
-    } else if (evt.status === 'syncing') {
-      badge.textContent = evt.action === 'retry' ? '🔄 กำลัง sync ใหม่...' : '🔄 Syncing...';
-      badge.style.background = '#ff9800';
-      badge.style.cursor = 'wait';
-    } else if (evt.status === 'synced' && evt.counts) {
+        const b = document.getElementById("sync-badge");
+        if (b && b.textContent.indexOf("\u2705 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1E\u0E34\u0E01\u0E31\u0E14") === 0) b.style.display = "none";
+      }, 5e3);
+    } else if (evt.status === "syncing") {
+      badge.textContent = evt.action === "retry" ? "\u{1F504} \u0E01\u0E33\u0E25\u0E31\u0E07 sync \u0E43\u0E2B\u0E21\u0E48..." : "\u{1F504} Syncing...";
+      badge.style.background = "#ff9800";
+      badge.style.cursor = "wait";
+    } else if (evt.status === "synced" && evt.counts) {
       const c = evt.counts;
-      badge.textContent = `☁️ Sync: ${c.customers ?? 0} คน, ${c.visits ?? 0} visits`;
-      badge.style.background = '#4caf50';
-      badge.style.cursor = 'pointer';
-    } else if (evt.status === 'error') {
-      badge.textContent = '⚠️ Sync ล้มเหลว — กดเพื่อลองใหม่';
-      badge.style.background = '#f44336';
-      badge.style.cursor = 'pointer';
+      badge.textContent = `\u2601\uFE0F Sync: ${(_a = c.customers) != null ? _a : 0} \u0E04\u0E19, ${(_b = c.visits) != null ? _b : 0} visits`;
+      badge.style.background = "#4caf50";
+      badge.style.cursor = "pointer";
+    } else if (evt.status === "error") {
+      badge.textContent = "\u26A0\uFE0F Sync \u0E25\u0E49\u0E21\u0E40\u0E2B\u0E25\u0E27 \u2014 \u0E01\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48";
+      badge.style.background = "#f44336";
+      badge.style.cursor = "pointer";
     }
   },
-
   // Called by Storage when remote data changes — re-render
   _onRemoteUpdate(remote) {
     Customers.renderAll();
-    if (typeof Visit !== 'undefined') Visit.render();
+    if (typeof Visit !== "undefined") Visit.render();
     this.updateRouteUI();
   },
-
   // Attach all event handlers (null-safe — missing elements won't crash the rest)
   attachEvents() {
     const $ = (id) => document.getElementById(id);
-    const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
-
-    // PIN form — แตะชื่อ+PIN (ทางเข้าเดียว — เลิกรหัสผ่าน 17 ต.ค.69 ตามพ่อสั่ง)
-    // ไม่เลือกชื่อ = PIN แอดมิน
-    on('pin-form', 'submit', async (e) => {
+    const on = (id, evt, fn) => {
+      const el = $(id);
+      if (el) el.addEventListener(evt, fn);
+    };
+    on("pin-form", "submit", async (e) => {
       e.preventDefault();
-      const pin = document.getElementById('pin-input').value;
-      const username = (document.getElementById('pin-username') || {}).value || '';
-      const errEl = document.getElementById('pin-error');
-      errEl.textContent = '';
-      const btn = document.getElementById('pin-btn');
+      const pin = document.getElementById("pin-input").value;
+      const username = (document.getElementById("pin-username") || {}).value || "";
+      const errEl = document.getElementById("pin-error");
+      errEl.textContent = "";
+      const btn = document.getElementById("pin-btn");
       setLoginLoading(btn, true);
       const ok = username ? await Auth.loginStaff(username, pin) : await Auth.loginPIN(pin);
-      if (ok) { await this.afterLogin(); } else { errEl.textContent = username ? 'ชื่อหรือ PIN ไม่ถูกต้อง' : 'PIN ไม่ถูกต้อง'; }
+      if (ok) {
+        await this.afterLogin();
+      } else {
+        errEl.textContent = username ? "\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E23\u0E37\u0E2D PIN \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07" : "PIN \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07";
+      }
       setLoginLoading(btn, false);
-      btn.textContent = 'เข้าสู่ระบบ (PIN)';
+      btn.textContent = "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A (PIN)";
     });
-
-    // Logout
-    on('logout-btn', 'click', () => { if (confirm('ออกจากระบบ?')) Auth.logout(); });
-
-    // 🏠 เปิดป๊อบอัพ "วันนี้ทำอะไร" อีกครั้ง (จากเมนู ⋮ — กันคนติ๊ก "จำไว้" แล้วหลง)
-    on('start-mode-btn', 'click', () => this.showStartModePopup(true));
-
-    // B (17 ต.ค.69): สวิตช์โหมดตัวใหญ่ (จำค่าในเครื่อง เปิดแล้วติดทุกครั้งที่เข้า)
-    on('field-big-btn', 'click', () => this.toggleFieldBig());
-
-    // Admin buttons
-    on('admin-users-btn', 'click', () => this.openAdminUsers());
-    on('export-users-btn', 'click', () => this.exportUsersCSV());
-    on('close-staff-pin', 'click', () => { const m = document.getElementById('staff-pin-modal'); if (m) m.classList.add('hidden'); });
-    on('staff-pin-modal', 'click', (e) => { if (e.target.id === 'staff-pin-modal') e.target.classList.add('hidden'); });
-    on('staff-pin-form', 'submit', (e) => { e.preventDefault(); this.submitStaffPin(); });
-    on('admin-data-btn', 'click', () => { window.location.href = '/admin.html'; });
-
-    // (change-password ลบแล้ว 17 ต.ค.69 — เหลือ PIN อย่างเดียว)
-
-    // === Sheet tabs ===
-    // แท็บเล็ต (≥768px): แตะแท็บแล้วเปิดแผงทำงานเต็มจอทันที — เดิมเปิดแค่ครึ่งจอในการ์ดมุมขวา
-    document.querySelectorAll('.sheet-tab').forEach(t => {
-      t.addEventListener('click', () => {
+    on("logout-btn", "click", () => {
+      if (confirm("\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A?")) Auth.logout();
+    });
+    on("start-mode-btn", "click", () => this.showStartModePopup(true));
+    on("field-big-btn", "click", () => this.toggleFieldBig());
+    on("admin-users-btn", "click", () => this.openAdminUsers());
+    on("export-users-btn", "click", () => this.exportUsersCSV());
+    on("close-staff-pin", "click", () => {
+      const m = document.getElementById("staff-pin-modal");
+      if (m) m.classList.add("hidden");
+    });
+    on("staff-pin-modal", "click", (e) => {
+      if (e.target.id === "staff-pin-modal") e.target.classList.add("hidden");
+    });
+    on("staff-pin-form", "submit", (e) => {
+      e.preventDefault();
+      this.submitStaffPin();
+    });
+    on("admin-data-btn", "click", () => {
+      window.location.href = "/admin.html";
+    });
+    document.querySelectorAll(".sheet-tab").forEach((t) => {
+      t.addEventListener("click", () => {
         this.switchSheetTab(t.dataset.sheet);
-        if (window.matchMedia('(min-width: 768px)').matches) this.setSheetState('full');
+        if (window.matchMedia("(min-width: 768px)").matches) this.setSheetState("full");
       });
     });
-
-    // Customer search
-    const customerSearch = document.getElementById('customer-search');
+    const customerSearch = document.getElementById("customer-search");
     if (customerSearch) {
-      customerSearch.addEventListener('input', Utils.debounce(() => Customers.renderList(), 150));
+      customerSearch.addEventListener("input", Utils.debounce(() => Customers.renderList(), 150));
     }
-
-    // Customer sort
-    const customerSort = document.getElementById('customer-sort');
+    const customerSort = document.getElementById("customer-sort");
     if (customerSort) {
-      customerSort.addEventListener('change', () => Customers.renderList());
+      customerSort.addEventListener("change", () => Customers.renderList());
     }
-
-    // Zone filter (เขตสินเชื่อ — T3)
-    const customerZone = document.getElementById('customer-zone');
+    const customerZone = document.getElementById("customer-zone");
     if (customerZone) {
-      customerZone.addEventListener('change', () => Customers.renderList());
+      customerZone.addEventListener("change", () => Customers.renderList());
     }
-
-    // FAB buttons
-    on('fab-add-customer', 'click', () => this.openAddCustomerModal());
-    on('fab-my-location', 'click', () => this.useGPS());
-
-    // Zoom controls (custom — replaces hidden top-left Leaflet control)
-    on('fab-zoom-in', 'click', () => Customers.map && Customers.map.zoomIn());
-    on('fab-zoom-out', 'click', () => Customers.map && Customers.map.zoomOut());
-
-    // Modal close
-    on('close-add-modal', 'click', () => this.closeAddCustomerModal());
-    on('add-customer-modal', 'click', (e) => { if (e.target.id === 'add-customer-modal') this.closeAddCustomerModal(); });
-
-    // GPS button
-    on('btn-use-gps', 'click', () => this.useGPS(true));
-
-    // Pick on main map
-    on('btn-pick-on-main-map', 'click', () => this.pickOnMainMap());
-
-    // Add customer form
-    on('add-customer-form', 'submit', (e) => {
+    on("fab-add-customer", "click", () => this.openAddCustomerModal());
+    on("fab-my-location", "click", () => this.useGPS());
+    on("fab-zoom-in", "click", () => Customers.map && Customers.map.zoomIn());
+    on("fab-zoom-out", "click", () => Customers.map && Customers.map.zoomOut());
+    on("close-add-modal", "click", () => this.closeAddCustomerModal());
+    on("add-customer-modal", "click", (e) => {
+      if (e.target.id === "add-customer-modal") this.closeAddCustomerModal();
+    });
+    on("btn-use-gps", "click", () => this.useGPS(true));
+    on("btn-pick-on-main-map", "click", () => this.pickOnMainMap());
+    on("add-customer-form", "submit", (e) => {
       e.preventDefault();
       this.saveCustomer(e.target);
     });
-    // Photo upload (capture or file)
-    const photoInput = document.getElementById('photo-input');
+    const photoInput = document.getElementById("photo-input");
     if (photoInput) {
-      photoInput.addEventListener('change', (e) => this.handlePhotoUpload(e.target.files[0]));
+      photoInput.addEventListener("change", (e) => this.handlePhotoUpload(e.target.files[0]));
     }
-
-    // Customer DB search
     this._initDBSearch();
-
-    // Visit modal
-    on('close-visit-modal', 'click', () => Visit.closeLog());
-    on('btn-cancel-visit', 'click', () => Visit.closeLog());
-    on('visit-log-form', 'submit', (e) => { e.preventDefault(); Visit.submit(e.target); });
-    on('visit-log-modal', 'click', (e) => { if (e.target.id === 'visit-log-modal') Visit.closeLog(); });
-    on('btn-capture-gps', 'click', () => Visit.captureGPS());
-
-    // Route: start mode
-    on('route-start-mode', 'change', (e) => { const cs = document.getElementById('custom-start'); if (cs) cs.classList.toggle('hidden', e.target.value !== 'custom'); });
-
-    // Calculate route
-    on('btn-calculate-route', 'click', () => this.calculateRoute());
-
-    // Open Google Maps
-    on('btn-open-gmaps', 'click', () => Route.openGoogleMaps());
-
-    // Save route
-    on('btn-save-route', 'click', () => Route.saveRoute());
-
-    // Report + Help modals
-    on('report-btn', 'click', () => Report.open());
-    on('help-btn', 'click', () => App.openHelp());
-    on('close-help-modal', 'click', () => App.closeHelp());
-    on('btn-close-help', 'click', () => App.closeHelp());
-    on('close-report-modal', 'click', () => Report.close());
-    on('report-modal', 'click', (e) => { if (e.target.id === 'report-modal') Report.close(); });
-    on('report-range', 'change', () => { const rr = document.getElementById('report-range'); if (rr) Report.setRange(rr.value); });
-    on('btn-generate-report', 'click', () => Report.generate());
-    on('btn-export-html', 'click', () => Report.exportHTML());
-    on('btn-export-pdf', 'click', () => Report.exportPDF());
-    on('btn-export-csv', 'click', () => Report.exportCSV());
-    on('btn-export-share', 'click', () => Report.shareText());
+    on("close-visit-modal", "click", () => Visit.closeLog());
+    on("btn-cancel-visit", "click", () => Visit.closeLog());
+    on("visit-log-form", "submit", (e) => {
+      e.preventDefault();
+      Visit.submit(e.target);
+    });
+    on("visit-log-modal", "click", (e) => {
+      if (e.target.id === "visit-log-modal") Visit.closeLog();
+    });
+    on("btn-capture-gps", "click", () => Visit.captureGPS());
+    on("route-start-mode", "change", (e) => {
+      const cs = document.getElementById("custom-start");
+      if (cs) cs.classList.toggle("hidden", e.target.value !== "custom");
+    });
+    on("btn-calculate-route", "click", () => this.calculateRoute());
+    on("btn-open-gmaps", "click", () => Route.openGoogleMaps());
+    on("btn-save-route", "click", () => Route.saveRoute());
+    on("report-btn", "click", () => Report.open());
+    on("help-btn", "click", () => App.openHelp());
+    on("close-help-modal", "click", () => App.closeHelp());
+    on("btn-close-help", "click", () => App.closeHelp());
+    on("close-report-modal", "click", () => Report.close());
+    on("report-modal", "click", (e) => {
+      if (e.target.id === "report-modal") Report.close();
+    });
+    on("report-range", "change", () => {
+      const rr = document.getElementById("report-range");
+      if (rr) Report.setRange(rr.value);
+    });
+    on("btn-generate-report", "click", () => Report.generate());
+    on("btn-export-html", "click", () => Report.exportHTML());
+    on("btn-export-pdf", "click", () => Report.exportPDF());
+    on("btn-export-csv", "click", () => Report.exportCSV());
+    on("btn-export-share", "click", () => Report.shareText());
   },
-
   // ===== Bottom Sheet (Map-as-Canvas) =====
-
   // Init sheet interaction (drag + click handle)
   initBottomSheet() {
-    const sheet = document.getElementById('bottom-sheet');
+    const sheet = document.getElementById("bottom-sheet");
     if (!sheet) return;
-    // กันผูกซ้ำ: afterLogin() ถูกเรียกทุกครั้งที่ล็อกอิน/สลับผู้ใช้โดยไม่รีโหลด
-    // ถ้าผูกซ้ำ การแตะแถบจับจะสลับสองรอบ (peek→full) จนเหมือนกดไม่ติด
-    if (sheet.dataset.sheetBound === '1') return;
-    sheet.dataset.sheetBound = '1';
-
-    // Click handle to toggle: มือถือ peek↔half · แท็บเล็ต (≥768px) peek↔full
-    document.getElementById('sheet-handle').addEventListener('click', (e) => {
+    if (sheet.dataset.sheetBound === "1") return;
+    sheet.dataset.sheetBound = "1";
+    document.getElementById("sheet-handle").addEventListener("click", (e) => {
       e.stopPropagation();
-      const isWide = window.matchMedia('(min-width: 768px)').matches;
+      const isWide = window.matchMedia("(min-width: 768px)").matches;
       if (isWide) {
-        this.setSheetState(sheet.classList.contains('sheet-full') ? 'peek' : 'full');
+        this.setSheetState(sheet.classList.contains("sheet-full") ? "peek" : "full");
         return;
       }
-      if (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full')) {
-        this.setSheetState('peek');
+      if (sheet.classList.contains("sheet-half") || sheet.classList.contains("sheet-full")) {
+        this.setSheetState("peek");
       } else {
-        this.setSheetState('half');
+        this.setSheetState("half");
       }
     });
-
-    // Drag interaction — handle ONLY. Content always scrolls freely.
     let startY = 0, startTranslate = 0, isDragging = false;
-    const handle = document.getElementById('sheet-handle');
-
+    const handle = document.getElementById("sheet-handle");
     const _readTransform = (el) => {
       const m = window.getComputedStyle(el).transform;
-      if (!m || m === 'none') return 0;
-      // อ่านระยะเลื่อนแกน Y ให้ถูกทั้ง matrix และ matrix3d
-      // (เดิม hard-code index 5 = translateX → ได้ 0 เสมอ ทำให้ลากแผงแล้วเด้งกลับ)
-      try { return new DOMMatrixReadOnly(m).m42 || 0; } catch (e) { return 0; }
+      if (!m || m === "none") return 0;
+      try {
+        return new DOMMatrixReadOnly(m).m42 || 0;
+      } catch (e) {
+        return 0;
+      }
     };
-
     const onStart = (e) => {
-      // ลากได้ทั้งแถบ handle (ส่วนหัวปัจจุบัน) — คลิกตรงไหนก็ลากได้ ไม่แน่นเกินไป
-      if (!e.target.closest('.sheet-handle')) return;
+      if (!e.target.closest(".sheet-handle")) return;
       isDragging = true;
-      startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+      startY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
       startTranslate = _readTransform(sheet);
-      sheet.style.transition = 'none';
+      sheet.style.transition = "none";
       sheet.style.transform = `translateY(${startTranslate}px)`;
-      ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
+      ["sheet-collapsed", "sheet-peek", "sheet-half", "sheet-full"].forEach((c) => sheet.classList.remove(c));
     };
-
     const onMove = (e) => {
       if (!isDragging) return;
       e.preventDefault();
-      const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+      const y = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
       const dy = y - startY;
       const newT = Math.max(0, startTranslate + dy);
       sheet.style.transform = `translateY(${newT}px)`;
     };
-
     const onEnd = () => {
       if (!isDragging) return;
       isDragging = false;
-      sheet.style.transition = '';
+      sheet.style.transition = "";
       const t = _readTransform(sheet);
-      sheet.style.transform = '';
+      sheet.style.transform = "";
       const sheetH = sheet.offsetHeight;
       const pct = t / sheetH;
-      if (pct < 0.15) this.setSheetState('full');
-      else if (pct < 0.55) this.setSheetState('half');
-      else if (pct < 0.85) this.setSheetState('peek');
-      else this.setSheetState('collapsed');
+      if (pct < 0.15) this.setSheetState("full");
+      else if (pct < 0.55) this.setSheetState("half");
+      else if (pct < 0.85) this.setSheetState("peek");
+      else this.setSheetState("collapsed");
     };
-
-    handle.addEventListener('touchstart', onStart, {passive: true});
-    handle.addEventListener('touchmove', onMove, {passive: false});
-    handle.addEventListener('touchend', onEnd);
-    handle.addEventListener('mousedown', onStart);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onEnd);
+    handle.addEventListener("touchstart", onStart, { passive: true });
+    handle.addEventListener("touchmove", onMove, { passive: false });
+    handle.addEventListener("touchend", onEnd);
+    handle.addEventListener("mousedown", onStart);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onEnd);
   },
-
   // Set bottom sheet state
   setSheetState(state) {
-    const sheet = document.getElementById('bottom-sheet');
+    const sheet = document.getElementById("bottom-sheet");
     if (!sheet) return;
-    ['sheet-collapsed','sheet-peek','sheet-half','sheet-full'].forEach(c => sheet.classList.remove(c));
-    if (state && state !== 'default') sheet.classList.add('sheet-' + state);
-    // Q-FILTER 8ก.ย.69: แถบล่างสำคัญ (half/full) → พับแผงบนอัตโนมัติ กันบังจอเล็ก
-    if ((state === 'half' || state === 'full') && typeof FilterPanel !== 'undefined' && FilterPanel.collapse) {
+    ["sheet-collapsed", "sheet-peek", "sheet-half", "sheet-full"].forEach((c) => sheet.classList.remove(c));
+    if (state && state !== "default") sheet.classList.add("sheet-" + state);
+    if ((state === "half" || state === "full") && typeof FilterPanel !== "undefined" && FilterPanel.collapse) {
       FilterPanel.collapse();
     }
-    // Q2 FIX: ไม่ซ่อน FAB — CSS ยกตำแหน่งขึ้นตามความสูง sheet (body:has selector)
-    
-    // Haptic feedback on state change (if supported)
     if (navigator.vibrate) {
       navigator.vibrate(10);
     }
   },
-
   // Legacy switchTab — adapts to new map-as-canvas layout
   switchTab(name) {
-    if (name === 'map') {
-      this.setSheetState('peek');
-      this.switchSheetTab('today');
+    if (name === "map") {
+      this.setSheetState("peek");
+      this.switchSheetTab("today");
       setTimeout(() => Customers.map && Customers.map.invalidateSize(), 50);
       return;
     }
-    const sheetNames = { customers: 'customers', route: 'today', visit: 'planvisit', plan: 'planvisit', planvisit: 'planvisit', today: 'today' };
+    const sheetNames = { customers: "customers", route: "today", visit: "planvisit", plan: "planvisit", planvisit: "planvisit", today: "today" };
     this.switchSheetTab(sheetNames[name] || name);
-    this.setSheetState('half');
+    this.setSheetState("half");
   },
-
   // Switch bottom sheet content tab
   switchSheetTab(name) {
-    document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.sheet-content').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll(".sheet-tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".sheet-content").forEach((p) => p.classList.remove("active"));
     const tab = document.querySelector(`.sheet-tab[data-sheet="${name}"]`);
-    if (tab) tab.classList.add('active');
-    const idMap = { today: 'sheet-today', route: 'sheet-today', plan: 'tab-planvisit', planvisit: 'tab-planvisit', visit: 'tab-planvisit', customers: 'tab-customers', calendar: 'sheet-calendar', debtsummary: 'sheet-debtsummary' };
-    const pane = document.getElementById(idMap[name] || 'sheet-today');
-    if (pane) pane.classList.add('active');
-    if (name !== 'today' && name !== 'route') this.setSheetState('half');
-    // วาดเนื้อหาใหม่ทุกครั้งที่เปิดแท็บ — เดิมสลับแค่คลาส CSS ทำให้เปิดแท็บ "เข้าพบ"/"ลูกค้า"
-    // แล้วเห็นหน้าว่างทั้งที่มีข้อมูล (ต้องเรียก render เองจากที่อื่นถึงจะขึ้น)
-    if ((name === 'visit' || name === 'plan' || name === 'planvisit') && typeof Visit !== 'undefined') Visit.render();
-    if (name === 'today' && typeof TodayUI !== 'undefined') TodayUI.refresh();
-    if (name === 'calendar' && typeof WorkCalendar !== 'undefined') WorkCalendar.render();
-    if (name === 'customers' && typeof Customers !== 'undefined') Customers.renderList();
-    // Render debt summary เมื่อเปิดแท็บสรุปหนี้
-    if (name === 'debtsummary' && typeof DebtDB !== 'undefined' && DebtDB._loaded && window.DebtSummary) {
+    if (tab) tab.classList.add("active");
+    const idMap = { today: "sheet-today", route: "sheet-today", plan: "tab-planvisit", planvisit: "tab-planvisit", visit: "tab-planvisit", customers: "tab-customers", calendar: "sheet-calendar", debtsummary: "sheet-debtsummary" };
+    const pane = document.getElementById(idMap[name] || "sheet-today");
+    if (pane) pane.classList.add("active");
+    if (name !== "today" && name !== "route") this.setSheetState("half");
+    if ((name === "visit" || name === "plan" || name === "planvisit") && typeof Visit !== "undefined") Visit.render();
+    if (name === "today" && typeof TodayUI !== "undefined") TodayUI.refresh();
+    if (name === "calendar" && typeof WorkCalendar !== "undefined") WorkCalendar.render();
+    if (name === "customers" && typeof Customers !== "undefined") Customers.renderList();
+    if (name === "debtsummary" && typeof DebtDB !== "undefined" && DebtDB._loaded && window.DebtSummary) {
       DebtSummary.render();
     }
   },
-
   // Render today's visits in the route pane
   renderTodayRoute() {
-    const container = document.getElementById('today-visits');
+    const container = document.getElementById("today-visits");
     if (!container) return;
-
     const customers = Storage.getActiveCustomers();
     const routeIds = Storage.getRoute();
-    const routeCusts = routeIds.map(id => customers.find(c => c.id === id)).filter(Boolean);
-
+    const routeCusts = routeIds.map((id) => customers.find((c) => c.id === id)).filter(Boolean);
     if (!routeCusts.length) {
-      container.innerHTML = '<p class="empty-state">ไม่มีเส้นทางวันนี้ — ไปที่ <strong>วางแผน/เข้าพบ</strong> เพื่อสร้างเส้นทาง</p>';
+      container.innerHTML = '<p class="empty-state">\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48 <strong>\u0E27\u0E32\u0E07\u0E41\u0E1C\u0E19/\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E1A</strong> \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07</p>';
       this._updateRouteProgress(null);
       return;
     }
-
-    // Use calculated result order if available
     const result = Route.currentResult;
     let ordered = routeCusts;
     if (result && result.stops && result.stops.length > 0) {
       ordered = result.stops;
     }
-
-    // Check visits for pending/completed status
     const visits = Storage.getVisits();
     const visitedCifs = new Set(Object.keys(visits));
-    const pending = ordered.filter(c => !visitedCifs.has(c.cif || c.id));
-
+    const pending = ordered.filter((c) => !visitedCifs.has(c.cif || c.id));
     let html = '<div class="visits-list">';
     ordered.forEach((c, i) => html += this._visitCard(c, i + 1));
-    html += '</div>';
-
+    html += "</div>";
     container.innerHTML = html;
-
-    // Click on visit card → open visit modal
-    container.querySelectorAll('.visit-card').forEach(card => {
-      card.addEventListener('click', () => {
+    container.querySelectorAll(".visit-card").forEach((card) => {
+      card.addEventListener("click", () => {
         const cif = card.dataset.cif;
         const id = card.dataset.id;
-        if (window.Visit && typeof Visit.openLog === 'function') {
+        if (window.Visit && typeof Visit.openLog === "function") {
           Visit.openLog(id || cif);
         }
       });
     });
-
-    // Update header progress
     const done = ordered.length - pending.length;
     if (result && result.distance) {
-      document.getElementById('route-progress').textContent = `${done}/${ordered.length} · ${Utils.formatKm(result.distance)}`;
+      document.getElementById("route-progress").textContent = `${done}/${ordered.length} \xB7 ${Utils.formatKm(result.distance)}`;
     } else {
-      document.getElementById('route-progress').textContent = `${done}/${ordered.length} ✅`;
+      document.getElementById("route-progress").textContent = `${done}/${ordered.length} \u2705`;
     }
   },
-
   // Render a single visit card (used by renderTodayRoute)
   _visitCard(c, order) {
-    const name = c.name || c.customerName || 'ไม่ระบุชื่อ';
-    const branch = c.branch || '';
-    // Check if visited
+    const name = c.name || c.customerName || "\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38\u0E0A\u0E37\u0E48\u0E2D";
+    const branch = c.branch || "";
     const visits = Storage.getVisits();
     const visited = visits[c.cif || c.id];
-    const debtType = c.debtType || '';
-    let badge = '';
+    const debtType = c.debtType || "";
+    let badge = "";
     if (visited) {
-      badge = '<span class="visit-badge" style="background:#d1fae5;color:#065f46">✅ เยี่ยมแล้ว</span>';
-    } else if (debtType === 'overdue') {
-      badge = '<span class="visit-badge badge-overdue">⚠️ ค้าง</span>';
-    } else if (debtType === 'current') {
-      badge = '<span class="visit-badge badge-current">📅 ถึงกำหนด</span>';
+      badge = '<span class="visit-badge" style="background:#d1fae5;color:#065f46">\u2705 \u0E40\u0E22\u0E35\u0E48\u0E22\u0E21\u0E41\u0E25\u0E49\u0E27</span>';
+    } else if (debtType === "overdue") {
+      badge = '<span class="visit-badge badge-overdue">\u26A0\uFE0F \u0E04\u0E49\u0E32\u0E07</span>';
+    } else if (debtType === "current") {
+      badge = '<span class="visit-badge badge-current">\u{1F4C5} \u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14</span>';
     }
-    const lat = c.lat || c.latitude || '';
-    const lng = c.lng || c.longitude || '';
-    const dist = (lat && lng) ? '' : '';
-    return `<div class="visit-card" data-cif="${this.escapeHTML(c.cif || '')}" data-id="${this.escapeHTML(c.id || '')}">
+    const lat = c.lat || c.latitude || "";
+    const lng = c.lng || c.longitude || "";
+    const dist = lat && lng ? "" : "";
+    return `<div class="visit-card" data-cif="${this.escapeHTML(c.cif || "")}" data-id="${this.escapeHTML(c.id || "")}">
       <div class="visit-order">${order}</div>
       <div class="visit-info">
         <div class="visit-name">${this.escapeHTML(name)}</div>
@@ -4032,71 +3758,71 @@ const App = {
       </div>
     </div>`;
   },
-
   // Update route progress badge in overlay header
   _updateRouteProgress(stats) {
-    const el = document.getElementById('route-progress');
+    const el = document.getElementById("route-progress");
     if (!el) return;
-    if (!stats) { el.textContent = ''; return; }
-    el.textContent = `${stats.completed || 0}/${stats.total} ✅`;
+    if (!stats) {
+      el.textContent = "";
+      return;
+    }
+    el.textContent = `${stats.completed || 0}/${stats.total} \u2705`;
   },
-
   // Open add customer modal
   openAddCustomerModal() {
-    document.getElementById('add-customer-modal').classList.remove('hidden');
-    document.getElementById('add-modal-title').textContent = '➕ เพิ่มลูกค้าใหม่';
-    const form = document.getElementById('add-customer-form');
-    // จำพิกัดไว้ก่อน reset (กันทับพิกัดที่จิ้มมาจากแผนที่หลัก)
-    const latKeep = document.getElementById('new-lat').value;
-    const lngKeep = document.getElementById('new-lng').value;
-    form.dataset.editId = '';
+    document.getElementById("add-customer-modal").classList.remove("hidden");
+    document.getElementById("add-modal-title").textContent = "\u2795 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48";
+    const form = document.getElementById("add-customer-form");
+    const latKeep = document.getElementById("new-lat").value;
+    const lngKeep = document.getElementById("new-lng").value;
+    form.dataset.editId = "";
     form.reset();
     if (latKeep && lngKeep) {
-      document.getElementById('new-lat').value = latKeep;
-      document.getElementById('new-lng').value = lngKeep;
+      document.getElementById("new-lat").value = latKeep;
+      document.getElementById("new-lng").value = lngKeep;
     }
     this._resetPhotoPreview();
-    // Reset DB search
-    const dbInput = document.getElementById('db-search-input');
-    const dbResults = document.getElementById('db-search-results');
-    const dbInfo = document.getElementById('db-filled-info');
-    if (dbInput) dbInput.value = '';
-    if (dbResults) { dbResults.innerHTML = ''; dbResults.classList.remove('active'); }
-    if (dbInfo) { dbInfo.innerHTML = ''; dbInfo.classList.remove('active'); }
+    const dbInput = document.getElementById("db-search-input");
+    const dbResults = document.getElementById("db-search-results");
+    const dbInfo = document.getElementById("db-filled-info");
+    if (dbInput) dbInput.value = "";
+    if (dbResults) {
+      dbResults.innerHTML = "";
+      dbResults.classList.remove("active");
+    }
+    if (dbInfo) {
+      dbInfo.innerHTML = "";
+      dbInfo.classList.remove("active");
+    }
     this._renderAddGpsDisplay();
-    // Init mini-map after modal visible
     if (latKeep && lngKeep) {
       const la = parseFloat(latKeep), ln = parseFloat(lngKeep);
-      setTimeout(() => this.initMiniMap(isNaN(la) ? undefined : la, isNaN(ln) ? undefined : ln), 100);
+      setTimeout(() => this.initMiniMap(isNaN(la) ? void 0 : la, isNaN(ln) ? void 0 : ln), 100);
     } else {
       setTimeout(() => this.initMiniMap(), 100);
     }
   },
-
   // ===== Photo upload (capture/file → resize → base64) =====
   _resetPhotoPreview() {
-    const preview = document.getElementById('photo-preview');
-    const dataInput = document.getElementById('photo-data');
-    const removeBtn = document.getElementById('btn-remove-photo');
-    if (preview) preview.innerHTML = '<div class="photo-empty">📷 ยังไม่มีรูป — แตะเพื่อเลือก/ถ่าย</div>';
-    if (dataInput) dataInput.value = '';
-    if (removeBtn) removeBtn.classList.add('hidden');
+    const preview = document.getElementById("photo-preview");
+    const dataInput = document.getElementById("photo-data");
+    const removeBtn = document.getElementById("btn-remove-photo");
+    if (preview) preview.innerHTML = '<div class="photo-empty">\u{1F4F7} \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E39\u0E1B \u2014 \u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01/\u0E16\u0E48\u0E32\u0E22</div>';
+    if (dataInput) dataInput.value = "";
+    if (removeBtn) removeBtn.classList.add("hidden");
   },
-
   _showPhotoPreview(dataUrl) {
-    const preview = document.getElementById('photo-preview');
-    const dataInput = document.getElementById('photo-data');
-    const removeBtn = document.getElementById('btn-remove-photo');
+    const preview = document.getElementById("photo-preview");
+    const dataInput = document.getElementById("photo-data");
+    const removeBtn = document.getElementById("btn-remove-photo");
     if (preview) {
       preview.innerHTML = `<img src="${dataUrl}" alt="customer photo" class="photo-img">`;
     }
     if (dataInput) dataInput.value = dataUrl;
-    if (removeBtn) removeBtn.classList.remove('hidden');
-    // เปิดกล่องรูปให้เห็นรูปที่เลือก
-    const details = document.querySelector('#add-customer-modal .photo-details');
+    if (removeBtn) removeBtn.classList.remove("hidden");
+    const details = document.querySelector("#add-customer-modal .photo-details");
     if (details) details.open = true;
   },
-
   // Resize image to max 800px, JPEG quality 0.7 → base64 dataURL
   async _resizeImage(file, maxSize = 800, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -4114,13 +3840,12 @@ const App = {
               height = maxSize;
             }
           }
-          const canvas = document.createElement('canvas');
+          const canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
-          // Always output JPEG to keep size small
-          resolve(canvas.toDataURL('image/jpeg', quality));
+          resolve(canvas.toDataURL("image/jpeg", quality));
         };
         img.onerror = reject;
         img.src = e.target.result;
@@ -4129,72 +3854,70 @@ const App = {
       reader.readAsDataURL(file);
     });
   },
-
   async handlePhotoUpload(file) {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      Utils.toast('กรุณาเลือกไฟล์รูปภาพ', 'error');
+    if (!file.type.startsWith("image/")) {
+      Utils.toast("\u0E01\u0E23\u0E38\u0E13\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1F\u0E25\u0E4C\u0E23\u0E39\u0E1B\u0E20\u0E32\u0E1E", "error");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      Utils.toast('รูปใหญ่เกิน 10MB — กรุณาเลือกรูปอื่น', 'error');
+      Utils.toast("\u0E23\u0E39\u0E1B\u0E43\u0E2B\u0E0D\u0E48\u0E40\u0E01\u0E34\u0E19 10MB \u2014 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E39\u0E1B\u0E2D\u0E37\u0E48\u0E19", "error");
       return;
     }
-    Utils.toast('📷 กำลังย่อรูป...');
+    Utils.toast("\u{1F4F7} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E22\u0E48\u0E2D\u0E23\u0E39\u0E1B...");
     try {
       const dataUrl = await this._resizeImage(file, 800, 0.7);
       const sizeKB = Math.round(dataUrl.length * 0.75 / 1024);
       this._showPhotoPreview(dataUrl);
-      Utils.toast(`✅ ย่อรูปเสร็จ (~${sizeKB} KB)`);
+      Utils.toast(`\u2705 \u0E22\u0E48\u0E2D\u0E23\u0E39\u0E1B\u0E40\u0E2A\u0E23\u0E47\u0E08 (~${sizeKB} KB)`);
     } catch (err) {
-      Utils.toast('ไม่สามารถประมวลผลรูปได้: ' + err.message, 'error');
+      Utils.toast("\u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E1B\u0E23\u0E30\u0E21\u0E27\u0E25\u0E1C\u0E25\u0E23\u0E39\u0E1B\u0E44\u0E14\u0E49: " + err.message, "error");
     }
   },
-
   removePhoto() {
     this._resetPhotoPreview();
-    const fileInput = document.getElementById('photo-input');
-    if (fileInput) fileInput.value = '';
-    Utils.toast('🗑️ ลบรูปแล้ว');
+    const fileInput = document.getElementById("photo-input");
+    if (fileInput) fileInput.value = "";
+    Utils.toast("\u{1F5D1}\uFE0F \u0E25\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E25\u0E49\u0E27");
   },
-
   // ===== Help modal — explain how to use the app =====
   openHelp() {
-    document.getElementById('help-modal').classList.remove('hidden');
+    document.getElementById("help-modal").classList.remove("hidden");
   },
   closeHelp() {
-    document.getElementById('help-modal').classList.add('hidden');
+    document.getElementById("help-modal").classList.add("hidden");
   },
-
   // ===== Customer DB Search (auto-fill from imported data) =====
   _initDBSearch() {
-    const input = document.getElementById('db-search-input');
-    const results = document.getElementById('db-search-results');
+    const input = document.getElementById("db-search-input");
+    const results = document.getElementById("db-search-results");
     if (!input || !results) return;
-
     let debounceTimer = null;
     let highlightIdx = -1;
-
-    input.addEventListener('input', () => {
+    input.addEventListener("input", () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         const q = input.value.trim();
         if (q.length < 2) {
-          results.classList.remove('active');
-          results.innerHTML = '';
+          results.classList.remove("active");
+          results.innerHTML = "";
           return;
         }
-        // 17 พ.ย.69: ฐานรายชื่อโหลดเมื่อจำเป็น — พิมพ์ค้นหาครั้งแรกจึงดึง แล้วค้นต่อให้อัตโนมัติ
-        if (typeof CustomerDB !== 'undefined' && !CustomerDB._loaded) {
-          results.innerHTML = '<div class="db-search-hint">⏳ กำลังโหลดฐานรายชื่อ...</div>';
-          results.classList.add('active');
-          CustomerDB.ensure().then(() => { try { input.dispatchEvent(new Event('input')); } catch (e) {} });
+        if (typeof CustomerDB !== "undefined" && !CustomerDB._loaded) {
+          results.innerHTML = '<div class="db-search-hint">\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E10\u0E32\u0E19\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D...</div>';
+          results.classList.add("active");
+          CustomerDB.ensure().then(() => {
+            try {
+              input.dispatchEvent(new Event("input"));
+            } catch (e) {
+            }
+          });
           return;
         }
         const matches = CustomerDB.search(q, 15);
         if (matches.length === 0) {
-          results.innerHTML = '<div class="db-search-hint">❌ ไม่พบข้อมูล</div>';
-          results.classList.add('active');
+          results.innerHTML = '<div class="db-search-hint">\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25</div>';
+          results.classList.add("active");
           return;
         }
         highlightIdx = -1;
@@ -4203,19 +3926,17 @@ const App = {
             <div class="db-name">${this._esc(r.name)}</div>
             <div class="db-meta">
               <span>CIF: ${r.cif}</span>
-              ${r.customer_class ? `<span class="badge badge-blue">${r.customer_class}</span>` : ''}
-              ${r.potential ? `<span class="badge ${r.potential === 'แดง' ? 'badge-red' : r.potential === 'เหลือง' ? 'badge-yellow' : 'badge-green'}">${r.potential}</span>` : ''}
-              ${r.zone ? `<span class="badge badge-gray">เขต ${r.zone}</span>` : ''}
-              ${r.tambon ? `<span>${r.tambon}</span>` : ''}
-              ${r.lat ? `<span class="badge badge-green">📍</span>` : ''}
+              ${r.customer_class ? `<span class="badge badge-blue">${r.customer_class}</span>` : ""}
+              ${r.potential ? `<span class="badge ${r.potential === "\u0E41\u0E14\u0E07" ? "badge-red" : r.potential === "\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E07" ? "badge-yellow" : "badge-green"}">${r.potential}</span>` : ""}
+              ${r.zone ? `<span class="badge badge-gray">\u0E40\u0E02\u0E15 ${r.zone}</span>` : ""}
+              ${r.tambon ? `<span>${r.tambon}</span>` : ""}
+              ${r.lat ? `<span class="badge badge-green">\u{1F4CD}</span>` : ""}
             </div>
           </div>
-        `).join('');
-        results.classList.add('active');
-
-        // Click handlers
-        results.querySelectorAll('.db-search-item').forEach(el => {
-          el.addEventListener('click', () => {
+        `).join("");
+        results.classList.add("active");
+        results.querySelectorAll(".db-search-item").forEach((el) => {
+          el.addEventListener("click", () => {
             const cif = el.dataset.cif;
             const rec = CustomerDB.getByCif(cif);
             if (rec) this._fillFromDB(rec);
@@ -4223,166 +3944,135 @@ const App = {
         });
       }, 200);
     });
-
-    // Keyboard navigation
-    input.addEventListener('keydown', (e) => {
-      const items = results.querySelectorAll('.db-search-item');
+    input.addEventListener("keydown", (e) => {
+      var _a, _b, _c;
+      const items = results.querySelectorAll(".db-search-item");
       if (!items.length) return;
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         highlightIdx = Math.min(highlightIdx + 1, items.length - 1);
-        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
-        items[highlightIdx]?.scrollIntoView({ block: 'nearest' });
-      } else if (e.key === 'ArrowUp') {
+        items.forEach((el, i) => el.classList.toggle("highlighted", i === highlightIdx));
+        (_a = items[highlightIdx]) == null ? void 0 : _a.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
         highlightIdx = Math.max(highlightIdx - 1, 0);
-        items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
-        items[highlightIdx]?.scrollIntoView({ block: 'nearest' });
-      } else if (e.key === 'Enter' && highlightIdx >= 0) {
+        items.forEach((el, i) => el.classList.toggle("highlighted", i === highlightIdx));
+        (_b = items[highlightIdx]) == null ? void 0 : _b.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && highlightIdx >= 0) {
         e.preventDefault();
-        const cif = items[highlightIdx]?.dataset.cif;
+        const cif = (_c = items[highlightIdx]) == null ? void 0 : _c.dataset.cif;
         const rec = cif && CustomerDB.getByCif(cif);
         if (rec) this._fillFromDB(rec);
-      } else if (e.key === 'Escape') {
-        results.classList.remove('active');
+      } else if (e.key === "Escape") {
+        results.classList.remove("active");
       }
     });
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.db-search-container')) {
-        results.classList.remove('active');
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".db-search-container")) {
+        results.classList.remove("active");
       }
     });
   },
-
   _fillFromDB(rec) {
-    // CLOSE search results FIRST — before any form changes, so even if
-    // something below throws, the dropdown is already gone.
-    const results = document.getElementById('db-search-results');
+    const results = document.getElementById("db-search-results");
     if (results) {
-      results.classList.remove('active');
-      results.innerHTML = '';          // clear DOM for safety
+      results.classList.remove("active");
+      results.innerHTML = "";
     }
-
-    // Set search input to show selected customer name
-    const searchInput = document.getElementById('db-search-input');
+    const searchInput = document.getElementById("db-search-input");
     if (searchInput) {
       searchInput.value = `${rec.name} (CIF: ${rec.cif})`;
     }
-
-    const form = document.getElementById('add-customer-form');
+    const form = document.getElementById("add-customer-form");
     if (!form) return;
-
     try {
-      // Auto-fill form fields
       if (rec.cif) form.elements.cif.value = rec.cif;
       if (rec.name) form.elements.name.value = rec.name;
-      if (rec.phone) form.elements.phone.value = rec.phone.replace(/\s/g, '');
-      // Build full address
+      if (rec.phone) form.elements.phone.value = rec.phone.replace(/\s/g, "");
       const addr = CustomerDB.fullAddress(rec);
       if (addr) form.elements.address.value = addr;
-
-      // Auto-fill coordinates from DB (Nominatim geocoded)
       if (rec.lat && rec.lng) {
-        document.getElementById('new-lat').value = rec.lat;
-        document.getElementById('new-lng').value = rec.lng;
+        document.getElementById("new-lat").value = rec.lat;
+        document.getElementById("new-lng").value = rec.lng;
         this._renderAddGpsDisplay();
-        // Update mini-map with the location
         setTimeout(() => this.initMiniMap(rec.lat, rec.lng), 150);
       }
     } catch (e) {
-      console.warn('[App] _fillFromDB field-fill error:', e);
+      console.warn("[App] _fillFromDB field-fill error:", e);
     }
-
-    // Show filled info
-    const info = document.getElementById('db-filled-info');
+    const info = document.getElementById("db-filled-info");
     if (info) {
       const badges = [];
-      if (rec.zone) badges.push(`เขต ${rec.zone}`);
-      if (rec.customer_class) badges.push(`ชั้น ${rec.customer_class}`);
-      if (rec.potential) badges.push(`ศักยภาพ ${rec.potential}`);
-      if (rec.dob) badges.push(`เกิด ${rec.dob}`);
-      if (rec.lat) badges.push(`📍 มีพิกัดแล้ว`);
-      info.innerHTML = `✅ <strong>${this._esc(rec.name)}</strong> · CIF ${rec.cif}${badges.length ? ' · ' + badges.join(' · ') : ''}`;
-      info.classList.add('active');
+      if (rec.zone) badges.push(`\u0E40\u0E02\u0E15 ${rec.zone}`);
+      if (rec.customer_class) badges.push(`\u0E0A\u0E31\u0E49\u0E19 ${rec.customer_class}`);
+      if (rec.potential) badges.push(`\u0E28\u0E31\u0E01\u0E22\u0E20\u0E32\u0E1E ${rec.potential}`);
+      if (rec.dob) badges.push(`\u0E40\u0E01\u0E34\u0E14 ${rec.dob}`);
+      if (rec.lat) badges.push(`\u{1F4CD} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E41\u0E25\u0E49\u0E27`);
+      info.innerHTML = `\u2705 <strong>${this._esc(rec.name)}</strong> \xB7 CIF ${rec.cif}${badges.length ? " \xB7 " + badges.join(" \xB7 ") : ""}`;
+      info.classList.add("active");
     }
-
-    Utils.toast('📋 กรอกข้อมูลอัตโนมัติจากฐานข้อมูลแล้ว' + (rec.lat ? ' (มีพิกัด 📍)' : ''));
+    Utils.toast("\u{1F4CB} \u0E01\u0E23\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E41\u0E25\u0E49\u0E27" + (rec.lat ? " (\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \u{1F4CD})" : ""));
   },
-
   _esc(str) {
-    const d = document.createElement('div');
-    d.textContent = str || '';
+    const d = document.createElement("div");
+    d.textContent = str || "";
     return d.innerHTML;
   },
-
   // ===== Confirm Delete (custom modal with customer details) =====
   confirmDelete(customer) {
     return new Promise((resolve) => {
-      const modal = document.getElementById('confirm-delete-modal');
-      const nameEl = document.getElementById('confirm-del-name');
-      const detailsEl = document.getElementById('confirm-del-details');
-      const photoEl = document.getElementById('confirm-del-photo');
-      const btnYes = document.getElementById('btn-confirm-del-yes');
-      const btnNo = document.getElementById('btn-confirm-del-no');
-      const btnX = document.getElementById('close-confirm-del');
-
-      nameEl.textContent = customer.name || '(ไม่มีชื่อ)';
-
-      // Build details line
+      const modal = document.getElementById("confirm-delete-modal");
+      const nameEl = document.getElementById("confirm-del-name");
+      const detailsEl = document.getElementById("confirm-del-details");
+      const photoEl = document.getElementById("confirm-del-photo");
+      const btnYes = document.getElementById("btn-confirm-del-yes");
+      const btnNo = document.getElementById("btn-confirm-del-no");
+      const btnX = document.getElementById("close-confirm-del");
+      nameEl.textContent = customer.name || "(\u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E37\u0E48\u0E2D)";
       const details = [];
-      if (customer.cif) details.push('CIF: ' + customer.cif);
-      if (customer.phone) details.push('📞 ' + customer.phone);
-      if (customer.nickname) details.push('🏷️ ' + customer.nickname);
-      detailsEl.textContent = details.length ? details.join(' · ') : '—';
-
-      // Show photo if exists
+      if (customer.cif) details.push("CIF: " + customer.cif);
+      if (customer.phone) details.push("\u{1F4DE} " + customer.phone);
+      if (customer.nickname) details.push("\u{1F3F7}\uFE0F " + customer.nickname);
+      detailsEl.textContent = details.length ? details.join(" \xB7 ") : "\u2014";
       if (customer.photo) {
         photoEl.innerHTML = `<img src="${customer.photo}" alt="photo" class="confirm-del-photo-img">`;
-        photoEl.style.display = 'block';
+        photoEl.style.display = "block";
       } else {
-        photoEl.innerHTML = '';
-        photoEl.style.display = 'none';
+        photoEl.innerHTML = "";
+        photoEl.style.display = "none";
       }
-
-      // Show modal
-      modal.classList.remove('hidden');
-
-      // Cleanup function
+      modal.classList.remove("hidden");
       const cleanup = (result) => {
-        modal.classList.add('hidden');
-        btnYes.removeEventListener('click', yesHandler);
-        btnNo.removeEventListener('click', noHandler);
-        btnX.removeEventListener('click', noHandler);
-        modal.removeEventListener('click', backdropHandler);
+        modal.classList.add("hidden");
+        btnYes.removeEventListener("click", yesHandler);
+        btnNo.removeEventListener("click", noHandler);
+        btnX.removeEventListener("click", noHandler);
+        modal.removeEventListener("click", backdropHandler);
         resolve(result);
       };
       const yesHandler = () => cleanup(true);
       const noHandler = () => cleanup(false);
-      const backdropHandler = (e) => { if (e.target.id === 'confirm-delete-modal') cleanup(false); };
-
-      btnYes.addEventListener('click', yesHandler);
-      btnNo.addEventListener('click', noHandler);
-      btnX.addEventListener('click', noHandler);
-      modal.addEventListener('click', backdropHandler);
+      const backdropHandler = (e) => {
+        if (e.target.id === "confirm-delete-modal") cleanup(false);
+      };
+      btnYes.addEventListener("click", yesHandler);
+      btnNo.addEventListener("click", noHandler);
+      btnX.addEventListener("click", noHandler);
+      modal.addEventListener("click", backdropHandler);
     });
   },
-
   // Init mini-map in add customer modal
   initMiniMap(prefillLat, prefillLng) {
-    const container = document.getElementById('mini-map');
+    const container = document.getElementById("mini-map");
     if (!container) return;
-    // Remove existing if any
     if (this._miniMap) {
       this._miniMap.remove();
       this._miniMap = null;
       this._miniMarker = null;
     }
-    // Default to office location if no prefilled coords
-    const lat = prefillLat ?? OFFICE_LOCATION.lat;
-    const lng = prefillLng ?? OFFICE_LOCATION.lng;
-    this._miniMap = L.map('mini-map', {
+    const lat = prefillLat != null ? prefillLat : OFFICE_LOCATION.lat;
+    const lng = prefillLng != null ? prefillLng : OFFICE_LOCATION.lng;
+    this._miniMap = L.map("mini-map", {
       zoomControl: true,
       // Mobile fix: explicit touch gestures
       tap: true,
@@ -4390,138 +4080,120 @@ const App = {
       // iOS Safari sometimes needs this
       worldCopyJump: false,
       // Use CSS-driven sizing (important for invalidateSize)
-      preferCanvas: false,
+      preferCanvas: false
     }).setView([lat, lng], 14);
-
-    // 2 base layers: roadmap (default) + satellite
     this._miniBaseLayers = {
-      roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OSM',
-        maxZoom: 19,
+      roadmap: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "\xA9 OSM",
+        maxZoom: 19
       }),
-      satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri',
-        maxZoom: 19,
-      }),
+      satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "\xA9 Esri",
+        maxZoom: 19
+      })
     };
     this._miniBaseLayers.roadmap.addTo(this._miniMap);
-    this._miniCurrentLayer = 'roadmap';
+    this._miniCurrentLayer = "roadmap";
     this._addMiniLayerToggle();
-
-    // Click to set location
-    this._miniMap.on('click', (e) => {
+    this._miniMap.on("click", (e) => {
       this.setMiniMapLocation(e.latlng.lat, e.latlng.lng);
     });
-
-    // Mobile: disable text selection while dragging
-    this._miniMap.getContainer().style.webkitUserSelect = 'none';
-    this._miniMap.getContainer().style.userSelect = 'none';
-
-    // If prefilled, add marker immediately
-    if (prefillLat !== undefined && prefillLng !== undefined) {
+    this._miniMap.getContainer().style.webkitUserSelect = "none";
+    this._miniMap.getContainer().style.userSelect = "none";
+    if (prefillLat !== void 0 && prefillLng !== void 0) {
       this.setMiniMapLocation(prefillLat, prefillLng);
     }
-
-    // Force size recalc (modal may have just shown)
     setTimeout(() => this._miniMap.invalidateSize(), 200);
   },
-
   // ===== Mini-map layer toggle (roadmap ↔ satellite) =====
   _addMiniLayerToggle() {
     const LayerToggle = L.Control.extend({
       onAdd: () => {
-        const div = L.DomUtil.create('div', 'layer-toggle layer-toggle-mini leaflet-bar');
+        const div = L.DomUtil.create("div", "layer-toggle layer-toggle-mini leaflet-bar");
         div.innerHTML = `
-          <button class="layer-btn active" data-layer="roadmap" title="แผนที่ถนน">🗺️</button>
-          <button class="layer-btn" data-layer="satellite" title="ภาพดาวเทียม">🛰️</button>
+          <button class="layer-btn active" data-layer="roadmap" title="\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E16\u0E19\u0E19">\u{1F5FA}\uFE0F</button>
+          <button class="layer-btn" data-layer="satellite" title="\u0E20\u0E32\u0E1E\u0E14\u0E32\u0E27\u0E40\u0E17\u0E35\u0E22\u0E21">\u{1F6F0}\uFE0F</button>
         `;
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.disableScrollPropagation(div);
-        div.querySelectorAll('.layer-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
+        div.querySelectorAll(".layer-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
             L.DomEvent.stop(e);
             App.switchMiniBaseLayer(btn.dataset.layer);
           });
         });
         return div;
-      },
+      }
     });
-    new LayerToggle({ position: 'topright' }).addTo(this._miniMap);
+    new LayerToggle({ position: "topright" }).addTo(this._miniMap);
   },
-
   switchMiniBaseLayer(layerName) {
     if (!this._miniBaseLayers[layerName] || layerName === this._miniCurrentLayer) return;
     this._miniMap.removeLayer(this._miniBaseLayers[this._miniCurrentLayer]);
     this._miniBaseLayers[layerName].addTo(this._miniMap);
     this._miniCurrentLayer = layerName;
-    const buttons = document.querySelectorAll('.layer-toggle-mini .layer-btn');
-    buttons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.layer === layerName);
+    const buttons = document.querySelectorAll(".layer-toggle-mini .layer-btn");
+    buttons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.layer === layerName);
     });
   },
-
   // Set location on mini-map (add/move marker)
   setMiniMapLocation(lat, lng) {
-    document.getElementById('new-lat').value = lat.toFixed(6);
-    document.getElementById('new-lng').value = lng.toFixed(6);
+    document.getElementById("new-lat").value = lat.toFixed(6);
+    document.getElementById("new-lng").value = lng.toFixed(6);
     this._renderAddGpsDisplay();
     if (this._miniMarker) {
       this._miniMarker.setLatLng([lat, lng]);
     } else {
       this._miniMarker = L.marker([lat, lng], {
         icon: L.divIcon({
-          className: '',
-          html: '<div class="mini-map-pin">📍</div>',
+          className: "",
+          html: '<div class="mini-map-pin">\u{1F4CD}</div>',
           iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        }),
+          iconAnchor: [16, 32]
+        })
       }).addTo(this._miniMap);
     }
     this._miniMap.panTo([lat, lng]);
   },
-
   // Render GPS status strip in add-customer modal (hidden lat/lng → readable)
   _renderAddGpsDisplay() {
-    const el = document.getElementById('add-gps-display');
+    var _a, _b;
+    const el = document.getElementById("add-gps-display");
     if (!el) return;
-    const lat = document.getElementById('new-lat')?.value;
-    const lng = document.getElementById('new-lng')?.value;
+    const lat = (_a = document.getElementById("new-lat")) == null ? void 0 : _a.value;
+    const lng = (_b = document.getElementById("new-lng")) == null ? void 0 : _b.value;
     if (lat && lng) {
-      el.innerHTML = `<div class="gps-captured"><span class="gps-coord">📍 ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span></div>`;
+      el.innerHTML = `<div class="gps-captured"><span class="gps-coord">\u{1F4CD} ${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}</span></div>`;
     } else {
-      el.innerHTML = '<span class="gps-empty">ยังไม่ได้เลือก — จิ้มแผนที่หรือกดปุ่ม GPS</span>';
+      el.innerHTML = '<span class="gps-empty">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 \u0E08\u0E34\u0E49\u0E21\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21 GPS</span>';
     }
   },
-
   // Pick location on main map (close modal temporarily)
   pickOnMainMap() {
-    // Save form data
-    const form = document.getElementById('add-customer-form');
+    const form = document.getElementById("add-customer-form");
     const draft = Object.fromEntries(new FormData(form));
-    sessionStorage.setItem('add-customer-draft', JSON.stringify(draft));
+    sessionStorage.setItem("add-customer-draft", JSON.stringify(draft));
     this.closeAddCustomerModal();
-    // Switch to map tab
-    this.switchTab('map');
-    Utils.toast('🗺️ คลิกบนแผนที่หลักเพื่อเลือกตำแหน่ง → กด "กลับมาเพิ่มลูกค้า"');
-    // Set flag to re-open modal on next map click
+    this.switchTab("map");
+    Utils.toast('\u{1F5FA}\uFE0F \u0E04\u0E25\u0E34\u0E01\u0E1A\u0E19\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E25\u0E31\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \u2192 \u0E01\u0E14 "\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32"');
     window._pickMode = true;
   },
-
   // Restore draft and re-open modal
   restoreAddCustomerModal() {
-    const draft = sessionStorage.getItem('add-customer-draft');
+    const draft = sessionStorage.getItem("add-customer-draft");
     if (!draft) {
       this.openAddCustomerModal();
       return;
     }
     const data = JSON.parse(draft);
-    const form = document.getElementById('add-customer-form');
+    const form = document.getElementById("add-customer-form");
     Object.entries(data).forEach(([k, v]) => {
       const el = form.elements[k];
       if (el) el.value = v;
     });
-    document.getElementById('add-customer-modal').classList.remove('hidden');
-    sessionStorage.removeItem('add-customer-draft');
+    document.getElementById("add-customer-modal").classList.remove("hidden");
+    sessionStorage.removeItem("add-customer-draft");
     setTimeout(() => {
       const lat = parseFloat(data.lat);
       const lng = parseFloat(data.lng);
@@ -4533,244 +4205,200 @@ const App = {
       }
     }, 100);
   },
-
   closeAddCustomerModal() {
-    document.getElementById('add-customer-modal').classList.add('hidden');
+    document.getElementById("add-customer-modal").classList.add("hidden");
   },
-
   // Save customer (add or edit) — Local-first: ขึ้นจอทันที แล้วส่งขึ้นเว็บเบื้องหลัง
   async saveCustomer(form) {
     const data = Object.fromEntries(new FormData(form));
     const editId = form.dataset.editId;
     const isEdit = !!editId;
     let savedCustomer;
-
-    // ===== 1) บันทึกลงเครื่อง + วาดหมุดทันที (~20ms) =====
-    // ค่าจากช่องฟอร์มเป็นข้อความ — addCustomerLocal/updateCustomerLocal แปลงเป็นตัวเลขให้
-    // (เดิมพิกัดเป็นข้อความ → หมุดไม่ขึ้นบนแผนที่จนกว่าข้อมูลใหม่จะมาจากเซิร์ฟเวอร์)
     if (isEdit) {
-      savedCustomer = Storage.updateCustomerLocal(editId, data)
-        || Storage.getCustomers().find(c => c.id === editId);
+      savedCustomer = Storage.updateCustomerLocal(editId, data) || Storage.getCustomers().find((c) => c.id === editId);
     } else {
       savedCustomer = Storage.addCustomerLocal(data);
     }
     this.closeAddCustomerModal();
-    // Re-render markers WITHOUT fitBounds — preserve whatever view the user
-    // was on. This stops the map from yanking away after every save.
-    Customers._lastMarkerHash = null;   // หมุด/พิกัดใหม่ → ต้องวาดใหม่แน่ๆ
+    Customers._lastMarkerHash = null;
     Customers.renderAll();
-    // Gentle flyTo the saved customer so the user can see where it landed
-    // without a jarring full-bounds reset.
     if (savedCustomer && savedCustomer.lat && savedCustomer.lng && Customers.map) {
       const newLatLng = L.latLng(parseFloat(savedCustomer.lat), parseFloat(savedCustomer.lng));
       const currentCenter = Customers.map.getCenter();
-      // Only fly if the new pin is off-screen or way off-center
       const isVisible = Customers.map.getBounds().contains(newLatLng);
-      const tooFarOut = Customers.map.getZoom() < 16;   // ระดับนี้หมุดถูกยัดอยู่ในกลุ่ม → มองไม่เห็น
+      const tooFarOut = Customers.map.getZoom() < 16;
       if (!isVisible || tooFarOut || currentCenter.distanceTo(newLatLng) > 500) {
         Customers.map.flyTo(newLatLng, 17, { duration: 0.6 });
       }
-      if (Customers._flashPin) Customers._flashPin(newLatLng);   // กระพริบให้เห็นว่าหมุดอยู่ตรงนี้
+      if (Customers._flashPin) Customers._flashPin(newLatLng);
     }
-
-    // ===== 2) ส่งขึ้นเว็บเบื้องหลัง + แจ้งสถานะบนจอ =====
-    this.setSaveStatus('saving');
-    Utils.toast(isEdit ? '✏️ แก้ไขแล้ว · กำลังบันทึกขึ้นเว็บ...' : '📝 เพิ่มลูกค้าแล้ว · กำลังบันทึกขึ้นเว็บ...', 'info');
-    const settled = (isEdit && savedCustomer && savedCustomer.cif)
-      ? await Storage.uploadCustomer(savedCustomer.cif, this._customerUploadFields(data))
-      : await Storage.push().then((r) => ({ synced: !!(r && r.success), error: r && r.error }));
+    this.setSaveStatus("saving");
+    Utils.toast(isEdit ? "\u270F\uFE0F \u0E41\u0E01\u0E49\u0E44\u0E02\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A..." : "\u{1F4DD} \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A...", "info");
+    const settled = isEdit && savedCustomer && savedCustomer.cif ? await Storage.uploadCustomer(savedCustomer.cif, this._customerUploadFields(data)) : await Storage.push().then((r) => ({ synced: !!(r && r.success), error: r && r.error }));
     if (settled && settled.synced) {
-      this.setSaveStatus('saved');
-      Utils.toast(isEdit ? '✅ แก้ไขลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย' : '✅ เพิ่มลูกค้าแล้ว · ส่งขึ้นเว็บเรียบร้อย');
+      this.setSaveStatus("saved");
+      Utils.toast(isEdit ? "\u2705 \u0E41\u0E01\u0E49\u0E44\u0E02\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E2A\u0E48\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22" : "\u2705 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E25\u0E49\u0E27 \xB7 \u0E2A\u0E48\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22");
     } else {
-      this.setSaveStatus('error');
-      Utils.toast('⚠️ บันทึกในเครื่องนี้แล้ว แต่ยังส่งขึ้นเว็บไม่สำเร็จ · กดปุ่ม sync ล่างขวาเพื่อลองใหม่', 'error');
+      this.setSaveStatus("error");
+      Utils.toast("\u26A0\uFE0F \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E43\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49\u0E41\u0E25\u0E49\u0E27 \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E2A\u0E48\u0E07\u0E02\u0E36\u0E49\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 \xB7 \u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21 sync \u0E25\u0E48\u0E32\u0E07\u0E02\u0E27\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48", "error");
     }
   },
-
   // เตรียมข้อมูลจากฟอร์มก่อนส่งขึ้นเว็บ
   // - ตัดช่องที่เซิร์ฟเวอร์ไม่รับ (cif/debtNote)
   // - ช่องพิกัดว่าง = ไม่แตะพิกัดเดิม (กัน lat/lng กลายเป็น 0 แล้วหมุดเด้งไปกลางทะเล)
   // - แปลงพิกัดจากข้อความ ("13.77") เป็นตัวเลข → หมุดขึ้นทันที
   _customerUploadFields(data) {
-    const f = { ...data };
+    const f = __spreadValues({}, data);
     delete f.cif;
     delete f.debtNote;
     const nlat = Storage._normCoord(f.lat);
     const nlng = Storage._normCoord(f.lng);
-    if (nlat === null || nlng === null) { delete f.lat; delete f.lng; }
-    else { f.lat = nlat; f.lng = nlng; }
+    if (nlat === null || nlng === null) {
+      delete f.lat;
+      delete f.lng;
+    } else {
+      f.lat = nlat;
+      f.lng = nlng;
+    }
     return f;
   },
-
   // Use GPS
   useGPS(forForm = false) {
     if (!navigator.geolocation) {
-      Utils.toast('เบราว์เซอร์ไม่รองรับ GPS', 'error');
+      Utils.toast("\u0E40\u0E1A\u0E23\u0E32\u0E27\u0E4C\u0E40\u0E0B\u0E2D\u0E23\u0E4C\u0E44\u0E21\u0E48\u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A GPS", "error");
       return;
     }
-
-    // ===== Form mode: just set lat/lng inputs (no map pin needed) =====
     if (forForm) {
-      Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
+      Utils.toast("\u{1F4CD} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07...");
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           window._lastGPS = { lat, lng };
-          document.getElementById('new-lat').value = lat.toFixed(6);
-          document.getElementById('new-lng').value = lng.toFixed(6);
+          document.getElementById("new-lat").value = lat.toFixed(6);
+          document.getElementById("new-lng").value = lng.toFixed(6);
           this._renderAddGpsDisplay();
-          Utils.toast('📍 ใช้ตำแหน่งปัจจุบันแล้ว');
+          Utils.toast("\u{1F4CD} \u0E43\u0E0A\u0E49\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E41\u0E25\u0E49\u0E27");
         },
         (err) => {
-          Utils.toast('ไม่สามารถเข้าถึง GPS: ' + err.message, 'error');
+          Utils.toast("\u0E44\u0E21\u0E48\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E40\u0E02\u0E49\u0E32\u0E16\u0E36\u0E07 GPS: " + err.message, "error");
         },
-        { enableHighAccuracy: true, timeout: 10000 },
+        { enableHighAccuracy: true, timeout: 1e4 }
       );
       return;
     }
-
-    // ===== Main-map mode: Google-Maps style "My Location" =====
-    // Toggle: first click starts tracking, click again stops it
     if (this._gpsWatchId !== null) {
       this._stopGPS();
       return;
     }
-
     if (!Customers.map) {
-      Utils.toast('แผนที่ยังไม่พร้อม', 'error');
+      Utils.toast("\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1E\u0E23\u0E49\u0E2D\u0E21", "error");
       return;
     }
-
-    Utils.toast('📍 กำลังค้นหาตำแหน่ง...');
-
-    // Initial fix to position the camera quickly
+    Utils.toast("\u{1F4CD} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07...");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         this._updateGPSMarker(pos.coords);
         Customers.map.setView([pos.coords.latitude, pos.coords.longitude], 16);
       },
       (err) => {
-        // ignore — watchPosition will keep trying
-        console.warn('GPS initial fix failed:', err.message);
+        console.warn("GPS initial fix failed:", err.message);
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 1e4 }
     );
-
-    // Live tracking — pin follows user like Google Maps
     this._gpsWatchId = navigator.geolocation.watchPosition(
       (pos) => this._updateGPSMarker(pos.coords),
-      (err) => Utils.toast('GPS ผิดพลาด: ' + err.message, 'error'),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
+      (err) => Utils.toast("GPS \u0E1C\u0E34\u0E14\u0E1E\u0E25\u0E32\u0E14: " + err.message, "error"),
+      { enableHighAccuracy: true, maximumAge: 5e3, timeout: 3e4 }
     );
-
-    // Visual feedback: pulse the FAB while tracking
-    const fab = document.getElementById('fab-my-location');
-    if (fab) fab.classList.add('tracking');
+    const fab = document.getElementById("fab-my-location");
+    if (fab) fab.classList.add("tracking");
   },
-
   // Update or create the single GPS pin + accuracy circle (Google-Maps style)
   _updateGPSMarker(coords) {
     const lat = coords.latitude;
     const lng = coords.longitude;
-    const acc = coords.accuracy || 0; // meters
-
+    const acc = coords.accuracy || 0;
     window._lastGPS = { lat, lng, accuracy: acc };
-
     if (!Customers.map) return;
-
     if (!this._gpsMarker) {
-      // First time — create pin + circle
       this._gpsMarker = L.marker([lat, lng], {
         icon: L.divIcon({
-          className: '',
-          html: '<div class="gps-dot">'
-              + '<div class="gps-arrow-wrap"><div class="gps-arrow"></div></div>'
-              + '<div class="gps-dot-inner"></div>'
-              + '</div>',
+          className: "",
+          html: '<div class="gps-dot"><div class="gps-arrow-wrap"><div class="gps-arrow"></div></div><div class="gps-dot-inner"></div></div>',
           iconSize: [22, 22],
-          iconAnchor: [11, 11],
+          iconAnchor: [11, 11]
         }),
-        zIndexOffset: 1000,
-        interactive: false,
+        zIndexOffset: 1e3,
+        interactive: false
       }).addTo(Customers.map);
       this._gpsCircle = L.circle([lat, lng], {
         radius: acc,
-        color: '#4285F4',
-        fillColor: '#4285F4',
+        color: "#4285F4",
+        fillColor: "#4285F4",
         fillOpacity: 0.15,
         weight: 1,
-        interactive: false,
+        interactive: false
       }).addTo(Customers.map);
     } else {
-      // Subsequent updates — move pin + resize circle
       this._gpsMarker.setLatLng([lat, lng]);
       this._gpsCircle.setLatLng([lat, lng]);
       if (acc > 0) this._gpsCircle.setRadius(acc);
     }
-
-    // Heading arrow (Google-Maps style). Only visible when device reports
-    // a real heading (mobile w/ compass). On desktop coords.heading is null.
     const el = this._gpsMarker.getElement();
     if (el) {
-      const wrap = el.querySelector('.gps-arrow-wrap');
-      const hasHeading = coords.heading !== null && coords.heading !== undefined
-                         && !isNaN(coords.heading);
+      const wrap = el.querySelector(".gps-arrow-wrap");
+      const hasHeading = coords.heading !== null && coords.heading !== void 0 && !isNaN(coords.heading);
       if (wrap) {
         if (hasHeading) {
           wrap.style.transform = `rotate(${coords.heading}deg)`;
-          el.classList.add('has-heading');
+          el.classList.add("has-heading");
         } else {
-          el.classList.remove('has-heading');
+          el.classList.remove("has-heading");
         }
       }
     }
-
-    // First-fix only: zoom in. Don't auto-pan on every watch tick —
-    // that would yank the map while the user is exploring.
-    if (this._gpsFirstFix === undefined) {
+    if (this._gpsFirstFix === void 0) {
       this._gpsFirstFix = false;
       Customers.map.setView([lat, lng], 16);
     }
   },
-
   // Stop tracking + clean up pin + circle
   _stopGPS() {
-    if (this._gpsWatchId !== null && this._gpsWatchId !== undefined) {
+    if (this._gpsWatchId !== null && this._gpsWatchId !== void 0) {
       navigator.geolocation.clearWatch(this._gpsWatchId);
     }
     this._gpsWatchId = null;
-    this._gpsFirstFix = undefined;
-
-    if (this._gpsMarker) { Customers.map.removeLayer(this._gpsMarker); this._gpsMarker = null; }
-    if (this._gpsCircle) { Customers.map.removeLayer(this._gpsCircle); this._gpsCircle = null; }
-
-    const fab = document.getElementById('fab-my-location');
-    if (fab) fab.classList.remove('tracking');
-    Utils.toast('ปิดติดตาม GPS แล้ว');
+    this._gpsFirstFix = void 0;
+    if (this._gpsMarker) {
+      Customers.map.removeLayer(this._gpsMarker);
+      this._gpsMarker = null;
+    }
+    if (this._gpsCircle) {
+      Customers.map.removeLayer(this._gpsCircle);
+      this._gpsCircle = null;
+    }
+    const fab = document.getElementById("fab-my-location");
+    if (fab) fab.classList.remove("tracking");
+    Utils.toast("\u0E1B\u0E34\u0E14\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21 GPS \u0E41\u0E25\u0E49\u0E27");
   },
-
   // Update route tab UI — render selected chips with drag&drop + ▲▼ reorder
   updateRouteUI() {
     const route = Storage.getRoute();
     const customers = Storage.getActiveCustomers();
-    const routeCustomers = route.map(id => customers.find(c => c.id === id)).filter(Boolean);
-    const el = document.getElementById('route-chips');
-    const countEl = document.getElementById('route-count');
-    const btnCalculate = document.getElementById('btn-calculate-route');
-    const btnOptimize = document.getElementById('btn-optimize-route');
-
+    const routeCustomers = route.map((id) => customers.find((c) => c.id === id)).filter(Boolean);
+    const el = document.getElementById("route-chips");
+    const countEl = document.getElementById("route-count");
+    const btnCalculate = document.getElementById("btn-calculate-route");
+    const btnOptimize = document.getElementById("btn-optimize-route");
     if (countEl) countEl.textContent = routeCustomers.length;
-
     if (routeCustomers.length === 0) {
-      if (el) el.innerHTML = '<p class="empty-state">เลือกลูกค้าจากช่องค้นหาด้านบน หรือกด "เพิ่มในเส้นทางวันนี้" จากแท็บลูกค้า</p>';
+      if (el) el.innerHTML = '<p class="empty-state">\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E08\u0E32\u0E01\u0E0A\u0E48\u0E2D\u0E07\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 \u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14 "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E19\u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49" \u0E08\u0E32\u0E01\u0E41\u0E17\u0E47\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32</p>';
       if (btnCalculate) btnCalculate.disabled = true;
       if (btnOptimize) btnOptimize.disabled = true;
       this.updateRouteDebtSummary(routeCustomers);
       return;
     }
-
     if (el) {
       el.innerHTML = routeCustomers.map((c, idx) => {
         const isFirst = idx === 0;
@@ -4782,213 +4410,188 @@ const App = {
                 ondrop="Route.drop(event, ${idx})"
                 ondragend="Route.dragEnd(event)">
             <span class="route-chip-num">${idx + 1}</span>
-            <span class="route-chip-cif">${this.escapeHTML(c.cif || '-')}</span>
+            <span class="route-chip-cif">${this.escapeHTML(c.cif || "-")}</span>
             ${this.escapeHTML(c.name)}
             <span class="route-chip-order">
-              <button onclick="Route.move(${idx}, -1)" ${isFirst ? 'disabled' : ''} title="เลื่อนขึ้น">▲</button>
-              <button onclick="Route.move(${idx}, 1)" ${isLast ? 'disabled' : ''} title="เลื่อนลง">▼</button>
+              <button onclick="Route.move(${idx}, -1)" ${isFirst ? "disabled" : ""} title="\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19">\u25B2</button>
+              <button onclick="Route.move(${idx}, 1)" ${isLast ? "disabled" : ""} title="\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07">\u25BC</button>
             </span>
-            <button class="route-chip-remove" onclick="Route.toggle('${this.escapeHTML(c.id)}')" title="เอาออก">×</button>
+            <button class="route-chip-remove" onclick="Route.toggle('${this.escapeHTML(c.id)}')" title="\u0E40\u0E2D\u0E32\u0E2D\u0E2D\u0E01">\xD7</button>
           </span>
         `;
-      }).join('');
+      }).join("");
     }
-
     if (btnCalculate) btnCalculate.disabled = false;
     if (btnOptimize) btnOptimize.disabled = false;
     this.renderTodayRoute();
     this.updateRouteDebtSummary(routeCustomers);
     if (!routeCustomers || routeCustomers.length === 0) this.hidePlanQuick();
   },
-
   // สรุปสั้นบนสุดของแท็บวางแผน — ให้เห็น "ได้อะไร" ก่อนเลื่อนลงไปดูรายละเอียด
   // เลื่อนไปยังการ์ด "สรุปหนี้ตามแผน" (รายละเอียด) ในแท็บวางแผน
   scrollToDebtSummary() {
-    const el = document.getElementById('route-debt-summary');
-    if (!el || el.classList.contains('hidden')) { Utils.toast('ยังไม่มีแผน — กดจัดแผนก่อนค่ะ'); return; }
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const el = document.getElementById("route-debt-summary");
+    if (!el || el.classList.contains("hidden")) {
+      Utils.toast("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E41\u0E1C\u0E19 \u2014 \u0E01\u0E14\u0E08\u0E31\u0E14\u0E41\u0E1C\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E04\u0E48\u0E30");
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   },
-
   hidePlanQuick() {
-    const q = document.getElementById('plan-quick');
-    if (q) q.classList.add('hidden');
-    for (const id of ['pq-km', 'pq-min']) {
+    const q = document.getElementById("plan-quick");
+    if (q) q.classList.add("hidden");
+    for (const id of ["pq-km", "pq-min"]) {
       const n = document.getElementById(id);
-      if (n) n.textContent = '—';
+      if (n) n.textContent = "\u2014";
     }
   },
-
   updatePlanQuick(nums) {
-    const q = document.getElementById('plan-quick');
+    const q = document.getElementById("plan-quick");
     if (!q || !nums) return;
-    const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
-    const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
-    set('pq-count', nums.count + ' ราย');
-    set('pq-debt', fmt(nums.debt));
-    set('pq-m15', nums.m15 > 0 ? fmt(nums.m15) : '—');
-    const more = document.getElementById('pq-more');
+    const fmt = (n) => Number(n || 0).toLocaleString("th-TH", { maximumFractionDigits: 0 });
+    const set = (id, v) => {
+      const n = document.getElementById(id);
+      if (n) n.textContent = v;
+    };
+    set("pq-count", nums.count + " \u0E23\u0E32\u0E22");
+    set("pq-debt", fmt(nums.debt));
+    set("pq-m15", nums.m15 > 0 ? fmt(nums.m15) : "\u2014");
+    const more = document.getElementById("pq-more");
     if (more && !more.dataset.bound) {
-      more.dataset.bound = '1';
-      more.addEventListener('click', (e) => { e.preventDefault(); this.scrollToDebtSummary(); });
+      more.dataset.bound = "1";
+      more.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.scrollToDebtSummary();
+      });
     }
-    q.classList.remove('hidden');
+    q.classList.remove("hidden");
   },
-
   // สรุปหนี้สำหรับแผน (ถ้าออกตามแผนจะได้ตามหนี้ประเภทไหน ต้นเงินคงเป็นหนี้เท่าไหร่ สำรองประเภทไหน ดอกเบี้ย 15 เดือน ผลงานเท่าไหร่)
   updateRouteDebtSummary(routeCustomers) {
-    const el = document.getElementById('route-debt-summary');
+    const el = document.getElementById("route-debt-summary");
     if (!el) return;
     if (!routeCustomers || routeCustomers.length === 0) {
-      el.classList.add('hidden');
-      el.innerHTML = '';
+      el.classList.add("hidden");
+      el.innerHTML = "";
       this.hidePlanQuick();
       return;
     }
-    // รอ DebtDB โหลด
     if (!window.DebtDB || !DebtDB._loaded || !DebtDB._byCif) {
-      el.classList.remove('hidden');
-      el.innerHTML = '<div class="rds-note">กำลังโหลดข้อมูลหนี้...</div>';
+      el.classList.remove("hidden");
+      el.innerHTML = '<div class="rds-note">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49...</div>';
       if (window.DebtDB && !DebtDB._loaded) DebtDB.load().then(() => this.updateRouteDebtSummary(routeCustomers));
       return;
     }
-
-    const fmt = (n) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
-
-    // รวบรวมข้อมูลหนี้จากลูกค้าที่เลือก
+    const fmt = (n) => Number(n || 0).toLocaleString("th-TH", { maximumFractionDigits: 0 });
     let totalDebt = 0;
     let totalContracts = 0;
     let maxTier = 0;
-    const subsidyTypes = {};   // หนี้ประเภทไหน (SP/EP/ปกติ)
-    const reserveTypes = {};   // สำรองประเภทไหน (%)
+    const subsidyTypes = {};
+    const reserveTypes = {};
     const tierCount = {};
-    let m15Total = 0;         // ต้นเงินของสัญญา 15 เดือน
+    let m15Total = 0;
     let m15Count = 0;
-    const marketCodes = {};   // โครงการ
-    const dueGroups = {};     // กำหนดชำระแต่ละรายการ -> { amount, count } (ต้นเงินต่อวันถึงกำหนด ไม่ใช่รวมทั้งหมด)
-
+    const marketCodes = {};
+    const dueGroups = {};
     for (const c of routeCustomers) {
       const debt = DebtDB.getByCif(c.cif);
       if (!debt) continue;
-      totalDebt += (+debt.total_debt || 0);
-      totalContracts += (+debt.num_contracts || 0);
+      totalDebt += +debt.total_debt || 0;
+      totalContracts += +debt.num_contracts || 0;
       const t = parseInt(debt.max_tier) || 0;
       if (t > maxTier) maxTier = t;
       if (t) tierCount[t] = (tierCount[t] || 0) + 1;
-
-      // รวบรวมจาก contracts
-      for (const ct of (debt.contracts || [])) {
-        const sub = (ct.sub || '').trim();
-        const subKey = sub || 'ปกติ (ไม่มีชดเชย)';
+      for (const ct of debt.contracts || []) {
+        const sub = (ct.sub || "").trim();
+        const subKey = sub || "\u0E1B\u0E01\u0E15\u0E34 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E14\u0E40\u0E0A\u0E22)";
         subsidyTypes[subKey] = (subsidyTypes[subKey] || 0) + (+ct.d || 0);
-
-        const res = (ct.reserve || '').trim();
+        const res = (ct.reserve || "").trim();
         if (res) reserveTypes[res] = (reserveTypes[res] || 0) + (+ct.d || 0);
-
-        if (ct.m15 === 'Y') { m15Count++; m15Total += (+ct.d || 0); }
-
-        const mc = (ct.mc || '').trim();
+        if (ct.m15 === "Y") {
+          m15Count++;
+          m15Total += +ct.d || 0;
+        }
+        const mc = (ct.mc || "").trim();
         if (mc) marketCodes[mc] = (marketCodes[mc] || 0) + (+ct.d || 0);
-
-        // กำหนดชำระแต่ละรายการ: ต้นเงิน (ct.d) ต่อวันถึงกำหนด (ct.due) ไม่ใช่รวมทั้งหมด
-        const dueKey = (ct.due || '').trim();
+        const dueKey = (ct.due || "").trim();
         if (dueKey) {
           if (!dueGroups[dueKey]) dueGroups[dueKey] = { amount: 0, count: 0 };
-          dueGroups[dueKey].amount += (+ct.d || 0);
+          dueGroups[dueKey].amount += +ct.d || 0;
           dueGroups[dueKey].count++;
         }
       }
     }
-
-    const totalCif = routeCustomers.filter(c => DebtDB.getByCif(c.cif)).length;
-    const tierLabels = { 1: 'ชั้น 1', 2: 'ชั้น 2', 3: 'ชั้น 3', 4: 'ชั้น 4', 5: 'ชั้น 5' };
-
-    // ===== สร้าง HTML =====
+    const totalCif = routeCustomers.filter((c) => DebtDB.getByCif(c.cif)).length;
+    const tierLabels = { 1: "\u0E0A\u0E31\u0E49\u0E19 1", 2: "\u0E0A\u0E31\u0E49\u0E19 2", 3: "\u0E0A\u0E31\u0E49\u0E19 3", 4: "\u0E0A\u0E31\u0E49\u0E19 4", 5: "\u0E0A\u0E31\u0E49\u0E19 5" };
     let html = '<div class="rds-card">';
-    html += '<h3 class="rds-title">📊 สรุปหนี้ตามแผน (' + routeCustomers.length + ' ราย)</h3>';
-
-    // ภาพรวม
+    html += '<h3 class="rds-title">\u{1F4CA} \u0E2A\u0E23\u0E38\u0E1B\u0E2B\u0E19\u0E35\u0E49\u0E15\u0E32\u0E21\u0E41\u0E1C\u0E19 (' + routeCustomers.length + " \u0E23\u0E32\u0E22)</h3>";
     html += '<div class="rds-overview">';
-    html += '<div class="rds-stat"><span class="rds-num">' + fmt(totalDebt) + '</span><span class="rds-label">ต้นเงินคงเป็นหนี้ (บาท)</span></div>';
-    html += '<div class="rds-stat"><span class="rds-num">' + totalContracts.toLocaleString('th-TH') + '</span><span class="rds-label">สัญญา</span></div>';
-    html += '<div class="rds-stat"><span class="rds-num">' + totalCif.toLocaleString('th-TH') + '</span><span class="rds-label">ลูกค้าที่มีข้อมูลหนี้</span></div>';
-    if (maxTier) html += '<div class="rds-stat"><span class="rds-num" style="color:' + DebtDB.tierColor(maxTier) + '">ชั้น ' + maxTier + '</span><span class="rds-label">ชั้นหนี้สูงสุด</span></div>';
-    html += '</div>';
-
-    // หนี้ประเภทไหน (subsidy types)
+    html += '<div class="rds-stat"><span class="rds-num">' + fmt(totalDebt) + '</span><span class="rds-label">\u0E15\u0E49\u0E19\u0E40\u0E07\u0E34\u0E19\u0E04\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E35\u0E49 (\u0E1A\u0E32\u0E17)</span></div>';
+    html += '<div class="rds-stat"><span class="rds-num">' + totalContracts.toLocaleString("th-TH") + '</span><span class="rds-label">\u0E2A\u0E31\u0E0D\u0E0D\u0E32</span></div>';
+    html += '<div class="rds-stat"><span class="rds-num">' + totalCif.toLocaleString("th-TH") + '</span><span class="rds-label">\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49</span></div>';
+    if (maxTier) html += '<div class="rds-stat"><span class="rds-num" style="color:' + DebtDB.tierColor(maxTier) + '">\u0E0A\u0E31\u0E49\u0E19 ' + maxTier + '</span><span class="rds-label">\u0E0A\u0E31\u0E49\u0E19\u0E2B\u0E19\u0E35\u0E49\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14</span></div>';
+    html += "</div>";
     const subKeys = Object.keys(subsidyTypes);
     if (subKeys.length) {
-      html += '<div class="rds-block"><div class="rds-block-title">🏷️ หนี้ประเภทไหน (ตามโครงการ/ชดเชย)</div>';
+      html += '<div class="rds-block"><div class="rds-block-title">\u{1F3F7}\uFE0F \u0E2B\u0E19\u0E35\u0E49\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E44\u0E2B\u0E19 (\u0E15\u0E32\u0E21\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23/\u0E0A\u0E14\u0E40\u0E0A\u0E22)</div>';
       for (const k of subKeys.sort()) {
         const pct = totalDebt ? Math.round(subsidyTypes[k] / totalDebt * 100) : 0;
-        html += '<div class="rds-row"><span class="rds-label">' + this.escapeHTML(k) + '</span><span class="rds-val">' + fmt(subsidyTypes[k]) + ' บาท (' + pct + '%)</span></div>';
+        html += '<div class="rds-row"><span class="rds-label">' + this.escapeHTML(k) + '</span><span class="rds-val">' + fmt(subsidyTypes[k]) + " \u0E1A\u0E32\u0E17 (" + pct + "%)</span></div>";
       }
-      html += '</div>';
+      html += "</div>";
     }
-
-    // สำรองประเภทไหน
     const resKeys = Object.keys(reserveTypes);
     if (resKeys.length) {
-      html += '<div class="rds-block"><div class="rds-block-title">🛡️ สำรองประเภทไหน (กันสำรอง)</div>';
+      html += '<div class="rds-block"><div class="rds-block-title">\u{1F6E1}\uFE0F \u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E44\u0E2B\u0E19 (\u0E01\u0E31\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07)</div>';
       for (const k of resKeys.sort()) {
         const pct = totalDebt ? Math.round(reserveTypes[k] / totalDebt * 100) : 0;
-        html += '<div class="rds-row"><span class="rds-label">กันสำรอง ' + this.escapeHTML(k) + '%</span><span class="rds-val">' + fmt(reserveTypes[k]) + ' บาท (' + pct + '%)</span></div>';
+        html += '<div class="rds-row"><span class="rds-label">\u0E01\u0E31\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 ' + this.escapeHTML(k) + '%</span><span class="rds-val">' + fmt(reserveTypes[k]) + " \u0E1A\u0E32\u0E17 (" + pct + "%)</span></div>";
       }
-      html += '</div>';
+      html += "</div>";
     }
-
-    // กำหนดชำระแต่ละรายการ (ต้นเงินต่อวันถึงกำหนด ไม่ใช่รวมทั้งหมด)
     const dueKeys = Object.keys(dueGroups);
     if (dueKeys.length) {
-      // เรียงตามวันที่ถึงกำหนด (dd/mm/yyyy)
       const toNum = (d) => {
         const m = String(d).match(/(\d+)\/(\d+)\/(\d+)/);
         if (!m) return Number.MAX_SAFE_INTEGER;
-        return (+m[3]) * 10000 + (+m[2]) * 100 + (+m[1]);
+        return +m[3] * 1e4 + +m[2] * 100 + +m[1];
       };
       dueKeys.sort((a, b) => toNum(a) - toNum(b));
-      html += '<div class="rds-block"><div class="rds-block-title">📅 กำหนดชำระแต่ละรายการ (ต้นเงินแยกตามวันถึงกำหนด)</div>';
+      html += '<div class="rds-block"><div class="rds-block-title">\u{1F4C5} \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E0A\u0E33\u0E23\u0E30\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E15\u0E49\u0E19\u0E40\u0E07\u0E34\u0E19\u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E16\u0E36\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14)</div>';
       for (const k of dueKeys) {
         const g = dueGroups[k];
         const pct = totalDebt ? Math.round(g.amount / totalDebt * 100) : 0;
-        html += '<div class="rds-row"><span class="rds-label">📅 ' + this.escapeHTML(k) + ' (' + g.count + ' สัญญา)</span><span class="rds-val">' + fmt(g.amount) + ' บาท (' + pct + '%)</span></div>';
+        html += '<div class="rds-row"><span class="rds-label">\u{1F4C5} ' + this.escapeHTML(k) + " (" + g.count + ' \u0E2A\u0E31\u0E0D\u0E0D\u0E32)</span><span class="rds-val">' + fmt(g.amount) + " \u0E1A\u0E32\u0E17 (" + pct + "%)</span></div>";
       }
-      html += '</div>';
+      html += "</div>";
     }
-
-    // ชั้นหนี้
     const tierKeys = Object.keys(tierCount);
     if (tierKeys.length) {
-      html += '<div class="rds-block"><div class="rds-block-title">📊 ชั้นหนี้</div>';
+      html += '<div class="rds-block"><div class="rds-block-title">\u{1F4CA} \u0E0A\u0E31\u0E49\u0E19\u0E2B\u0E19\u0E35\u0E49</div>';
       for (const t of tierKeys.sort()) {
-        html += '<div class="rds-row"><span class="rds-label" style="color:' + DebtDB.tierColor(t) + '">' + (tierLabels[t] || ('ชั้น ' + t)) + '</span><span class="rds-val">' + tierCount[t] + ' ราย</span></div>';
+        html += '<div class="rds-row"><span class="rds-label" style="color:' + DebtDB.tierColor(t) + '">' + (tierLabels[t] || "\u0E0A\u0E31\u0E49\u0E19 " + t) + '</span><span class="rds-val">' + tierCount[t] + " \u0E23\u0E32\u0E22</span></div>";
       }
-      html += '</div>';
+      html += "</div>";
     }
-
-    // ดอกเบี้ย 15 เดือน
-    html += '<div class="rds-block"><div class="rds-block-title">⏰ สัญญา 15 เดือน</div>';
+    html += '<div class="rds-block"><div class="rds-block-title">\u23F0 \u0E2A\u0E31\u0E0D\u0E0D\u0E32 15 \u0E40\u0E14\u0E37\u0E2D\u0E19</div>';
     if (m15Count > 0) {
-      html += '<div class="rds-row rds-warn"><span class="rds-label">🔴 สัญญา 15 เดือน</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
+      html += '<div class="rds-row rds-warn"><span class="rds-label">\u{1F534} \u0E2A\u0E31\u0E0D\u0E0D\u0E32 15 \u0E40\u0E14\u0E37\u0E2D\u0E19</span><span class="rds-val">' + m15Count + " \u0E2A\u0E31\u0E0D\u0E0D\u0E32 \xB7 " + fmt(m15Total) + " \u0E1A\u0E32\u0E17</span></div>";
     } else {
-      html += '<div class="rds-row rds-ok"><span class="rds-label">✅ ไม่มีนัดค้าง 15 เดือน</span><span class="rds-val">0 บาท</span></div>';
+      html += '<div class="rds-row rds-ok"><span class="rds-label">\u2705 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E04\u0E49\u0E32\u0E07 15 \u0E40\u0E14\u0E37\u0E2D\u0E19</span><span class="rds-val">0 \u0E1A\u0E32\u0E17</span></div>';
     }
-    html += '</div>';
-
-    // ผลงาน (performance summary)
-    html += '<div class="rds-block rds-perf"><div class="rds-block-title">🎯 ผลงานที่จะได้ถ้าออกตามแผน</div>';
-    html += '<div class="rds-row"><span class="rds-label">💰 หนี้ที่จะได้ตาม (รวม)</span><span class="rds-val">' + fmt(totalDebt) + ' บาท</span></div>';
-    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">💰 หนี้ที่จะได้ตาม (15 เดือน)</span><span class="rds-val">' + fmt(m15Total) + ' บาท (' + m15Count + ' สัญญา)</span></div>';
-    html += '<div class="rds-row"><span class="rds-label">📋 สัญญาที่จะติดตาม</span><span class="rds-val">' + totalContracts.toLocaleString('th-TH') + ' สัญญา</span></div>';
-    html += '<div class="rds-row"><span class="rds-label">👥 ลูกค้าที่จะเยี่ยม</span><span class="rds-val">' + routeCustomers.length + ' ราย</span></div>';
-    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">⚠️ ต้องเร่งติดตาม (15 เดือน)</span><span class="rds-val">' + m15Count + ' สัญญา · ' + fmt(m15Total) + ' บาท</span></div>';
-    html += '</div>';
-
-    html += '</div>';
+    html += "</div>";
+    html += '<div class="rds-block rds-perf"><div class="rds-block-title">\u{1F3AF} \u0E1C\u0E25\u0E07\u0E32\u0E19\u0E17\u0E35\u0E48\u0E08\u0E30\u0E44\u0E14\u0E49\u0E16\u0E49\u0E32\u0E2D\u0E2D\u0E01\u0E15\u0E32\u0E21\u0E41\u0E1C\u0E19</div>';
+    html += '<div class="rds-row"><span class="rds-label">\u{1F4B0} \u0E2B\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E08\u0E30\u0E44\u0E14\u0E49\u0E15\u0E32\u0E21 (\u0E23\u0E27\u0E21)</span><span class="rds-val">' + fmt(totalDebt) + " \u0E1A\u0E32\u0E17</span></div>";
+    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">\u{1F4B0} \u0E2B\u0E19\u0E35\u0E49\u0E17\u0E35\u0E48\u0E08\u0E30\u0E44\u0E14\u0E49\u0E15\u0E32\u0E21 (15 \u0E40\u0E14\u0E37\u0E2D\u0E19)</span><span class="rds-val">' + fmt(m15Total) + " \u0E1A\u0E32\u0E17 (" + m15Count + " \u0E2A\u0E31\u0E0D\u0E0D\u0E32)</span></div>";
+    html += '<div class="rds-row"><span class="rds-label">\u{1F4CB} \u0E2A\u0E31\u0E0D\u0E0D\u0E32\u0E17\u0E35\u0E48\u0E08\u0E30\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21</span><span class="rds-val">' + totalContracts.toLocaleString("th-TH") + " \u0E2A\u0E31\u0E0D\u0E0D\u0E32</span></div>";
+    html += '<div class="rds-row"><span class="rds-label">\u{1F465} \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E08\u0E30\u0E40\u0E22\u0E35\u0E48\u0E22\u0E21</span><span class="rds-val">' + routeCustomers.length + " \u0E23\u0E32\u0E22</span></div>";
+    if (m15Count > 0) html += '<div class="rds-row rds-warn"><span class="rds-label">\u26A0\uFE0F \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E23\u0E48\u0E07\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21 (15 \u0E40\u0E14\u0E37\u0E2D\u0E19)</span><span class="rds-val">' + m15Count + " \u0E2A\u0E31\u0E0D\u0E0D\u0E32 \xB7 " + fmt(m15Total) + " \u0E1A\u0E32\u0E17</span></div>";
+    html += "</div>";
+    html += "</div>";
     el.innerHTML = html;
-    el.classList.remove('hidden');
+    el.classList.remove("hidden");
     this.updatePlanQuick({ count: routeCustomers.length, debt: totalDebt, m15: m15Total });
   },
-
   // Calculate route
   // useTSP = false (default) = use the manual order from chips
   // useTSP = true = call TSP.plan() to auto-optimize (opt-in)
@@ -4997,855 +4600,737 @@ const App = {
     if (route.length === 0) return;
     const start = Route.getStartCoords();
     const end = Route.getEndCoords();
-
-    // Manual order (default) or auto-optimize on real road distances (opt-in)
     let ordered = route;
     if (useTSP) {
       try {
         ordered = await Route.optimizeOrder(start, route, end);
       } catch (err) {
-        console.warn('optimizeOrder (OSRM table) ล้มเหลว → ใช้ haversine TSP แทน', err);
+        console.warn("optimizeOrder (OSRM table) \u0E25\u0E49\u0E21\u0E40\u0E2B\u0E25\u0E27 \u2192 \u0E43\u0E0A\u0E49 haversine TSP \u0E41\u0E17\u0E19", err);
         ordered = TSP.plan(start, route, end);
       }
     }
-
-    // 🎯 TSP คิดลำดับใหม่ → บันทึกกลับเป็น "เส้นทางวันนี้"
-    // เดิม: ลำดับใหม่ถูกใช้คำนวณครั้งเดียวแล้วหายไป → ชิปด้านบนกับแท็บ "เข้าพบ" ยังเรียงเก่า (ขัดกับผลที่โชว์)
     let reordered = false;
-    if (useTSP && ordered.length === route.length && ordered.join('|') !== route.join('|')) {
+    if (useTSP && ordered.length === route.length && ordered.join("|") !== route.join("|")) {
       Storage.saveRoute(ordered);
       this.updateRouteUI();
       reordered = true;
     }
-
-    // Get real route from OSRM
     const result = await Route.calculate(start, ordered, end);
     if (result) {
       result.autoOrdered = reordered;
       result.autoOrderTried = useTSP;
       Route.showResult(result);
-      // อัปเดตระยะทาง/เวลาในสรุปสั้นบนสุดของแท็บวางแผน
-      const kmEl = document.getElementById('pq-km');
-      const minEl = document.getElementById('pq-min');
-      if (kmEl) kmEl.textContent = (result.distance / 1000).toFixed(1) + ' กม.';
-      if (minEl) minEl.textContent = result.duration ? Math.round(result.duration / 60) + ' น.' : '—';
-      // เลื่อนแผงวางแผนขึ้นบนสุด เพื่อให้เห็นสรุปสั้นทันทีที่กลับมา
+      const kmEl = document.getElementById("pq-km");
+      const minEl = document.getElementById("pq-min");
+      if (kmEl) kmEl.textContent = (result.distance / 1e3).toFixed(1) + " \u0E01\u0E21.";
+      if (minEl) minEl.textContent = result.duration ? Math.round(result.duration / 60) + " \u0E19." : "\u2014";
       try {
-        const pane = document.getElementById('tab-planvisit');
-        const sc = pane && pane.closest ? pane.closest('.sheet-scroll') : null;
+        const pane = document.getElementById("tab-planvisit");
+        const sc = pane && pane.closest ? pane.closest(".sheet-scroll") : null;
         if (sc) sc.scrollTop = 0;
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+      }
       if (opts && opts.focusSummary) {
-        // กด "จัด" → พาไปหน้าสรุปทันที (ไม่ต้องไปดูแผนที่ก่อน)
-        this.switchSheetTab('planvisit');
-        this.setSheetState('half');
+        this.switchSheetTab("planvisit");
+        this.setSheetState("half");
         requestAnimationFrame(() => {
-          const sc = document.querySelector('.sheet-scroll');
-          if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' });
-          const q = document.getElementById('plan-quick');
-          if (q) { q.classList.add('flash'); setTimeout(() => q.classList.remove('flash'), 1600); }
+          const sc = document.querySelector(".sheet-scroll");
+          if (sc) sc.scrollTo({ top: 0, behavior: "smooth" });
+          const q = document.getElementById("plan-quick");
+          if (q) {
+            q.classList.add("flash");
+            setTimeout(() => q.classList.remove("flash"), 1600);
+          }
         });
       } else {
-        this.switchTab('map'); // show route on map
+        this.switchTab("map");
       }
-      const routeType = result.isOpenPath ? ' (เปิด)' : '';
-      const tspNote = reordered ? ' · 🎯 จัดลำดับให้ใหม่แล้ว' : (useTSP ? ' · ลำดับเดิมสั้นที่สุดอยู่แล้ว' : '');
-      Utils.toast(`✅ เส้นทาง${routeType}${tspNote} — ${Utils.formatKm(result.distance)} กม. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : '?'} บาท`);
+      const routeType = result.isOpenPath ? " (\u0E40\u0E1B\u0E34\u0E14)" : "";
+      const tspNote = reordered ? " \xB7 \u{1F3AF} \u0E08\u0E31\u0E14\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E43\u0E2B\u0E49\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27" : useTSP ? " \xB7 \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E40\u0E14\u0E34\u0E21\u0E2A\u0E31\u0E49\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E38\u0E14\u0E2D\u0E22\u0E39\u0E48\u0E41\u0E25\u0E49\u0E27" : "";
+      Utils.toast(`\u2705 \u0E40\u0E2A\u0E49\u0E19\u0E17\u0E32\u0E07${routeType}${tspNote} \u2014 ${Utils.formatKm(result.distance)} \u0E01\u0E21. / ${result.fuel ? Utils.formatBaht(result.fuel.baht) : "?"} \u0E1A\u0E32\u0E17`);
     }
   },
-
   // ===== Admin: Show/hide admin button based on role =====
   updateAdminUI() {
     const isAdmin = Auth.isAdmin();
-    const canManage = (typeof Auth.canManage === 'function') ? Auth.canManage() : isAdmin;
-    const userBtn = document.getElementById('admin-users-btn');
-    const dataBtn = document.getElementById('admin-data-btn');
-    // ⚙️ จัดการระบบ = แอดมินกลาง + ผู้ดูแลสาขา · ข้อมูลลูกค้าเต็ม (/admin.html) = แอดมินกลางเท่านั้น
-    if (userBtn) userBtn.style.display = canManage ? '' : 'none';
-    if (dataBtn) dataBtn.style.display = isAdmin ? '' : 'none';
-    // ล็อกสาขาตามสิทธิ์ (17 ต.ค.69 — พ่อสั่ง: ไม่ใช่แอดมินเห็นแค่สาขาตัวเอง)
-    // ซ่อน dropdown สาขาทันทีตั้งแต่เปิด (ค่าถูกล็อกใน refreshBranchOptions อีกชั้น)
-    // ผู้ดูแลสาขาก็ถูกล็อกสาขาเหมือนพนักงาน — ไม่เห็นข้อมูลข้ามสาขา
+    const canManage = typeof Auth.canManage === "function" ? Auth.canManage() : isAdmin;
+    const userBtn = document.getElementById("admin-users-btn");
+    const dataBtn = document.getElementById("admin-data-btn");
+    if (userBtn) userBtn.style.display = canManage ? "" : "none";
+    if (dataBtn) dataBtn.style.display = isAdmin ? "" : "none";
     if (!isAdmin) {
-      for (const id of ['map-branch-filter', 'customer-branch']) {
+      for (const id of ["map-branch-filter", "customer-branch"]) {
         const s = document.getElementById(id);
-        if (s) s.style.display = 'none';
+        if (s) s.style.display = "none";
       }
     }
   },
-
   // ===== Admin: Open management modal =====
   async openAdminUsers() {
-    const modal = document.getElementById('admin-users-modal');
-    modal.classList.remove('hidden');
-
-    // ===== ขอบเขตสิทธิ์: แอดมินกลางเห็นทุกสาขา · ผู้ดูแลสาขาเห็นเฉพาะสาขาตัวเอง =====
+    const modal = document.getElementById("admin-users-modal");
+    modal.classList.remove("hidden");
     const isSuperAdmin = Auth.isAdmin();
-    const myBranch = (typeof Auth.myBranch === 'function') ? Auth.myBranch() : '';
-    // ซ่อนแท็บที่ผู้ดูแลสาขาใช้ไม่ได้ (เพิ่มสาขา / PIN แอดมินกลาง / สุขภาพระบบ)
-    for (const key of ['branches', 'pin', 'health']) {
+    const myBranch = typeof Auth.myBranch === "function" ? Auth.myBranch() : "";
+    for (const key of ["branches", "pin", "health"]) {
       const btn = modal.querySelector(`.admin-tab[data-admin-tab="${key}"]`);
-      if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+      if (btn) btn.style.display = isSuperAdmin ? "" : "none";
     }
-    const roleGroup = document.getElementById('new-role-group');
-    if (roleGroup) roleGroup.style.display = isSuperAdmin ? '' : 'none';
-    const scopeHint = document.getElementById('admin-scope-hint');
+    const roleGroup = document.getElementById("new-role-group");
+    if (roleGroup) roleGroup.style.display = isSuperAdmin ? "" : "none";
+    const scopeHint = document.getElementById("admin-scope-hint");
     if (scopeHint) {
       if (isSuperAdmin) {
-        scopeHint.style.display = 'none';
+        scopeHint.style.display = "none";
       } else {
         const bName = (Auth.getUser() || {}).branchName || myBranch;
-        scopeHint.style.display = '';
-        scopeHint.textContent = `🏢 คุณเป็นผู้ดูแลสาขา — จัดการได้เฉพาะผู้ใช้ของ${bName}เท่านั้น`;
+        scopeHint.style.display = "";
+        scopeHint.textContent = `\u{1F3E2} \u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E2A\u0E32\u0E02\u0E32 \u2014 \u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E02\u0E2D\u0E07${bName}\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19`;
       }
     }
-    // ซ่อนกล่องนำเข้า/ส่งออกข้อมูลลูกค้า (แอดมินกลางเท่านั้น)
-    modal.querySelectorAll('.admin-import-section, .admin-export-section').forEach(el => {
-      el.style.display = isSuperAdmin ? '' : 'none';
+    modal.querySelectorAll(".admin-import-section, .admin-export-section").forEach((el) => {
+      el.style.display = isSuperAdmin ? "" : "none";
     });
     if (!isSuperAdmin) {
-      // กลับไปแท็บผู้ใช้เสมอ (กันค้างแท็บที่ถูกซ่อน)
-      modal.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.adminTab === 'users'));
-      modal.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.toggle('active', p.id === 'admin-tab-users'));
+      modal.querySelectorAll(".admin-tab").forEach((t) => t.classList.toggle("active", t.dataset.adminTab === "users"));
+      modal.querySelectorAll(".admin-tab-pane").forEach((p) => p.classList.toggle("active", p.id === "admin-tab-users"));
     }
-
-    // Tab switching
-    modal.querySelectorAll('.admin-tab').forEach(tab => {
+    modal.querySelectorAll(".admin-tab").forEach((tab) => {
       tab.onclick = () => {
-        if (tab.style.display === 'none') return;
-        modal.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-        modal.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById('admin-tab-' + tab.dataset.adminTab).classList.add('active');
+        if (tab.style.display === "none") return;
+        modal.querySelectorAll(".admin-tab").forEach((t) => t.classList.remove("active"));
+        modal.querySelectorAll(".admin-tab-pane").forEach((p) => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("admin-tab-" + tab.dataset.adminTab).classList.add("active");
       };
     });
-
-    // (แท็บรหัสผ่านลบแล้ว 17 ต.ค.69 — เหลือ PIN อย่างเดียว)
-
-    // Load branches into select (always refresh)
-    const branchSelect = document.getElementById('new-branch');
-    branchSelect.innerHTML = '<option value="">— เลือกสาขา —</option>';
+    const branchSelect = document.getElementById("new-branch");
+    branchSelect.innerHTML = '<option value="">\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E32\u0E02\u0E32 \u2014</option>';
     try {
-      const res = await API.get('/api/branches');
+      const res = await API.get("/api/branches");
       if (res.success && res.branches) {
         window._adminBranches = res.branches;
-        res.branches.forEach(b => {
-          const opt = document.createElement('option');
+        res.branches.forEach((b) => {
+          const opt = document.createElement("option");
           opt.value = b.code;
           opt.textContent = b.name;
           branchSelect.appendChild(opt);
         });
       }
     } catch (e) {
-      console.warn('Failed to load branches:', e);
+      console.warn("Failed to load branches:", e);
     }
-    // ผู้ดูแลสาขา: ล็อกสาขาเป็นของตัวเอง (เซิร์ฟเวอร์บังคับซ้ำอีกชั้น)
     if (!isSuperAdmin) {
-      const mine = (window._adminBranches || []).find(b => b.code === myBranch);
-      branchSelect.innerHTML = '';
-      const opt = document.createElement('option');
+      const mine = (window._adminBranches || []).find((b) => b.code === myBranch);
+      branchSelect.innerHTML = "";
+      const opt = document.createElement("option");
       opt.value = myBranch;
-      opt.textContent = (mine && mine.name) || myBranch;
+      opt.textContent = mine && mine.name || myBranch;
       branchSelect.appendChild(opt);
       branchSelect.value = myBranch;
       branchSelect.disabled = true;
     } else {
       branchSelect.disabled = false;
     }
-
-    // Load data
     await this.loadAdminUsers();
     if (isSuperAdmin) {
       await this.loadAdminBranches();
       this.loadAdminHealth();
-      const healthBtn = document.getElementById('health-refresh');
-      if (healthBtn && !healthBtn.dataset.bound) { healthBtn.dataset.bound = '1'; healthBtn.onclick = () => this.loadAdminHealth(true); }
+      const healthBtn = document.getElementById("health-refresh");
+      if (healthBtn && !healthBtn.dataset.bound) {
+        healthBtn.dataset.bound = "1";
+        healthBtn.onclick = () => this.loadAdminHealth(true);
+      }
     }
     await this.loadAdminViews();
-
-    // สมุดคุม: พิมพ์ชื่อ user แล้วกด Enter เพื่อกรอง
-    const viewsFilter = document.getElementById('admin-views-filter');
+    const viewsFilter = document.getElementById("admin-views-filter");
     if (viewsFilter && !viewsFilter.dataset.bound) {
-      viewsFilter.dataset.bound = '1';
-      viewsFilter.addEventListener('change', () => this.loadAdminViews());
-      document.getElementById('admin-views-refresh').onclick = () => this.loadAdminViews();
+      viewsFilter.dataset.bound = "1";
+      viewsFilter.addEventListener("change", () => this.loadAdminViews());
+      document.getElementById("admin-views-refresh").onclick = () => this.loadAdminViews();
     }
-
-    // Close handler
-    document.getElementById('close-admin-users').onclick = () => modal.classList.add('hidden');
-    modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
-
-    // Add user form
-    document.getElementById('admin-add-user-form').onsubmit = async (e) => {
+    document.getElementById("close-admin-users").onclick = () => modal.classList.add("hidden");
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.classList.add("hidden");
+    };
+    document.getElementById("admin-add-user-form").onsubmit = async (e) => {
       e.preventDefault();
-      const errEl = document.getElementById('admin-user-error');
-      errEl.textContent = '';
-      const username = document.getElementById('new-username').value.trim();
-      const pin = ((document.getElementById('new-staff-pin') || {}).value || '').trim();
-      const displayName = document.getElementById('new-display-name').value.trim();
-      const branch = document.getElementById('new-branch').value;
+      const errEl = document.getElementById("admin-user-error");
+      errEl.textContent = "";
+      const username = document.getElementById("new-username").value.trim();
+      const pin = ((document.getElementById("new-staff-pin") || {}).value || "").trim();
+      const displayName = document.getElementById("new-display-name").value.trim();
+      const branch = document.getElementById("new-branch").value;
       if (!pin) {
-        errEl.textContent = 'ต้องใส่ PIN (4-8 หลัก)';
+        errEl.textContent = "\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48 PIN (4-8 \u0E2B\u0E25\u0E31\u0E01)";
         return;
       }
-
       try {
         const body = { username, displayName, branch };
-        // สิทธิ์: เลือกได้เฉพาะแอดมินกลาง (ฟอร์มซ่อนสำหรับผู้ดูแลสาขา)
-        const roleGroupEl = document.getElementById('new-role-group');
-        const roleSel = document.getElementById('new-role');
-        if (roleGroupEl && roleGroupEl.style.display !== 'none' && roleSel) body.role = roleSel.value || 'user';
+        const roleGroupEl = document.getElementById("new-role-group");
+        const roleSel = document.getElementById("new-role");
+        if (roleGroupEl && roleGroupEl.style.display !== "none" && roleSel) body.role = roleSel.value || "user";
         if (pin) body.pin = pin;
-        const res = await API.post('/api/admin/users', body);
+        const res = await API.post("/api/admin/users", body);
         if (res.success) {
-          Utils.toast(`✅ สร้างผู้ใช้ "${displayName}" สำเร็จ`);
-          document.getElementById('admin-add-user-form').reset();
-          if (roleSel) roleSel.value = 'user';
+          Utils.toast(`\u2705 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 "${displayName}" \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08`);
+          document.getElementById("admin-add-user-form").reset();
+          if (roleSel) roleSel.value = "user";
           if (branchSelect.disabled) branchSelect.value = myBranch;
           await this.loadAdminUsers();
         }
       } catch (err) {
-        errEl.textContent = err.message || 'สร้างผู้ใช้ไม่สำเร็จ';
+        errEl.textContent = err.message || "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
       }
     };
-
-    // Bulk import customers from static DB
-    const importBtn = document.getElementById('btn-import-static-db');
+    const importBtn = document.getElementById("btn-import-static-db");
     if (importBtn) {
       importBtn.onclick = async (e) => {
         e.preventDefault();
-        const errEl = document.getElementById('import-static-error');
-        const successEl = document.getElementById('import-static-success');
-        errEl.style.display = 'none';
-        successEl.style.display = 'none';
-        errEl.textContent = '';
+        const errEl = document.getElementById("import-static-error");
+        const successEl = document.getElementById("import-static-success");
+        errEl.style.display = "none";
+        successEl.style.display = "none";
+        errEl.textContent = "";
         importBtn.disabled = true;
         const originalText = importBtn.textContent;
-        importBtn.textContent = '⏳ กำลังนำเข้า...';
+        importBtn.textContent = "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32...";
         try {
-          if (typeof Storage === 'undefined' || !Storage.importFromStaticDB) {
-            throw new Error('ฟังก์ชันนำเข้ายังโหลดไม่เสร็จ');
+          if (typeof Storage === "undefined" || !Storage.importFromStaticDB) {
+            throw new Error("\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E22\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E44\u0E21\u0E48\u0E40\u0E2A\u0E23\u0E47\u0E08");
           }
           const result = await Storage.importFromStaticDB();
-          successEl.textContent = `✅ นำเข้า ${result.imported} รายการ · ${result.withGPS} มีพิกัด · ข้าม ${result.skipped} ที่ซ้ำ`;
-          successEl.style.display = 'block';
-          Utils.toast(`📥 นำเข้า ${result.imported} ลูกค้าแล้ว`);
-          // Re-render map to show new markers
-          if (typeof Customers !== 'undefined' && Customers.renderAll) {
+          successEl.textContent = `\u2705 \u0E19\u0E33\u0E40\u0E02\u0E49\u0E32 ${result.imported} \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \xB7 ${result.withGPS} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 \xB7 \u0E02\u0E49\u0E32\u0E21 ${result.skipped} \u0E17\u0E35\u0E48\u0E0B\u0E49\u0E33`;
+          successEl.style.display = "block";
+          Utils.toast(`\u{1F4E5} \u0E19\u0E33\u0E40\u0E02\u0E49\u0E32 ${result.imported} \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E41\u0E25\u0E49\u0E27`);
+          if (typeof Customers !== "undefined" && Customers.renderAll) {
             setTimeout(() => Customers.renderAll(), 500);
           }
         } catch (err) {
-          errEl.textContent = err.message || 'นำเข้าไม่สำเร็จ';
-          errEl.style.display = 'block';
-          Utils.toast('❌ นำเข้าไม่สำเร็จ', 'error');
+          errEl.textContent = err.message || "\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
+          errEl.style.display = "block";
+          Utils.toast("\u274C \u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
         } finally {
           importBtn.disabled = false;
           importBtn.textContent = originalText;
         }
       };
     }
-
-    // Add branch form
-    document.getElementById('admin-add-branch-form').onsubmit = async (e) => {
+    document.getElementById("admin-add-branch-form").onsubmit = async (e) => {
       e.preventDefault();
-      const errEl = document.getElementById('admin-branch-error');
-      errEl.textContent = '';
-      const code = document.getElementById('new-branch-code').value.trim().toUpperCase();
-      const name = document.getElementById('new-branch-name').value.trim();
-
+      const errEl = document.getElementById("admin-branch-error");
+      errEl.textContent = "";
+      const code = document.getElementById("new-branch-code").value.trim().toUpperCase();
+      const name = document.getElementById("new-branch-name").value.trim();
       try {
-        const res = await API.post('/api/admin/branches', { code, name });
+        const res = await API.post("/api/admin/branches", { code, name });
         if (res.success) {
-          Utils.toast(`✅ เพิ่มสาขา "${name}" สำเร็จ`);
-          document.getElementById('admin-add-branch-form').reset();
+          Utils.toast(`\u2705 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2A\u0E32\u0E02\u0E32 "${name}" \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08`);
+          document.getElementById("admin-add-branch-form").reset();
           await this.loadAdminBranches();
-          // Refresh branch selects
-          const branchSelect = document.getElementById('new-branch');
-          const opt = document.createElement('option');
+          const branchSelect2 = document.getElementById("new-branch");
+          const opt = document.createElement("option");
           opt.value = code;
           opt.textContent = name;
-          branchSelect.appendChild(opt);
+          branchSelect2.appendChild(opt);
         }
       } catch (err) {
-        errEl.textContent = err.message || 'เพิ่มสาขาไม่สำเร็จ';
+        errEl.textContent = err.message || "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2A\u0E32\u0E02\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
       }
     };
-
-    // Change PIN form
-    document.getElementById('admin-change-pin-form').onsubmit = async (e) => {
+    document.getElementById("admin-change-pin-form").onsubmit = async (e) => {
+      var _a, _b;
       e.preventDefault();
-      const errEl = document.getElementById('admin-pin-error');
-      const successEl = document.getElementById('admin-pin-success');
-      errEl.textContent = '';
-      successEl.style.display = 'none';
-
-      const currentPin = document.getElementById('current-pin').value;
-      const newPin = document.getElementById('new-pin').value;
-      const confirmPin = document.getElementById('confirm-pin').value;
-
+      const errEl = document.getElementById("admin-pin-error");
+      const successEl = document.getElementById("admin-pin-success");
+      errEl.textContent = "";
+      successEl.style.display = "none";
+      const currentPin = document.getElementById("current-pin").value;
+      const newPin = document.getElementById("new-pin").value;
+      const confirmPin = document.getElementById("confirm-pin").value;
       if (newPin !== confirmPin) {
-        errEl.textContent = 'PIN ใหม่ไม่ตรงกัน';
+        errEl.textContent = "PIN \u0E43\u0E2B\u0E21\u0E48\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E19";
         return;
       }
       if (newPin.length < 4) {
-        errEl.textContent = 'PIN ใหม่ต้องมีอย่างน้อย 4 หลัก';
+        errEl.textContent = "PIN \u0E43\u0E2B\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 4 \u0E2B\u0E25\u0E31\u0E01";
         return;
       }
-
       try {
-        const res = await API.postRaw('/api/admin/pin', { currentPin, newPin });
-        if (res.ok && res.data?.success) {
-          Utils.toast('🔐 เปลี่ยน PIN สำเร็จ');
-          successEl.textContent = '✅ เปลี่ยน PIN สำเร็จแล้ว';
-          successEl.style.display = 'block';
-          document.getElementById('admin-change-pin-form').reset();
-        } else if (res.data?.error) {
+        const res = await API.postRaw("/api/admin/pin", { currentPin, newPin });
+        if (res.ok && ((_a = res.data) == null ? void 0 : _a.success)) {
+          Utils.toast("\u{1F510} \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 PIN \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08");
+          successEl.textContent = "\u2705 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 PIN \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27";
+          successEl.style.display = "block";
+          document.getElementById("admin-change-pin-form").reset();
+        } else if ((_b = res.data) == null ? void 0 : _b.error) {
           errEl.textContent = res.data.error;
         } else {
-          errEl.textContent = 'เปลี่ยน PIN ไม่สำเร็จ (HTTP ' + res.status + ')';
+          errEl.textContent = "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 (HTTP " + res.status + ")";
         }
       } catch (err) {
-        errEl.textContent = err.message || 'เปลี่ยน PIN ไม่สำเร็จ';
+        errEl.textContent = err.message || "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
       }
     };
-
-    // ===== Data Export (CSV) =====
-    const exportBtn = document.getElementById('btn-export-customers');
+    const exportBtn = document.getElementById("btn-export-customers");
     if (exportBtn) {
       exportBtn.onclick = () => this.exportCustomersCSV();
     }
-
-    // ===== Debt Import: อัปโหลด Customer Indicator =====
     this.initDebtImport();
   },
-
   // ===== Debt Import: อัปโหลด Customer Indicator =====
   initDebtImport() {
-    const uploadBtn = document.getElementById('debt-upload-btn');
-    const fileInput = document.getElementById('debt-file-input');
-    const fileName = document.getElementById('debt-file-name');
-    const progress = document.getElementById('debt-progress');
-    const progressText = document.getElementById('debt-progress-text');
-    const result = document.getElementById('debt-result');
-    const resultStats = document.getElementById('debt-result-stats');
-    const resultTime = document.getElementById('debt-result-time');
-    const lastUpdate = document.getElementById('debt-last-update-time');
-
+    const uploadBtn = document.getElementById("debt-upload-btn");
+    const fileInput = document.getElementById("debt-file-input");
+    const fileName = document.getElementById("debt-file-name");
+    const progress = document.getElementById("debt-progress");
+    const progressText = document.getElementById("debt-progress-text");
+    const result = document.getElementById("debt-result");
+    const resultStats = document.getElementById("debt-result-stats");
+    const resultTime = document.getElementById("debt-result-time");
+    const lastUpdate = document.getElementById("debt-last-update-time");
     if (!uploadBtn || !fileInput) return;
-
-    // ปุ่มตรวจสอบยอดกับฐานข้อมูล (KV vs D1) — ใช้เป็นตาข่ายกันข้อมูลเพี้ยน
-    const verifyBtn = document.getElementById('debt-verify-btn');
-    const verifyBox = document.getElementById('debt-verify-result');
+    const verifyBtn = document.getElementById("debt-verify-btn");
+    const verifyBox = document.getElementById("debt-verify-result");
     if (verifyBtn && !verifyBtn.dataset.bound) {
-      verifyBtn.dataset.bound = '1';
+      verifyBtn.dataset.bound = "1";
       verifyBtn.onclick = async () => {
         verifyBtn.disabled = true;
-        if (verifyBox) verifyBox.innerHTML = '⏳ กำลังตรวจสอบ...';
+        if (verifyBox) verifyBox.innerHTML = "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A...";
         try {
-          const r = await API.get('/api/admin/debt-verify');
-          const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง' };
-          const lines = Object.keys(r.per_branch || {}).map(b => {
+          const r = await API.get("/api/admin/debt-verify");
+          const names = { "854": "\u0E27\u0E31\u0E07\u0E17\u0E48\u0E32\u0E0A\u0E49\u0E32\u0E07", "145": "\u0E01\u0E1A\u0E34\u0E19\u0E17\u0E23\u0E4C\u0E1A\u0E38\u0E23\u0E35", "291": "\u0E1A\u0E49\u0E32\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07" };
+          const lines = Object.keys(r.per_branch || {}).map((b) => {
             const v = r.per_branch[b];
             const bad = Math.abs(v.diff_baht) > 1 || v.d1_n !== v.kv_n;
-            const sign = v.diff_baht > 0 ? 'เกิน' : (v.diff_baht < 0 ? 'ขาด' : 'ตรง');
-            return `<div style="${bad ? 'color:#b45309;font-weight:600' : ''}">${bad ? '⚠️' : '✅'} ${names[b] || ('สาขา ' + b)}: การ์ด ${v.kv_n.toLocaleString()} ราย · ${Number(v.kv_baht).toLocaleString()} บาท`
-              + (bad ? ` — ต่างจากฐานข้อมูล ${sign} ${Math.abs(Number(v.diff_baht)).toLocaleString()} บาท` : ' — ตรง') + '</div>';
-          }).join('');
-          const ghost = r.ghost_count > 0
-            ? `<div style="margin-top:6px;color:#b45309">🧹 พบแถวค้างที่ฐานข้อมูลลบแล้ว ${r.ghost_count.toLocaleString()} ราย (${Number(r.ghost_baht).toLocaleString()} บาท)`
-              + ` <button type="button" id="debt-verify-fix" style="margin-left:6px;background:#b45309;color:#fff;border:none;border-radius:6px;padding:4px 10px">ลบแถวค้าง</button></div>`
-            : '';
-          if (verifyBox) verifyBox.innerHTML = (r.ok ? '✅ ยอดตรงกับฐานข้อมูลทุกสาขา' : '⚠️ ยอดยังไม่ตรง') + '<br>' + lines + ghost
-            + `<div style="margin-top:6px;font-size:12px;color:#666">ตรวจเมื่อ ${new Date(r.checked_at).toLocaleString('th-TH')}</div>`;
-          const fix = document.getElementById('debt-verify-fix');
+            const sign = v.diff_baht > 0 ? "\u0E40\u0E01\u0E34\u0E19" : v.diff_baht < 0 ? "\u0E02\u0E32\u0E14" : "\u0E15\u0E23\u0E07";
+            return `<div style="${bad ? "color:#b45309;font-weight:600" : ""}">${bad ? "\u26A0\uFE0F" : "\u2705"} ${names[b] || "\u0E2A\u0E32\u0E02\u0E32 " + b}: \u0E01\u0E32\u0E23\u0E4C\u0E14 ${v.kv_n.toLocaleString()} \u0E23\u0E32\u0E22 \xB7 ${Number(v.kv_baht).toLocaleString()} \u0E1A\u0E32\u0E17` + (bad ? ` \u2014 \u0E15\u0E48\u0E32\u0E07\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${sign} ${Math.abs(Number(v.diff_baht)).toLocaleString()} \u0E1A\u0E32\u0E17` : " \u2014 \u0E15\u0E23\u0E07") + "</div>";
+          }).join("");
+          const ghost = r.ghost_count > 0 ? `<div style="margin-top:6px;color:#b45309">\u{1F9F9} \u0E1E\u0E1A\u0E41\u0E16\u0E27\u0E04\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E1A\u0E41\u0E25\u0E49\u0E27 ${r.ghost_count.toLocaleString()} \u0E23\u0E32\u0E22 (${Number(r.ghost_baht).toLocaleString()} \u0E1A\u0E32\u0E17) <button type="button" id="debt-verify-fix" style="margin-left:6px;background:#b45309;color:#fff;border:none;border-radius:6px;padding:4px 10px">\u0E25\u0E1A\u0E41\u0E16\u0E27\u0E04\u0E49\u0E32\u0E07</button></div>` : "";
+          if (verifyBox) verifyBox.innerHTML = (r.ok ? "\u2705 \u0E22\u0E2D\u0E14\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32" : "\u26A0\uFE0F \u0E22\u0E2D\u0E14\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07") + "<br>" + lines + ghost + `<div style="margin-top:6px;font-size:12px;color:#666">\u0E15\u0E23\u0E27\u0E08\u0E40\u0E21\u0E37\u0E48\u0E2D ${new Date(r.checked_at).toLocaleString("th-TH")}</div>`;
+          const fix = document.getElementById("debt-verify-fix");
           if (fix) fix.onclick = async () => {
-            if (!confirm('ลบแถวค้างออกจากคลังการ์ดหนี้? (ระบบสำรองก่อนลบ)')) return;
+            if (!confirm("\u0E25\u0E1A\u0E41\u0E16\u0E27\u0E04\u0E49\u0E32\u0E07\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2B\u0E19\u0E35\u0E49? (\u0E23\u0E30\u0E1A\u0E1A\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E25\u0E1A)")) return;
             fix.disabled = true;
             try {
-              const res = await API.post('/api/admin/debt-verify', { fix_ghosts: true });
-              Utils.toast(`🧹 ลบแถวค้าง ${res.removed} ราย — ${res.ok ? 'ยอดตรงแล้ว' : 'ยังไม่ตรง ดูรายละเอียด'}`, res.ok ? 'success' : 'error');
+              const res = await API.post("/api/admin/debt-verify", { fix_ghosts: true });
+              Utils.toast(`\u{1F9F9} \u0E25\u0E1A\u0E41\u0E16\u0E27\u0E04\u0E49\u0E32\u0E07 ${res.removed} \u0E23\u0E32\u0E22 \u2014 ${res.ok ? "\u0E22\u0E2D\u0E14\u0E15\u0E23\u0E07\u0E41\u0E25\u0E49\u0E27" : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14"}`, res.ok ? "success" : "error");
               verifyBtn.click();
-            } catch (e) { Utils.toast(e.message || 'ลบไม่สำเร็จ', 'error'); fix.disabled = false; }
+            } catch (e) {
+              Utils.toast(e.message || "\u0E25\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
+              fix.disabled = false;
+            }
           };
         } catch (e) {
-          if (verifyBox) verifyBox.innerHTML = `❌ ตรวจไม่สำเร็จ: ${e.message}`;
-        } finally { verifyBtn.disabled = false; }
+          if (verifyBox) verifyBox.innerHTML = `\u274C \u0E15\u0E23\u0E27\u0E08\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: ${e.message}`;
+        } finally {
+          verifyBtn.disabled = false;
+        }
       };
     }
-
-    // แจ้งขอบเขต: ผู้ดูแลสาขาอัพได้เฉพาะไฟล์ของสาขาตัวเอง (แถวสาขาอื่นถูกข้าม)
-    const scopeHint = document.getElementById('debt-scope-hint');
+    const scopeHint = document.getElementById("debt-scope-hint");
     if (scopeHint) {
       if (Auth.isAdmin()) {
-        scopeHint.style.display = 'none';
+        scopeHint.style.display = "none";
       } else {
         const bName = (Auth.getUser() || {}).branchName || Auth.myBranch();
-        scopeHint.style.display = '';
-        scopeHint.textContent = `🏢 อัปโหลดได้เฉพาะข้อมูลของ${bName} — แถวสาขาอื่นในไฟล์จะถูกข้ามอัตโนมัติ`;
+        scopeHint.style.display = "";
+        scopeHint.textContent = `\u{1F3E2} \u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07${bName} \u2014 \u0E41\u0E16\u0E27\u0E2A\u0E32\u0E02\u0E32\u0E2D\u0E37\u0E48\u0E19\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C\u0E08\u0E30\u0E16\u0E39\u0E01\u0E02\u0E49\u0E32\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34`;
       }
     }
-
-    // โหลดวันที่อัปเดตหนี้ล่าสุด
     this.loadDebtLastUpdate();
-
-    // ปุ่มเลือกไฟล์
     uploadBtn.onclick = () => fileInput.click();
-    
-    // เมื่อเลือกไฟล์ → ขั้น 1: วิเคราะห์ก่อน (dryrun ยังไม่เขียนอะไร)
     let pendingFile = null;
     fileInput.onchange = async () => {
       const file = fileInput.files[0];
       if (!file) return;
       pendingFile = file;
-
-      fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
-
-      // ซ่อนผลลัพธ์เก่า + แสดง progress
-      result.style.display = 'none';
-      document.getElementById('debt-preview').style.display = 'none';
-      progress.style.display = 'block';
-      progressText.textContent = 'กำลังตรวจไฟล์เทียบข้อมูลเดิม...';
+      fileName.textContent = `\u{1F4C4} ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+      result.style.display = "none";
+      document.getElementById("debt-preview").style.display = "none";
+      progress.style.display = "block";
+      progressText.textContent = "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E15\u0E23\u0E27\u0E08\u0E44\u0E1F\u0E25\u0E4C\u0E40\u0E17\u0E35\u0E22\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E14\u0E34\u0E21...";
       uploadBtn.disabled = true;
-
       try {
         const formData = new FormData();
-        formData.append('file', file);
-
+        formData.append("file", file);
         const token = Auth.getToken();
-        const res = await fetch('/api/debt-import?dryrun=1', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData,
+        const res = await fetch("/api/debt-import?dryrun=1", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: formData
         });
-
         const data = await res.json();
-
         if (!res.ok) {
-          throw new Error(data.error || 'ตรวจไฟล์ไม่สำเร็จ');
+          throw new Error(data.error || "\u0E15\u0E23\u0E27\u0E08\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08");
         }
-
-        progress.style.display = 'none';
+        progress.style.display = "none";
         this.showDebtPreview(data);
-
       } catch (err) {
-        progress.style.display = 'none';
-        result.style.display = 'block';
-        resultStats.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
-        resultTime.textContent = '';
-        Utils.toast('❌ ตรวจไฟล์ไม่สำเร็จ', 'error');
+        progress.style.display = "none";
+        result.style.display = "block";
+        resultStats.innerHTML = `<span style="color:var(--danger)">\u274C ${err.message}</span>`;
+        resultTime.textContent = "";
+        Utils.toast("\u274C \u0E15\u0E23\u0E27\u0E08\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
       } finally {
         uploadBtn.disabled = false;
-        uploadBtn.textContent = '📂 เลือกไฟล์ Customer Indicator';
+        uploadBtn.textContent = "\u{1F4C2} \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1F\u0E25\u0E4C Customer Indicator";
       }
     };
-
-    // ขั้น 2: ยืนยันอัพจริง / ยกเลิก
-    document.getElementById('debt-confirm-btn').onclick = () => this.confirmDebtImport(pendingFile);
-    document.getElementById('debt-cancel-btn').onclick = () => {
-      document.getElementById('debt-preview').style.display = 'none';
-      fileInput.value = '';
+    document.getElementById("debt-confirm-btn").onclick = () => this.confirmDebtImport(pendingFile);
+    document.getElementById("debt-cancel-btn").onclick = () => {
+      document.getElementById("debt-preview").style.display = "none";
+      fileInput.value = "";
       pendingFile = null;
     };
-
-    // โควต้าเขียนวันนี้ (แถบใต้ปุ่มอัพ)
     this.loadDebtQuota();
-    // สำรองคลังหนี้ + ปุ่มกู้คืน (ระบบกันหาย)
     this.loadDebtRestore();
   },
-
   // ===== Debt Import: แถบโควต้าเขียนวันนี้ =====
   renderDebtQuota(el, quota) {
     if (!el || !quota) return;
     const pct = quota.pct || 0;
-    const color = quota.blockBulk ? 'var(--danger)' : (quota.warn ? '#f9a825' : 'var(--baac-green)');
-    const ops = quota.byOp ? Object.entries(quota.byOp).map(([k, v]) => `${k} ${Number(v).toLocaleString()}`).join(' · ') : '';
-    el.innerHTML = `📝 โควต้าเขียนวันนี้: <strong>${quota.used.toLocaleString()}/${quota.limit.toLocaleString()}</strong> (เหลือ ${quota.remaining.toLocaleString()})`
-      + `<div style="height:8px;background:#eee;border-radius:4px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div></div>`
-      + (ops ? `<small class="text-muted">ใช้ไป: ${ops}</small>` : '');
-    // เฟส 5: เตือนเชิงรุกครั้งเดียวต่อรอบเปิดแอป — ตอนแอดมินเปิดจอนำเข้าไฟล์ตอนโควต้าใกล้เต็ม
+    const color = quota.blockBulk ? "var(--danger)" : quota.warn ? "#f9a825" : "var(--baac-green)";
+    const ops = quota.byOp ? Object.entries(quota.byOp).map(([k, v]) => `${k} ${Number(v).toLocaleString()}`).join(" \xB7 ") : "";
+    el.innerHTML = `\u{1F4DD} \u0E42\u0E04\u0E27\u0E15\u0E49\u0E32\u0E40\u0E02\u0E35\u0E22\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49: <strong>${quota.used.toLocaleString()}/${quota.limit.toLocaleString()}</strong> (\u0E40\u0E2B\u0E25\u0E37\u0E2D ${quota.remaining.toLocaleString()})<div style="height:8px;background:#eee;border-radius:4px;margin-top:4px"><div style="width:${pct}%;height:100%;background:${color};border-radius:4px"></div></div>` + (ops ? `<small class="text-muted">\u0E43\u0E0A\u0E49\u0E44\u0E1B: ${ops}</small>` : "");
     if ((quota.blockBulk || quota.warn) && !this._quotaWarned) {
       this._quotaWarned = true;
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(quota.blockBulk
-          ? '🛑 โควต้าเขียนวันนี้ใกล้เต็ม — งานนำเข้าไฟล์ใหญ่ถูกล็อกชั่วคราว'
-          : '⚠️ โควต้าเขียนวันนี้ใกล้เต็มแล้ว — นำเข้าเฉพาะที่จำเป็น', 'error');
+      if (typeof Utils !== "undefined" && Utils.toast) {
+        Utils.toast(quota.blockBulk ? "\u{1F6D1} \u0E42\u0E04\u0E27\u0E15\u0E49\u0E32\u0E40\u0E02\u0E35\u0E22\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E43\u0E01\u0E25\u0E49\u0E40\u0E15\u0E47\u0E21 \u2014 \u0E07\u0E32\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E44\u0E1F\u0E25\u0E4C\u0E43\u0E2B\u0E0D\u0E48\u0E16\u0E39\u0E01\u0E25\u0E47\u0E2D\u0E01\u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27" : "\u26A0\uFE0F \u0E42\u0E04\u0E27\u0E15\u0E49\u0E32\u0E40\u0E02\u0E35\u0E22\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E43\u0E01\u0E25\u0E49\u0E40\u0E15\u0E47\u0E21\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E17\u0E35\u0E48\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19", "error");
       }
     }
   },
-
   async loadDebtQuota() {
     try {
       const token = Auth.getToken();
-      const res = await fetch('/api/admin/quota', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch("/api/admin/quota", { headers: { "Authorization": `Bearer ${token}` } });
       const data = await res.json();
-      if (data && data.success) this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
-    } catch (e) { /* เงียบไว้ — แถบโควต้าเป็นของเสริม */ }
+      if (data && data.success) this.renderDebtQuota(document.getElementById("debt-quota"), data.quota);
+    } catch (e) {
+    }
   },
-
   // ===== สุขภาพระบบ (เฟส 0): เส้นฐานพิกัด/หนี้/โควต้า + เวลาโหลดเครื่องนี้ =====
   async loadAdminHealth(force = false) {
-    const el = document.getElementById('health-panel');
+    const el = document.getElementById("health-panel");
     if (!el) return;
     try {
       const token = Auth.getToken();
-      const res = await fetch('/api/admin/quota' + (force ? '?force=1' : ''), { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch("/api/admin/quota" + (force ? "?force=1" : ""), { headers: { "Authorization": `Bearer ${token}` } });
       const data = await res.json();
-      if (!data || !data.success || !data.health) { el.innerHTML = '<p class="text-muted">โหลดข้อมูลสุขภาพไม่สำเร็จ</p>'; return; }
+      if (!data || !data.success || !data.health) {
+        el.innerHTML = '<p class="text-muted">\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E38\u0E02\u0E20\u0E32\u0E1E\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08</p>';
+        return;
+      }
       const h = data.health, q = data.quota || {};
-      const branchName = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี' };
-      const rows = (h.branches || []).map(b =>
-        `<div style="padding:8px 10px;border:1px solid #dfe8e2;border-radius:10px;margin:6px 0">🏢 <strong>${branchName[b.branch] || ('สาขา ' + (b.branch || 'ไม่ระบุ'))}</strong>`
-        + `<br>👥 ลูกค้า <strong>${b.total.toLocaleString()}</strong> ราย · 📍 มีพิกัด <strong>${b.gps.toLocaleString()}</strong> ราย (<strong>${b.gpsPct}%</strong>) · 💰 มีหนี้ ${b.debt.toLocaleString()} ราย</div>`).join('');
-      const gpsColor = h.gpsPct >= 50 ? 'var(--baac-green)' : (h.gpsPct >= 20 ? '#f9a825' : 'var(--danger)');
-      const nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+      const branchName = { "854": "\u0E27\u0E31\u0E07\u0E17\u0E48\u0E32\u0E0A\u0E49\u0E32\u0E07", "145": "\u0E01\u0E1A\u0E34\u0E19\u0E17\u0E23\u0E4C\u0E1A\u0E38\u0E23\u0E35" };
+      const rows = (h.branches || []).map((b) => `<div style="padding:8px 10px;border:1px solid #dfe8e2;border-radius:10px;margin:6px 0">\u{1F3E2} <strong>${branchName[b.branch] || "\u0E2A\u0E32\u0E02\u0E32 " + (b.branch || "\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38")}</strong><br>\u{1F465} \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 <strong>${b.total.toLocaleString()}</strong> \u0E23\u0E32\u0E22 \xB7 \u{1F4CD} \u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 <strong>${b.gps.toLocaleString()}</strong> \u0E23\u0E32\u0E22 (<strong>${b.gpsPct}%</strong>) \xB7 \u{1F4B0} \u0E21\u0E35\u0E2B\u0E19\u0E35\u0E49 ${b.debt.toLocaleString()} \u0E23\u0E32\u0E22</div>`).join("");
+      const gpsColor = h.gpsPct >= 50 ? "var(--baac-green)" : h.gpsPct >= 20 ? "#f9a825" : "var(--danger)";
+      const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0] || null;
       const loadMs = nav ? Math.round(nav.domContentLoadedEventEnd || nav.loadEventEnd || 0) : null;
-      let localTxt = '';
+      let localTxt = "";
       try {
         const cs = Storage.getCustomers();
-        const lg = cs.filter(c => c.lat && c.lng).length;
-        localTxt = `<br>📱 เครื่องนี้: เก็บลูกค้า ${cs.length.toLocaleString()} ราย (มีพิกัด ${lg.toLocaleString()})` + (loadMs != null ? ` · ⏱️ โหลดหน้าเว็บ ${loadMs.toLocaleString()} มิลลิวินาที` : '');
-        if (typeof DebtDB !== 'undefined' && DebtDB._loaded && DebtDB._byCif) {
-          localTxt += `<br>💰 หนี้ในเครื่อง: ${DebtDB._byCif.size.toLocaleString()} ราย` + (DebtDB._fromCache ? ' (ใช้แคช — ไม่โหลดใหม่)' : ' (โหลดสดจากเว็บ)');
+        const lg = cs.filter((c) => c.lat && c.lng).length;
+        localTxt = `<br>\u{1F4F1} \u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49: \u0E40\u0E01\u0E47\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 ${cs.length.toLocaleString()} \u0E23\u0E32\u0E22 (\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14 ${lg.toLocaleString()})` + (loadMs != null ? ` \xB7 \u23F1\uFE0F \u0E42\u0E2B\u0E25\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A ${loadMs.toLocaleString()} \u0E21\u0E34\u0E25\u0E25\u0E34\u0E27\u0E34\u0E19\u0E32\u0E17\u0E35` : "");
+        if (typeof DebtDB !== "undefined" && DebtDB._loaded && DebtDB._byCif) {
+          localTxt += `<br>\u{1F4B0} \u0E2B\u0E19\u0E35\u0E49\u0E43\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07: ${DebtDB._byCif.size.toLocaleString()} \u0E23\u0E32\u0E22` + (DebtDB._fromCache ? " (\u0E43\u0E0A\u0E49\u0E41\u0E04\u0E0A \u2014 \u0E44\u0E21\u0E48\u0E42\u0E2B\u0E25\u0E14\u0E43\u0E2B\u0E21\u0E48)" : " (\u0E42\u0E2B\u0E25\u0E14\u0E2A\u0E14\u0E08\u0E32\u0E01\u0E40\u0E27\u0E47\u0E1A)");
         }
-      } catch (e) { /* ข้อมูลเครื่องเป็นของเสริม */ }
-      el.innerHTML =
-        `<div style="font-size:20px">📍 พิกัดรวม <strong style="color:${gpsColor};font-size:26px">${h.gpsPct}%</strong> (${h.gps.toLocaleString()}/${h.total.toLocaleString()} ราย)</div>`
-        + `<div style="height:10px;background:#eee;border-radius:5px"><div style="width:${Math.min(100, h.gpsPct)}%;height:100%;background:${gpsColor};border-radius:5px"></div></div>`
-        + rows
-        + `<div>📝 โควต้าเขียนวันนี้: <strong>${(q.used || 0).toLocaleString()}/${(q.limit || 100000).toLocaleString()}</strong> (ใช้ ${(q.pct || 0)}%)</div>`
-        + `<div class="text-muted" style="font-size:14px">🕐 วัดเมื่อ ${new Date(h.at).toLocaleString('th-TH')}${h.cached ? ` · จากแคช (อายุ ${h.cacheAgeSec} วิ)` : ' · วัดสดจากฐานข้อมูล'}${localTxt}</div>`;
-    } catch (e) { el.innerHTML = '<p class="text-muted">โหลดข้อมูลสุขภาพไม่สำเร็จ</p>'; }
+      } catch (e) {
+      }
+      el.innerHTML = `<div style="font-size:20px">\u{1F4CD} \u0E1E\u0E34\u0E01\u0E31\u0E14\u0E23\u0E27\u0E21 <strong style="color:${gpsColor};font-size:26px">${h.gpsPct}%</strong> (${h.gps.toLocaleString()}/${h.total.toLocaleString()} \u0E23\u0E32\u0E22)</div><div style="height:10px;background:#eee;border-radius:5px"><div style="width:${Math.min(100, h.gpsPct)}%;height:100%;background:${gpsColor};border-radius:5px"></div></div>` + rows + `<div>\u{1F4DD} \u0E42\u0E04\u0E27\u0E15\u0E49\u0E32\u0E40\u0E02\u0E35\u0E22\u0E19\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49: <strong>${(q.used || 0).toLocaleString()}/${(q.limit || 1e5).toLocaleString()}</strong> (\u0E43\u0E0A\u0E49 ${q.pct || 0}%)</div><div class="text-muted" style="font-size:14px">\u{1F550} \u0E27\u0E31\u0E14\u0E40\u0E21\u0E37\u0E48\u0E2D ${new Date(h.at).toLocaleString("th-TH")}${h.cached ? ` \xB7 \u0E08\u0E32\u0E01\u0E41\u0E04\u0E0A (\u0E2D\u0E32\u0E22\u0E38 ${h.cacheAgeSec} \u0E27\u0E34)` : " \xB7 \u0E27\u0E31\u0E14\u0E2A\u0E14\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"}${localTxt}</div>`;
+    } catch (e) {
+      el.innerHTML = '<p class="text-muted">\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E38\u0E02\u0E20\u0E32\u0E1E\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08</p>';
+    }
   },
-
   // ===== Debt Import: โชว์ผลวิเคราะห์ก่อนยืนยัน =====
   showDebtPreview(data) {
-    const stats = document.getElementById('debt-preview-stats');
-    const fields = document.getElementById('debt-preview-fields');
-    stats.innerHTML =
-      `📋 ในไฟล์: <strong>${data.unique_cifs.toLocaleString()}</strong> CIF (${data.total_contracts.toLocaleString()} สัญญา)<br>`
-      + `✏️ เปลี่ยนจริง: <strong>${data.will_update.toLocaleString()}</strong> ราย`
-      + (data.will_add > 0 ? ` · 🆕 ใหม่: <strong>${data.will_add.toLocaleString()}</strong> ราย` : '')
-      + (data.will_clear > 0 ? ` · 🧹 หมดหนี้: <strong>${data.will_clear.toLocaleString()}</strong> ราย` : '')
-      + `<br>⏭️ เท่าเดิมข้าม: <strong>${data.will_skip_identical.toLocaleString()}</strong> ราย (ไม่เปลืองโควต้า)<br>`
-      + `🛡️ คลังการ์ดหนี้หลังอัพ: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย (คงเดิม ${(data.kv_kept || 0).toLocaleString()} · เอาออก ${(data.kv_dropped || 0).toLocaleString()})<br>`
-      + (data.ignored_other_branch > 0 ? `⏭️ ข้ามแถวสาขาอื่น: <strong>${data.ignored_other_branch.toLocaleString()}</strong> แถว<br>` : '')
-      + (data.ignored_no_branch > 0 ? `⚠️ แถวไม่ระบุสาขา (ข้าม): <strong>${data.ignored_no_branch.toLocaleString()}</strong> แถว<br>` : '')
-      + (data.clear_skipped ? `🛡️ ${data.clear_skipped}<br>` : '')
-      + `💾 รอบนี้จะเขียน ~<strong>${data.estimated_writes.toLocaleString()}</strong> แถว`;
+    const stats = document.getElementById("debt-preview-stats");
+    const fields = document.getElementById("debt-preview-fields");
+    stats.innerHTML = `\u{1F4CB} \u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C: <strong>${data.unique_cifs.toLocaleString()}</strong> CIF (${data.total_contracts.toLocaleString()} \u0E2A\u0E31\u0E0D\u0E0D\u0E32)<br>\u270F\uFE0F \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E08\u0E23\u0E34\u0E07: <strong>${data.will_update.toLocaleString()}</strong> \u0E23\u0E32\u0E22` + (data.will_add > 0 ? ` \xB7 \u{1F195} \u0E43\u0E2B\u0E21\u0E48: <strong>${data.will_add.toLocaleString()}</strong> \u0E23\u0E32\u0E22` : "") + (data.will_clear > 0 ? ` \xB7 \u{1F9F9} \u0E2B\u0E21\u0E14\u0E2B\u0E19\u0E35\u0E49: <strong>${data.will_clear.toLocaleString()}</strong> \u0E23\u0E32\u0E22` : "") + `<br>\u23ED\uFE0F \u0E40\u0E17\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21\u0E02\u0E49\u0E32\u0E21: <strong>${data.will_skip_identical.toLocaleString()}</strong> \u0E23\u0E32\u0E22 (\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E25\u0E37\u0E2D\u0E07\u0E42\u0E04\u0E27\u0E15\u0E49\u0E32)<br>\u{1F6E1}\uFE0F \u0E04\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E2B\u0E25\u0E31\u0E07\u0E2D\u0E31\u0E1E: <strong>${(data.kv_total || 0).toLocaleString()}</strong> \u0E23\u0E32\u0E22 (\u0E04\u0E07\u0E40\u0E14\u0E34\u0E21 ${(data.kv_kept || 0).toLocaleString()} \xB7 \u0E40\u0E2D\u0E32\u0E2D\u0E2D\u0E01 ${(data.kv_dropped || 0).toLocaleString()})<br>` + (data.ignored_other_branch > 0 ? `\u23ED\uFE0F \u0E02\u0E49\u0E32\u0E21\u0E41\u0E16\u0E27\u0E2A\u0E32\u0E02\u0E32\u0E2D\u0E37\u0E48\u0E19: <strong>${data.ignored_other_branch.toLocaleString()}</strong> \u0E41\u0E16\u0E27<br>` : "") + (data.ignored_no_branch > 0 ? `\u26A0\uFE0F \u0E41\u0E16\u0E27\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38\u0E2A\u0E32\u0E02\u0E32 (\u0E02\u0E49\u0E32\u0E21): <strong>${data.ignored_no_branch.toLocaleString()}</strong> \u0E41\u0E16\u0E27<br>` : "") + (data.clear_skipped ? `\u{1F6E1}\uFE0F ${data.clear_skipped}<br>` : "") + `\u{1F4BE} \u0E23\u0E2D\u0E1A\u0E19\u0E35\u0E49\u0E08\u0E30\u0E40\u0E02\u0E35\u0E22\u0E19 ~<strong>${data.estimated_writes.toLocaleString()}</strong> \u0E41\u0E16\u0E27`;
     const fds = data.field_diff || {};
     const keys = Object.keys(fds);
-    fields.innerHTML = keys.length
-      ? `📌 ช่องที่เปลี่ยน: ` + keys.map(k => `${k} <strong>${fds[k].toLocaleString()}</strong>`).join(' · ')
-      : `📌 ไม่มีช่องไหนเปลี่ยน — กดยืนยันก็ไม่เขียนอะไรเพิ่ม`;
-    this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
-    document.getElementById('debt-confirm-btn').textContent = `✅ ยืนยันอัพข้อมูล (~${data.estimated_writes.toLocaleString()} แถว)`;
-    document.getElementById('debt-preview').style.display = 'block';
-    document.getElementById('debt-preview').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    fields.innerHTML = keys.length ? `\u{1F4CC} \u0E0A\u0E48\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19: ` + keys.map((k) => `${k} <strong>${fds[k].toLocaleString()}</strong>`).join(" \xB7 ") : `\u{1F4CC} \u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E2B\u0E19\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 \u2014 \u0E01\u0E14\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E47\u0E44\u0E21\u0E48\u0E40\u0E02\u0E35\u0E22\u0E19\u0E2D\u0E30\u0E44\u0E23\u0E40\u0E1E\u0E34\u0E48\u0E21`;
+    this.renderDebtQuota(document.getElementById("debt-quota"), data.quota);
+    document.getElementById("debt-confirm-btn").textContent = `\u2705 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2D\u0E31\u0E1E\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (~${data.estimated_writes.toLocaleString()} \u0E41\u0E16\u0E27)`;
+    document.getElementById("debt-preview").style.display = "block";
+    document.getElementById("debt-preview").scrollIntoView({ behavior: "smooth", block: "nearest" });
   },
-
   // แสดงผลตรวจสอบยอดหลังอัพ (KV กับ D1 ต้องตรงกันทุกสาขา)
   renderDebtVerify(data) {
-    if (!data || data.verify_ok === null || data.verify_ok === undefined || !data.verify) return '';
+    if (!data || data.verify_ok === null || data.verify_ok === void 0 || !data.verify) return "";
     const keys = Object.keys(data.verify);
-    if (!keys.length) return '';
+    if (!keys.length) return "";
     if (data.verify_ok) {
-      return `<div style="margin-top:6px;color:#0a7c34;font-weight:600">✅ ตรวจแล้ว: ยอดในคลังการ์ดหนี้ตรงกับฐานข้อมูลทุกสาขา</div>`;
+      return `<div style="margin-top:6px;color:#0a7c34;font-weight:600">\u2705 \u0E15\u0E23\u0E27\u0E08\u0E41\u0E25\u0E49\u0E27: \u0E22\u0E2D\u0E14\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2B\u0E19\u0E35\u0E49\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E38\u0E01\u0E2A\u0E32\u0E02\u0E32</div>`;
     }
-    const names = { '854': 'วังท่าช้าง', '145': 'กบินทร์บุรี', '291': 'บ้านสร้าง' };
-    const rows = keys
-      .filter(b => Math.abs((data.verify[b].diff_baht || 0)) > 1 || data.verify[b].d1_n !== data.verify[b].kv_n)
-      .map(b => {
-        const v = data.verify[b];
-        const d = Number(v.diff_baht || 0);
-        const sign = d > 0 ? 'เกิน' : 'ขาด';
-        return `• สาขา ${names[b] || b}: การ์ด ${v.kv_n.toLocaleString()} ราย / ฐานข้อมูล ${v.d1_n.toLocaleString()} ราย · ยอด${sign} ${Math.abs(d).toLocaleString()} บาท`;
-      });
-    const body = rows.length ? rows.join('<br>') : keys.map(b => {
+    const names = { "854": "\u0E27\u0E31\u0E07\u0E17\u0E48\u0E32\u0E0A\u0E49\u0E32\u0E07", "145": "\u0E01\u0E1A\u0E34\u0E19\u0E17\u0E23\u0E4C\u0E1A\u0E38\u0E23\u0E35", "291": "\u0E1A\u0E49\u0E32\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07" };
+    const rows = keys.filter((b) => Math.abs(data.verify[b].diff_baht || 0) > 1 || data.verify[b].d1_n !== data.verify[b].kv_n).map((b) => {
       const v = data.verify[b];
-      return `• สาขา ${names[b] || b}: ${v.kv_n.toLocaleString()} ราย · ${Number(v.kv_baht || 0).toLocaleString()} บาท`;
-    }).join('<br>');
+      const d = Number(v.diff_baht || 0);
+      const sign = d > 0 ? "\u0E40\u0E01\u0E34\u0E19" : "\u0E02\u0E32\u0E14";
+      return `\u2022 \u0E2A\u0E32\u0E02\u0E32 ${names[b] || b}: \u0E01\u0E32\u0E23\u0E4C\u0E14 ${v.kv_n.toLocaleString()} \u0E23\u0E32\u0E22 / \u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 ${v.d1_n.toLocaleString()} \u0E23\u0E32\u0E22 \xB7 \u0E22\u0E2D\u0E14${sign} ${Math.abs(d).toLocaleString()} \u0E1A\u0E32\u0E17`;
+    });
+    const body = rows.length ? rows.join("<br>") : keys.map((b) => {
+      const v = data.verify[b];
+      return `\u2022 \u0E2A\u0E32\u0E02\u0E32 ${names[b] || b}: ${v.kv_n.toLocaleString()} \u0E23\u0E32\u0E22 \xB7 ${Number(v.kv_baht || 0).toLocaleString()} \u0E1A\u0E32\u0E17`;
+    }).join("<br>");
     return `<div style="margin-top:6px;padding:8px;border-radius:8px;background:#fff4e5;color:#8a4b00;text-align:left">
-      <b>⚠️ ยอดยังไม่ตรงกัน — อย่าปิดหน้านี้ก่อนแจ้งแอดมิน</b><br>${body}</div>`;
+      <b>\u26A0\uFE0F \u0E22\u0E2D\u0E14\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E19 \u2014 \u0E2D\u0E22\u0E48\u0E32\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E01\u0E48\u0E2D\u0E19\u0E41\u0E08\u0E49\u0E07\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19</b><br>${body}</div>`;
   },
-
   // ===== Debt Import: ยืนยันอัพจริง =====
   async confirmDebtImport(file) {
-    if (!file) { Utils.toast('❌ ไม่พบไฟล์ กรุณาเลือกใหม่', 'error'); return; }
-    const progress = document.getElementById('debt-progress');
-    const progressText = document.getElementById('debt-progress-text');
-    const result = document.getElementById('debt-result');
-    const resultStats = document.getElementById('debt-result-stats');
-    const resultTime = document.getElementById('debt-result-time');
-    const lastUpdate = document.getElementById('debt-last-update-time');
-    const confirmBtn = document.getElementById('debt-confirm-btn');
-
-    document.getElementById('debt-preview').style.display = 'none';
-    progress.style.display = 'block';
-    progressText.textContent = 'กำลังอัพข้อมูลหนี้...';
+    if (!file) {
+      Utils.toast("\u274C \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E44\u0E1F\u0E25\u0E4C \u0E01\u0E23\u0E38\u0E13\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48", "error");
+      return;
+    }
+    const progress = document.getElementById("debt-progress");
+    const progressText = document.getElementById("debt-progress-text");
+    const result = document.getElementById("debt-result");
+    const resultStats = document.getElementById("debt-result-stats");
+    const resultTime = document.getElementById("debt-result-time");
+    const lastUpdate = document.getElementById("debt-last-update-time");
+    const confirmBtn = document.getElementById("debt-confirm-btn");
+    document.getElementById("debt-preview").style.display = "none";
+    progress.style.display = "block";
+    progressText.textContent = "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E31\u0E1E\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E19\u0E35\u0E49...";
     confirmBtn.disabled = true;
-
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
       const token = Auth.getToken();
-      const res = await fetch('/api/debt-import', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
+      const res = await fetch("/api/debt-import", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
-
-      progress.style.display = 'none';
-      result.style.display = 'block';
-      resultStats.innerHTML =
-        `✅ อัปเดต: <strong>${data.updated.toLocaleString()}</strong> ราย`
-        + (data.added > 0 ? ` · 🆕 ใหม่: <strong>${data.added.toLocaleString()}</strong> ราย` : '')
-        + (data.cleared > 0 ? ` · 🧹 หมดหนี้: <strong>${data.cleared.toLocaleString()}</strong> ราย` : '')
-        + `<br>⏭️ ข้าม (เท่าเดิม): <strong>${(data.skipped_identical || 0).toLocaleString()}</strong> ราย<br>`
-        + `🛡️ คลังการ์ดหนี้: <strong>${(data.kv_total || 0).toLocaleString()}</strong> ราย`
-        + (data.kv_backup ? ` (สำรองก่อนอัพไว้ที่ ${data.kv_backup})` : '')
-        + `<br>`
-        + (data.ignored_other_branch > 0 ? `⏭️ ข้ามแถวสาขาอื่น: <strong>${data.ignored_other_branch.toLocaleString()}</strong> แถว<br>` : '')
-        + (data.ignored_no_branch > 0 ? `⚠️ แถวไม่ระบุสาขา (ข้าม): <strong>${data.ignored_no_branch.toLocaleString()}</strong> แถว<br>` : '')
-        + (data.clear_skipped ? `🛡️ ${data.clear_skipped}<br>` : '')
-        + this.renderDebtVerify(data)
-        + (data.quota ? `📝 โควต้าวันนี้เหลือ <strong>${data.quota.remaining.toLocaleString()}</strong> แถว` : '');
-
-      resultTime.textContent = `อัปเดตเมื่อ: ${new Date(data.debt_updated_at).toLocaleString('th-TH')}`;
-      if (lastUpdate) lastUpdate.textContent = new Date(data.debt_updated_at).toLocaleString('th-TH');
-      this.renderDebtQuota(document.getElementById('debt-quota'), data.quota);
-
-      Utils.toast(`📊 อัปเดตหนี้สำเร็จ ${data.updated} ราย${data.added > 0 ? ` +${data.added} ใหม่` : ''}`);
-
-      // รีเฟรชข้อมูลลูกค้าบนแผนที่
-      if (typeof Customers !== 'undefined' && Customers.renderAll) {
+      if (!res.ok) throw new Error(data.error || "\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08");
+      progress.style.display = "none";
+      result.style.display = "block";
+      resultStats.innerHTML = `\u2705 \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15: <strong>${data.updated.toLocaleString()}</strong> \u0E23\u0E32\u0E22` + (data.added > 0 ? ` \xB7 \u{1F195} \u0E43\u0E2B\u0E21\u0E48: <strong>${data.added.toLocaleString()}</strong> \u0E23\u0E32\u0E22` : "") + (data.cleared > 0 ? ` \xB7 \u{1F9F9} \u0E2B\u0E21\u0E14\u0E2B\u0E19\u0E35\u0E49: <strong>${data.cleared.toLocaleString()}</strong> \u0E23\u0E32\u0E22` : "") + `<br>\u23ED\uFE0F \u0E02\u0E49\u0E32\u0E21 (\u0E40\u0E17\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21): <strong>${(data.skipped_identical || 0).toLocaleString()}</strong> \u0E23\u0E32\u0E22<br>\u{1F6E1}\uFE0F \u0E04\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E2B\u0E19\u0E35\u0E49: <strong>${(data.kv_total || 0).toLocaleString()}</strong> \u0E23\u0E32\u0E22` + (data.kv_backup ? ` (\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E31\u0E1E\u0E44\u0E27\u0E49\u0E17\u0E35\u0E48 ${data.kv_backup})` : "") + `<br>` + (data.ignored_other_branch > 0 ? `\u23ED\uFE0F \u0E02\u0E49\u0E32\u0E21\u0E41\u0E16\u0E27\u0E2A\u0E32\u0E02\u0E32\u0E2D\u0E37\u0E48\u0E19: <strong>${data.ignored_other_branch.toLocaleString()}</strong> \u0E41\u0E16\u0E27<br>` : "") + (data.ignored_no_branch > 0 ? `\u26A0\uFE0F \u0E41\u0E16\u0E27\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38\u0E2A\u0E32\u0E02\u0E32 (\u0E02\u0E49\u0E32\u0E21): <strong>${data.ignored_no_branch.toLocaleString()}</strong> \u0E41\u0E16\u0E27<br>` : "") + (data.clear_skipped ? `\u{1F6E1}\uFE0F ${data.clear_skipped}<br>` : "") + this.renderDebtVerify(data) + (data.quota ? `\u{1F4DD} \u0E42\u0E04\u0E27\u0E15\u0E49\u0E32\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E40\u0E2B\u0E25\u0E37\u0E2D <strong>${data.quota.remaining.toLocaleString()}</strong> \u0E41\u0E16\u0E27` : "");
+      resultTime.textContent = `\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E40\u0E21\u0E37\u0E48\u0E2D: ${new Date(data.debt_updated_at).toLocaleString("th-TH")}`;
+      if (lastUpdate) lastUpdate.textContent = new Date(data.debt_updated_at).toLocaleString("th-TH");
+      this.renderDebtQuota(document.getElementById("debt-quota"), data.quota);
+      Utils.toast(`\u{1F4CA} \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E2B\u0E19\u0E35\u0E49\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 ${data.updated} \u0E23\u0E32\u0E22${data.added > 0 ? ` +${data.added} \u0E43\u0E2B\u0E21\u0E48` : ""}`);
+      if (typeof Customers !== "undefined" && Customers.renderAll) {
         setTimeout(() => Customers.renderAll(), 500);
       }
     } catch (err) {
-      progress.style.display = 'none';
-      result.style.display = 'block';
-      resultStats.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
-      resultTime.textContent = '';
-      Utils.toast('❌ อัปเดตหนี้ไม่สำเร็จ', 'error');
+      progress.style.display = "none";
+      result.style.display = "block";
+      resultStats.innerHTML = `<span style="color:var(--danger)">\u274C ${err.message}</span>`;
+      resultTime.textContent = "";
+      Utils.toast("\u274C \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E2B\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
     } finally {
       confirmBtn.disabled = false;
-      document.getElementById('debt-file-input').value = '';
+      document.getElementById("debt-file-input").value = "";
     }
   },
-
   // ===== Debt Import: โหลดวันที่อัปเดตหนี้ล่าสุด =====
   async loadDebtLastUpdate() {
-    const lastUpdate = document.getElementById('debt-last-update-time');
+    const lastUpdate = document.getElementById("debt-last-update-time");
     if (!lastUpdate) return;
-    
     try {
-      // ดึงข้อมูลลูกค้า 1 รายเพื่อเช็ค debt_updated_at
       const token = Auth.getToken();
-      const res = await fetch('/api/customers?limit=1', {
-        headers: { 'Authorization': `Bearer ${token}` },
+      const res = await fetch("/api/customers?limit=1", {
+        headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await res.json();
-      
       if (data.success && data.customers && data.customers.length > 0) {
         const debtUpdated = data.customers[0].debt_updated_at;
         if (debtUpdated) {
-          lastUpdate.textContent = new Date(debtUpdated).toLocaleString('th-TH');
+          lastUpdate.textContent = new Date(debtUpdated).toLocaleString("th-TH");
         } else {
-          lastUpdate.textContent = 'ยังไม่เคยอัปเดต';
+          lastUpdate.textContent = "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E40\u0E04\u0E22\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15";
         }
       }
     } catch (err) {
-      console.warn('Failed to load debt last update:', err);
-      lastUpdate.textContent = '-';
+      console.warn("Failed to load debt last update:", err);
+      lastUpdate.textContent = "-";
     }
   },
-
   // ===== Debt KV: รายชื่อสำรอง + ปุ่มกู้คืน (ระบบกันหาย 17 ต.ค.69) =====
   // กู้คืนทั้งคลังทุกสาขา = แอดมินกลางเท่านั้น
   async loadDebtRestore() {
-    const el = document.getElementById('debt-restore');
+    const el = document.getElementById("debt-restore");
     if (!el) return;
-    if (!Auth.isAdmin()) { el.innerHTML = ''; return; }
+    if (!Auth.isAdmin()) {
+      el.innerHTML = "";
+      return;
+    }
     try {
       const token = Auth.getToken();
-      const res = await fetch('/api/admin/debt-restore', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch("/api/admin/debt-restore", { headers: { "Authorization": `Bearer ${token}` } });
       const data = await res.json();
-      if (!data || !data.success) { el.innerHTML = ''; return; }
-      if (!data.backups.length) { el.innerHTML = `🛡️ ยังไม่มีสำรองคลังหนี้ (จะมีหลังอัพรอบถัดไป)`; return; }
-      const opts = data.backups.map(d => `<option value="${d}">${d}</option>`).join('');
-      el.innerHTML = `🛡️ สำรองคลังหนี้: <select id="debt-restore-date" class="sort-select">${opts}</select> `
-        + `<button type="button" class="btn2" id="debt-restore-btn" style="width:auto;padding:8px 14px;min-height:44px">♻️ กู้คืน</button>`
-        + ` <small class="text-muted">(คลังปัจจุบัน ${(data.current || 0).toLocaleString()} ราย)</small>`;
-      document.getElementById('debt-restore-btn').onclick = async () => {
-        const date = document.getElementById('debt-restore-date').value;
-        if (!confirm(`กู้คืนคลังหนี้จากสำรองวันที่ ${date}?\n(สภาพปัจจุบันจะถูกสำรองไว้อีกชั้นก่อนทับ)`)) return;
-        const r2 = await fetch('/api/admin/debt-restore', { method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date }) });
+      if (!data || !data.success) {
+        el.innerHTML = "";
+        return;
+      }
+      if (!data.backups.length) {
+        el.innerHTML = `\u{1F6E1}\uFE0F \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E04\u0E25\u0E31\u0E07\u0E2B\u0E19\u0E35\u0E49 (\u0E08\u0E30\u0E21\u0E35\u0E2B\u0E25\u0E31\u0E07\u0E2D\u0E31\u0E1E\u0E23\u0E2D\u0E1A\u0E16\u0E31\u0E14\u0E44\u0E1B)`;
+        return;
+      }
+      const opts = data.backups.map((d) => `<option value="${d}">${d}</option>`).join("");
+      el.innerHTML = `\u{1F6E1}\uFE0F \u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E04\u0E25\u0E31\u0E07\u0E2B\u0E19\u0E35\u0E49: <select id="debt-restore-date" class="sort-select">${opts}</select> <button type="button" class="btn2" id="debt-restore-btn" style="width:auto;padding:8px 14px;min-height:44px">\u267B\uFE0F \u0E01\u0E39\u0E49\u0E04\u0E37\u0E19</button> <small class="text-muted">(\u0E04\u0E25\u0E31\u0E07\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19 ${(data.current || 0).toLocaleString()} \u0E23\u0E32\u0E22)</small>`;
+      document.getElementById("debt-restore-btn").onclick = async () => {
+        const date = document.getElementById("debt-restore-date").value;
+        if (!confirm(`\u0E01\u0E39\u0E49\u0E04\u0E37\u0E19\u0E04\u0E25\u0E31\u0E07\u0E2B\u0E19\u0E35\u0E49\u0E08\u0E32\u0E01\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${date}?
+(\u0E2A\u0E20\u0E32\u0E1E\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E08\u0E30\u0E16\u0E39\u0E01\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E44\u0E27\u0E49\u0E2D\u0E35\u0E01\u0E0A\u0E31\u0E49\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E17\u0E31\u0E1A)`)) return;
+        const r2 = await fetch("/api/admin/debt-restore", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ date })
+        });
         const d2 = await r2.json();
-        if (!r2.ok) throw new Error(d2.error || 'กู้คืนไม่สำเร็จ');
-        Utils.toast(`♻️ กู้คืนแล้ว ${d2.restored.toLocaleString()} ราย (จาก ${d2.from})`);
+        if (!r2.ok) throw new Error(d2.error || "\u0E01\u0E39\u0E49\u0E04\u0E37\u0E19\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08");
+        Utils.toast(`\u267B\uFE0F \u0E01\u0E39\u0E49\u0E04\u0E37\u0E19\u0E41\u0E25\u0E49\u0E27 ${d2.restored.toLocaleString()} \u0E23\u0E32\u0E22 (\u0E08\u0E32\u0E01 ${d2.from})`);
       };
-    } catch (e) { el.innerHTML = ''; }
+    } catch (e) {
+      el.innerHTML = "";
+    }
   },
-
   // ===== Export Customers as CSV =====
   exportCustomersCSV() {
     const customers = Storage.getActiveCustomers();
     if (!customers.length) {
-      Utils.toast('⚠️ ไม่มีข้อมูลลูกค้าให้ export', 'error');
+      Utils.toast("\u26A0\uFE0F \u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E43\u0E2B\u0E49 export", "error");
       return;
     }
-
-    // Build CSV
-    const headers = ['CIF', 'ชื่อ', 'ชื่อเล่น', 'เบอร์โทร', 'ที่อยู่', 'Latitude', 'Longitude', 'ระดับความเสี่ยง', 'ประเภทหนี้', 'สร้างโดย', 'วันที่สร้าง'];
-    const rows = customers.map(c => [
-      c.cif || '',
-      c.name || '',
-      c.nickname || '',
-      c.phone || '',
-      c.address || '',
-      c.lat || '',
-      c.lng || '',
-      c.riskLevel || '',
-      c.debtType || '',
-      c.createdBy || '',
-      c.createdAt || '',
+    const headers = ["CIF", "\u0E0A\u0E37\u0E48\u0E2D", "\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E48\u0E19", "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48", "Latitude", "Longitude", "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2A\u0E35\u0E48\u0E22\u0E07", "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E2B\u0E19\u0E35\u0E49", "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E14\u0E22", "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07"];
+    const rows = customers.map((c) => [
+      c.cif || "",
+      c.name || "",
+      c.nickname || "",
+      c.phone || "",
+      c.address || "",
+      c.lat || "",
+      c.lng || "",
+      c.riskLevel || "",
+      c.debtType || "",
+      c.createdBy || "",
+      c.createdAt || ""
     ]);
-
-    // Escape CSV values
     const escapeCSV = (val) => {
       const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
         return '"' + str.replace(/"/g, '""') + '"';
       }
       return str;
     };
-
     const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(escapeCSV).join(','))
-    ].join('\n');
-
-    // Download
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      headers.join(","),
+      ...rows.map((row) => row.map(escapeCSV).join(","))
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `baac-customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `baac-customers-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    Utils.toast(`📊 Export ${customers.length} ลูกค้าเป็น CSV แล้ว`);
+    Utils.toast(`\u{1F4CA} Export ${customers.length} \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E40\u0E1B\u0E47\u0E19 CSV \u0E41\u0E25\u0E49\u0E27`);
   },
-
   // ===== Admin: Load user list =====
   async loadAdminUsers() {
-    const listEl = document.getElementById('admin-users-list');
+    const listEl = document.getElementById("admin-users-list");
     try {
-      const res = await API.get('/api/admin/users');
+      const res = await API.get("/api/admin/users");
       if (!res.success || !res.users.length) {
         this._adminUsers = [];
-        const cnt = document.getElementById('admin-users-count');
-        if (cnt) cnt.textContent = '';
-        listEl.innerHTML = '<p class="text-muted">ยังไม่มีผู้ใช้ — เพิ่มคนแรกด้านล่างเลย</p>';
+        const cnt2 = document.getElementById("admin-users-count");
+        if (cnt2) cnt2.textContent = "";
+        listEl.innerHTML = '<p class="text-muted">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E19\u0E41\u0E23\u0E01\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E40\u0E25\u0E22</p>';
         return;
       }
-      this._adminUsers = res.users;   // จำไว้ให้ปุ่ม export ใช้ (ไม่ยิง API ซ้ำ)
-      const cnt = document.getElementById('admin-users-count');
-      if (cnt) cnt.textContent = `ทั้งหมด ${res.users.length} คน`;
+      this._adminUsers = res.users;
+      const cnt = document.getElementById("admin-users-count");
+      if (cnt) cnt.textContent = `\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 ${res.users.length} \u0E04\u0E19`;
       const me = Auth.getUser() || {};
       const isSuperAdmin = Auth.isAdmin();
-      const roleBadge = (r) => r === 'admin' ? '👑 แอดมินกลาง' : (r === 'branch_admin' ? '🏢 ผู้ดูแลสาขา' : '👤 พนักงาน');
-      // สิทธิ์ปุ่มต่อคน — เซิร์ฟเวอร์บังคับซ้ำ (นี่แค่ซ่อนปุ่มที่กดแล้วจะโดนปฏิเสธ)
-      const canPin = (u) => u.role !== 'admin' && (isSuperAdmin || u.role === 'user' || u.id === me.id);
+      const roleBadge = (r) => r === "admin" ? "\u{1F451} \u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E01\u0E25\u0E32\u0E07" : r === "branch_admin" ? "\u{1F3E2} \u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E2A\u0E32\u0E02\u0E32" : "\u{1F464} \u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19";
+      const canPin = (u) => u.role !== "admin" && (isSuperAdmin || u.role === "user" || u.id === me.id);
       const canClear = (u) => u.hasPin && (isSuperAdmin || u.id === me.id);
-      const canDelete = (u) => u.id !== me.id && (isSuperAdmin || u.role === 'user');
-      listEl.innerHTML = res.users.map(u => `
+      const canDelete = (u) => u.id !== me.id && (isSuperAdmin || u.role === "user");
+      listEl.innerHTML = res.users.map((u) => `
         <div class="admin-user-card">
           <div class="admin-user-info">
             <span class="admin-user-name">${this.escapeHTML(u.displayName)}</span>
-            <span class="admin-user-meta">${this.escapeHTML(u.username)} · ${this.escapeHTML(u.branchName)} · ${roleBadge(u.role)} · ${u.pin ? ('🔑PIN ' + this.escapeHTML(u.pin)) : (u.hasPin ? '🔑มี PIN (เก่า)' : '— ไม่มี PIN')}</span>
+            <span class="admin-user-meta">${this.escapeHTML(u.username)} \xB7 ${this.escapeHTML(u.branchName)} \xB7 ${roleBadge(u.role)} \xB7 ${u.pin ? "\u{1F511}PIN " + this.escapeHTML(u.pin) : u.hasPin ? "\u{1F511}\u0E21\u0E35 PIN (\u0E40\u0E01\u0E48\u0E32)" : "\u2014 \u0E44\u0E21\u0E48\u0E21\u0E35 PIN"}</span>
           </div>
-          ${canPin(u) ? `<button class="btn-icon-sm" title="ตั้ง/เปลี่ยน PIN" onclick="App.openStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}', '${u.pin || ''}')">🔑</button>` : ''}
-          ${canClear(u) ? `<button class="btn-icon-sm" title="ปิด login ด้วย PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">🚫</button>` : ''}
-          ${canDelete(u) ? `<button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">🗑️</button>` : ''}
+          ${canPin(u) ? `<button class="btn-icon-sm" title="\u0E15\u0E31\u0E49\u0E07/\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 PIN" onclick="App.openStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}', '${u.pin || ""}')">\u{1F511}</button>` : ""}
+          ${canClear(u) ? `<button class="btn-icon-sm" title="\u0E1B\u0E34\u0E14 login \u0E14\u0E49\u0E27\u0E22 PIN" onclick="App.clearStaffPin('${u.id}', '${this.escapeHTML(u.displayName)}')">\u{1F6AB}</button>` : ""}
+          ${canDelete(u) ? `<button class="btn-danger-sm" onclick="App.deleteAdminUser('${u.id}', '${this.escapeHTML(u.displayName)}')">\u{1F5D1}\uFE0F</button>` : ""}
         </div>
-      `).join('');
+      `).join("");
     } catch (err) {
-      listEl.innerHTML = `<p class="login-error">โหลดรายชื่อไม่สำเร็จ: ${err.message}</p>`;
+      listEl.innerHTML = `<p class="login-error">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: ${err.message}</p>`;
     }
   },
-
   // ===== รายงานผู้ใช้ CSV (17 ต.ค.69 — พ่อสั่ง: ดูรายชื่อ+รหัสในเมนูจัดการระบบ) =====
   // หมายเหตุ: เลข PIN จริง export ไม่ได้ (เก็บแบบ hash ทางเดียว ถอดกลับไม่ได้แม้แอดมิน)
   // รายงานจึงบอกแค่ว่ามี/ไม่มี PIN + ตั้งใหม่ได้ทีละคนด้วยปุ่ม 🔑 ในการ์ด
   _adminUsers: [],
   buildUsersCSV(users) {
-    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const rows = [['Username', 'ชื่อที่แสดง', 'สาขา', 'สิทธิ์', 'PIN', 'มี PIN', 'สร้างเมื่อ']];
-    for (const u of (users || [])) {
+    const cell = (v) => `"${String(v != null ? v : "").replace(/"/g, '""')}"`;
+    const rows = [["Username", "\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E41\u0E2A\u0E14\u0E07", "\u0E2A\u0E32\u0E02\u0E32", "\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C", "PIN", "\u0E21\u0E35 PIN", "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E21\u0E37\u0E48\u0E2D"]];
+    for (const u of users || []) {
       rows.push([
-        u.username || '',
-        u.displayName || '',
-        u.branchName || u.branch || '',
-        u.role === 'admin' ? 'Admin' : 'User',
-        u.pin || '—',
-        u.hasPin ? 'มี' : 'ไม่มี',
-        u.createdAt || '-',
+        u.username || "",
+        u.displayName || "",
+        u.branchName || u.branch || "",
+        u.role === "admin" ? "Admin" : "User",
+        u.pin || "\u2014",
+        u.hasPin ? "\u0E21\u0E35" : "\u0E44\u0E21\u0E48\u0E21\u0E35",
+        u.createdAt || "-"
       ]);
     }
-    return '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n');
+    return "\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n");
   },
   exportUsersCSV() {
     const users = this._adminUsers || [];
     if (!users.length) {
-      if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('ยังไม่มีรายชื่อผู้ใช้ให้ export', 'warn');
+      if (typeof Utils !== "undefined" && Utils.toast) Utils.toast("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E43\u0E2B\u0E49 export", "warn");
       return;
     }
-    const blob = new Blob([this.buildUsersCSV(users)], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    const d = new Date();
-    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    const blob = new Blob([this.buildUsersCSV(users)], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    const d = /* @__PURE__ */ new Date();
+    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
     a.href = URL.createObjectURL(blob);
     a.download = `users-report-${stamp}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(`📥 โหลดรายงาน ${users.length} คนแล้ว`);
+    setTimeout(() => URL.revokeObjectURL(a.href), 5e3);
+    if (typeof Utils !== "undefined" && Utils.toast) Utils.toast(`\u{1F4E5} \u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E07\u0E32\u0E19 ${users.length} \u0E04\u0E19\u0E41\u0E25\u0E49\u0E27`);
   },
-
   // ===== Staff grid: แตะชื่อ + PIN (แผน B, แยกสาขาอัตโนมัติ) =====
   // pure: จัดรายชื่อตามสาขา (เทสได้โดยไม่ต้องมี backend)
   groupStaffByBranch(staff) {
     const map = {};
-    (staff || []).forEach(s => {
-      const key = s.branch || '';
+    (staff || []).forEach((s) => {
+      const key = s.branch || "";
       if (!map[key]) map[key] = { branch: s.branch, branchName: s.branchName || s.branch, members: [] };
       map[key].members.push(s);
     });
     return Object.values(map);
   },
-
   async loadStaffGrid() {
-    const grid = document.getElementById('staff-grid');
+    const grid = document.getElementById("staff-grid");
     if (!grid) return;
     const renderNames = (members) => {
-      grid.innerHTML = members.map(s => `
+      grid.innerHTML = members.map((s) => `
         <button type="button" class="staff-btn" data-username="${this.escapeHTML(s.username)}">
           <span class="staff-name">${this.escapeHTML(s.displayName)}</span>
         </button>
-      `).join('');
-      grid.querySelectorAll('.staff-btn').forEach(btn => {
+      `).join("");
+      grid.querySelectorAll(".staff-btn").forEach((btn) => {
         btn.onclick = () => {
-          grid.querySelectorAll('.staff-btn').forEach(b => b.classList.remove('staff-selected'));
-          btn.classList.add('staff-selected');
-          document.getElementById('pin-username').value = btn.dataset.username;
-          const pi = document.getElementById('pin-input');
+          grid.querySelectorAll(".staff-btn").forEach((b) => b.classList.remove("staff-selected"));
+          btn.classList.add("staff-selected");
+          document.getElementById("pin-username").value = btn.dataset.username;
+          const pi = document.getElementById("pin-input");
           if (pi) pi.focus();
         };
       });
@@ -5853,599 +5338,515 @@ const App = {
     try {
       const staff = await Auth.loadStaffList();
       if (!staff.length) {
-        grid.innerHTML = '<p class="text-muted">ยังไม่มีรายชื่อพนักงาน — แอดมินใส่ PIN ได้เลย</p>';
+        grid.innerHTML = '<p class="text-muted">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E1E\u0E19\u0E31\u0E01\u0E07\u0E32\u0E19 \u2014 \u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E43\u0E2A\u0E48 PIN \u0E44\u0E14\u0E49\u0E40\u0E25\u0E22</p>';
         return;
       }
       const groups = this.groupStaffByBranch(staff);
       if (groups.length <= 1) {
-        // สาขาเดียว (วันนี้: 854) — โชว์ชื่อเลย ไม่ถามสาขา
         renderNames(groups[0].members);
         return;
       }
-      // หลายสาขา — เลือกสาขาก่อน แล้วค่อยโชว์ชื่อสาขานั้น
-      grid.innerHTML = '<p class="text-muted">เลือกสาขาก่อน</p>' + groups.map((g, i) => `
+      grid.innerHTML = '<p class="text-muted">\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E32\u0E02\u0E32\u0E01\u0E48\u0E2D\u0E19</p>' + groups.map((g, i) => `
         <button type="button" class="staff-btn staff-branch" data-gi="${i}">
-          <span class="staff-name">🏢 ${this.escapeHTML(g.branchName)}</span>
+          <span class="staff-name">\u{1F3E2} ${this.escapeHTML(g.branchName)}</span>
         </button>
-      `).join('');
-      grid.querySelectorAll('.staff-branch').forEach(btn => {
+      `).join("");
+      grid.querySelectorAll(".staff-branch").forEach((btn) => {
         btn.onclick = () => {
-          document.getElementById('pin-username').value = '';
+          document.getElementById("pin-username").value = "";
           renderNames(groups[Number(btn.dataset.gi)].members);
-          const back = document.createElement('button');
-          back.type = 'button';
-          back.className = 'staff-btn staff-back';
-          back.innerHTML = '<span class="staff-name">‹ เปลี่ยนสาขา</span>';
-          back.onclick = () => { document.getElementById('pin-username').value = ''; this.loadStaffGrid(); };
+          const back = document.createElement("button");
+          back.type = "button";
+          back.className = "staff-btn staff-back";
+          back.innerHTML = '<span class="staff-name">\u2039 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E2A\u0E32\u0E02\u0E32</span>';
+          back.onclick = () => {
+            document.getElementById("pin-username").value = "";
+            this.loadStaffGrid();
+          };
           grid.prepend(back);
         };
       });
-    } catch {
-      grid.innerHTML = '<p class="text-muted">โหลดรายชื่อไม่ได้ — แอดมินใส่ PIN ได้เลย</p>';
+    } catch (e) {
+      grid.innerHTML = '<p class="text-muted">\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E43\u0E2A\u0E48 PIN \u0E44\u0E14\u0E49\u0E40\u0E25\u0E22</p>';
     }
   },
-
   // ===== Admin: สมุดคุมเปิดดูการ์ด (ขั้น 4) =====
   async loadAdminViews() {
-    const listEl = document.getElementById('admin-views-list');
+    const listEl = document.getElementById("admin-views-list");
     if (!listEl) return;
-    const filter = (document.getElementById('admin-views-filter') || {}).value || '';
-    listEl.innerHTML = '<p class="text-muted">กำลังโหลด...</p>';
+    const filter = (document.getElementById("admin-views-filter") || {}).value || "";
+    listEl.innerHTML = '<p class="text-muted">\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14...</p>';
     try {
-      const q = filter.trim() ? ('?viewer=' + encodeURIComponent(filter.trim())) : '';
-      const res = await API.get('/api/admin/views' + q);
+      const q = filter.trim() ? "?viewer=" + encodeURIComponent(filter.trim()) : "";
+      const res = await API.get("/api/admin/views" + q);
       if (!res.success || !res.views.length) {
-        listEl.innerHTML = '<p class="text-muted">ยังไม่มีประวัติเปิดดูการ์ด</p>';
+        listEl.innerHTML = '<p class="text-muted">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E40\u0E1B\u0E34\u0E14\u0E14\u0E39\u0E01\u0E32\u0E23\u0E4C\u0E14</p>';
         return;
       }
-      listEl.innerHTML = res.views.map(v => {
-        const when = (v.viewed_at || '').replace('T', ' ').slice(0, 16);
-        return `<div class="admin-user-card"><div class="admin-user-info">`
-          + `<span class="admin-user-name">${this.escapeHTML(v.customer_name || v.cif)}</span>`
-          + `<span class="admin-user-meta">👤 ${this.escapeHTML(v.viewer_name || v.viewer)} · 🕘 ${this.escapeHTML(when)}</span>`
-          + `</div></div>`;
-      }).join('');
+      listEl.innerHTML = res.views.map((v) => {
+        const when = (v.viewed_at || "").replace("T", " ").slice(0, 16);
+        return `<div class="admin-user-card"><div class="admin-user-info"><span class="admin-user-name">${this.escapeHTML(v.customer_name || v.cif)}</span><span class="admin-user-meta">\u{1F464} ${this.escapeHTML(v.viewer_name || v.viewer)} \xB7 \u{1F558} ${this.escapeHTML(when)}</span></div></div>`;
+      }).join("");
     } catch (err) {
-      listEl.innerHTML = `<p class="login-error">โหลดไม่สำเร็จ: ${this.escapeHTML(err.message)}</p>`;
+      listEl.innerHTML = `<p class="login-error">\u0E42\u0E2B\u0E25\u0E14\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: ${this.escapeHTML(err.message)}</p>`;
     }
   },
-
   // ===== Admin: ตั้ง/ปิด PIN พนักงาน (ฟอร์ม 17 ต.ค.69 — เห็นเลขเดิมก่อนเปลี่ยน กันพิมพ์ผิด) =====
   _staffPinId: null,
   openStaffPin(id, name, currentPin) {
     this._staffPinId = id;
-    document.getElementById('staff-pin-name').textContent = name;
-    document.getElementById('staff-pin-current').textContent =
-      currentPin ? `PIN ปัจจุบัน: ${currentPin}` : 'ยังไม่มี PIN';
-    document.getElementById('staff-pin-new').value = '';
-    document.getElementById('staff-pin-confirm').value = '';
-    document.getElementById('staff-pin-error').textContent = '';
-    document.getElementById('staff-pin-modal').classList.remove('hidden');
-    setTimeout(() => { const el = document.getElementById('staff-pin-new'); if (el) el.focus(); }, 100);
+    document.getElementById("staff-pin-name").textContent = name;
+    document.getElementById("staff-pin-current").textContent = currentPin ? `PIN \u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19: ${currentPin}` : "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35 PIN";
+    document.getElementById("staff-pin-new").value = "";
+    document.getElementById("staff-pin-confirm").value = "";
+    document.getElementById("staff-pin-error").textContent = "";
+    document.getElementById("staff-pin-modal").classList.remove("hidden");
+    setTimeout(() => {
+      const el = document.getElementById("staff-pin-new");
+      if (el) el.focus();
+    }, 100);
   },
   async submitStaffPin() {
-    const errEl = document.getElementById('staff-pin-error');
-    errEl.textContent = '';
-    const p1 = document.getElementById('staff-pin-new').value.trim();
-    const p2 = document.getElementById('staff-pin-confirm').value.trim();
-    if (!/^\d{4,8}$/.test(p1)) { errEl.textContent = 'PIN ต้องเป็นตัวเลข 4-8 หลัก'; return; }
-    if (p1 !== p2) { errEl.textContent = 'PIN สองช่องไม่ตรงกัน'; return; }
+    const errEl = document.getElementById("staff-pin-error");
+    errEl.textContent = "";
+    const p1 = document.getElementById("staff-pin-new").value.trim();
+    const p2 = document.getElementById("staff-pin-confirm").value.trim();
+    if (!/^\d{4,8}$/.test(p1)) {
+      errEl.textContent = "PIN \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 4-8 \u0E2B\u0E25\u0E31\u0E01";
+      return;
+    }
+    if (p1 !== p2) {
+      errEl.textContent = "PIN \u0E2A\u0E2D\u0E07\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E19";
+      return;
+    }
     try {
-      const res = await API.put('/api/admin/users', { id: this._staffPinId, pin: p1 });
+      const res = await API.put("/api/admin/users", { id: this._staffPinId, pin: p1 });
       if (res.success) {
-        Utils.toast(`🔑 ตั้ง PIN ใหม่แล้ว: ${p1}`);
-        document.getElementById('staff-pin-modal').classList.add('hidden');
+        Utils.toast(`\u{1F511} \u0E15\u0E31\u0E49\u0E07 PIN \u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27: ${p1}`);
+        document.getElementById("staff-pin-modal").classList.add("hidden");
         await this.loadAdminUsers();
       } else {
-        errEl.textContent = res.error || 'ตั้ง PIN ไม่สำเร็จ';
+        errEl.textContent = res.error || "\u0E15\u0E31\u0E49\u0E07 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
       }
     } catch (err) {
-      errEl.textContent = err.message || 'ตั้ง PIN ไม่สำเร็จ';
+      errEl.textContent = err.message || "\u0E15\u0E31\u0E49\u0E07 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08";
     }
   },
-
   async clearStaffPin(id, name) {
-    if (!confirm(`ปิด login ด้วย PIN ของ "${name}"?`)) return;
+    if (!confirm(`\u0E1B\u0E34\u0E14 login \u0E14\u0E49\u0E27\u0E22 PIN \u0E02\u0E2D\u0E07 "${name}"?`)) return;
     try {
-      const res = await API.put('/api/admin/users', { id, clearPin: true });
-      if (res.success) { Utils.toast(`ปิด PIN ของ "${name}" แล้ว`); await this.loadAdminUsers(); }
-      else Utils.toast(res.error || 'ปิด PIN ไม่สำเร็จ', 'error');
+      const res = await API.put("/api/admin/users", { id, clearPin: true });
+      if (res.success) {
+        Utils.toast(`\u0E1B\u0E34\u0E14 PIN \u0E02\u0E2D\u0E07 "${name}" \u0E41\u0E25\u0E49\u0E27`);
+        await this.loadAdminUsers();
+      } else Utils.toast(res.error || "\u0E1B\u0E34\u0E14 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
     } catch (err) {
-      Utils.toast('ปิด PIN ไม่สำเร็จ: ' + err.message, 'error');
+      Utils.toast("\u0E1B\u0E34\u0E14 PIN \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + err.message, "error");
     }
   },
-
   // ===== Admin: Delete user =====
   async deleteAdminUser(id, name) {
-    if (!confirm(`ลบผู้ใช้ "${name}"?`)) return;
+    if (!confirm(`\u0E25\u0E1A\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 "${name}"?`)) return;
     try {
       const token = Auth.getToken();
-      const res = await fetch(API.baseUrl() + '/api/admin/users', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ id }),
+      const res = await fetch(API.baseUrl() + "/api/admin/users", {
+        method: "DELETE",
+        headers: __spreadValues({
+          "Content-Type": "application/json"
+        }, token ? { "Authorization": `Bearer ${token}` } : {}),
+        body: JSON.stringify({ id })
       });
       const data = await res.json();
       if (data.success) {
-        Utils.toast(`🗑️ ลบผู้ใช้ "${name}" แล้ว`);
+        Utils.toast(`\u{1F5D1}\uFE0F \u0E25\u0E1A\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 "${name}" \u0E41\u0E25\u0E49\u0E27`);
         await this.loadAdminUsers();
       } else {
-        Utils.toast(data.error || 'ลบไม่สำเร็จ', 'error');
+        Utils.toast(data.error || "\u0E25\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
       }
     } catch (err) {
-      Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+      Utils.toast("\u0E25\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + err.message, "error");
     }
   },
-
-
   // ===== Admin: Load branch list =====
   async loadAdminBranches() {
-    const listEl = document.getElementById('admin-branches-list');
+    const listEl = document.getElementById("admin-branches-list");
     try {
-      const res = await API.get('/api/admin/branches');
+      const res = await API.get("/api/admin/branches");
       if (!res.success || !res.branches.length) {
-        listEl.innerHTML = '<p class="text-muted">ยังไม่มีสาขา</p>';
+        listEl.innerHTML = '<p class="text-muted">\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E32\u0E02\u0E32</p>';
         return;
       }
-      listEl.innerHTML = res.branches.map(b => `
+      listEl.innerHTML = res.branches.map((b) => `
         <div class="admin-user-card">
           <div class="admin-user-info">
             <span class="admin-user-name">${this.escapeHTML(b.name)}</span>
             <span class="admin-user-meta">${this.escapeHTML(b.code)}</span>
           </div>
-          <button class="btn-danger-sm" onclick="App.deleteAdminBranch('${this.escapeHTML(b.code)}', '${this.escapeHTML(b.name)}')">🗑️</button>
+          <button class="btn-danger-sm" onclick="App.deleteAdminBranch('${this.escapeHTML(b.code)}', '${this.escapeHTML(b.name)}')">\u{1F5D1}\uFE0F</button>
         </div>
-      `).join('');
+      `).join("");
     } catch (err) {
-      listEl.innerHTML = `<p class="login-error">โหลดสาขาไม่สำเร็จ: ${err.message}</p>`;
+      listEl.innerHTML = `<p class="login-error">\u0E42\u0E2B\u0E25\u0E14\u0E2A\u0E32\u0E02\u0E32\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: ${err.message}</p>`;
     }
   },
-
   // ===== Admin: Delete branch =====
   async deleteAdminBranch(code, name) {
-    if (!confirm(`ลบสาขา "${name}" (${code})?`)) return;
+    if (!confirm(`\u0E25\u0E1A\u0E2A\u0E32\u0E02\u0E32 "${name}" (${code})?`)) return;
     try {
       const token = Auth.getToken();
-      const res = await fetch(API.baseUrl() + '/api/admin/branches', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ code }),
+      const res = await fetch(API.baseUrl() + "/api/admin/branches", {
+        method: "DELETE",
+        headers: __spreadValues({
+          "Content-Type": "application/json"
+        }, token ? { "Authorization": `Bearer ${token}` } : {}),
+        body: JSON.stringify({ code })
       });
       const data = await res.json();
       if (data.success) {
-        Utils.toast(`🗑️ ลบสาขา "${name}" แล้ว`);
+        Utils.toast(`\u{1F5D1}\uFE0F \u0E25\u0E1A\u0E2A\u0E32\u0E02\u0E32 "${name}" \u0E41\u0E25\u0E49\u0E27`);
         await this.loadAdminBranches();
-        // Remove from user form select
-        const sel = document.getElementById('new-branch');
+        const sel = document.getElementById("new-branch");
         const opt = sel.querySelector(`option[value="${code}"]`);
         if (opt) opt.remove();
       } else {
-        Utils.toast(data.error || 'ลบไม่สำเร็จ', 'error');
+        Utils.toast(data.error || "\u0E25\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08", "error");
       }
     } catch (err) {
-      Utils.toast('ลบไม่สำเร็จ: ' + err.message, 'error');
+      Utils.toast("\u0E25\u0E1A\u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + err.message, "error");
     }
   },
-
   escapeHTML(str) {
-    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    return String(str || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
   },
-
   // ===== Hard refresh — bypass HTTP cache + unregister SW + clear caches =====
   async hardRefresh() {
-    const btn = document.getElementById('refresh-btn');
+    const btn = document.getElementById("refresh-btn");
     if (btn) {
-      btn.classList.add('spinning');
+      btn.classList.add("spinning");
       btn.disabled = true;
     }
-
     try {
-      // 1) Unregister service worker (PWA) so next load fetches fresh
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
         for (const r of regs) {
-          try { await r.unregister(); } catch (e) {}
+          try {
+            await r.unregister();
+          } catch (e) {
+          }
         }
       }
-
-      // 2) Clear all Cache Storage entries
-      if ('caches' in window) {
+      if ("caches" in window) {
         const names = await caches.keys();
         for (const n of names) {
-          try { await caches.delete(n); } catch (e) {}
+          try {
+            await caches.delete(n);
+          } catch (e) {
+          }
         }
       }
-
-      // 3) Pull fresh server version before reload
       const newVer = await this.fetchServerVersion();
-      if (newVer) localStorage.setItem('app_version', newVer);
-      // ตั้ง flag ให้หน้าใหม่รู้ว่าเพิ่งอัปเดตเสร็จ — จะได้แจ้งเตือนหลัง reload
-      sessionStorage.setItem('bfr_update_done', newVer || '1');
-
-      // 4) Show toast + reload bypassing HTTP cache
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast('🔄 กำลังรีเฟรช...');
+      if (newVer) localStorage.setItem("app_version", newVer);
+      sessionStorage.setItem("bfr_update_done", newVer || "1");
+      if (typeof Utils !== "undefined" && Utils.toast) {
+        Utils.toast("\u{1F504} \u0E01\u0E33\u0E25\u0E31\u0E07\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A...");
       }
       setTimeout(() => {
-        // Bypass HTTP cache with query string + reload
         const url = new URL(window.location.href);
-        url.searchParams.set('_v', Date.now());
+        url.searchParams.set("_v", Date.now());
         window.location.replace(url.toString());
       }, 400);
     } catch (e) {
-      console.error('Hard refresh failed:', e);
-      // Fallback: simple reload with cache buster
+      console.error("Hard refresh failed:", e);
       window.location.reload();
     }
   },
-
   // ===== Update available — prompt user =====
   async applyUpdate() {
-    // Cancel any pending update notification
     if (this._updateTimer) {
       clearInterval(this._updateTimer);
       this._updateTimer = null;
     }
-    const banner = document.getElementById('update-banner');
+    const banner = document.getElementById("update-banner");
     if (banner) banner.remove();
     this._updateNotified = false;
-
     const newVer = await this.fetchServerVersion();
     if (newVer) {
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast('✨ อัพเดทเป็นเวอร์ชัน ' + newVer);
+      if (typeof Utils !== "undefined" && Utils.toast) {
+        Utils.toast("\u2728 \u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 " + newVer);
       }
     }
     this.hardRefresh();
-  },
+  }
 };
-
-// ===== Service Worker registration (PWA) =====
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => {
-      console.warn('SW registration failed:', err);
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((err) => {
+      console.warn("SW registration failed:", err);
     });
   });
 }
-
-// ===== Boot =====
-document.addEventListener('DOMContentLoaded', () => App.init());
-
-// ===== Refresh button binding (early, before login too) =====
-document.addEventListener('DOMContentLoaded', () => {
-  // Restore saved vehicle (route + report)
+document.addEventListener("DOMContentLoaded", () => App.init());
+document.addEventListener("DOMContentLoaded", () => {
   const savedVehicle = Utils.getVehicle();
-  const routeVehicle = document.getElementById('route-vehicle');
+  const routeVehicle = document.getElementById("route-vehicle");
   if (routeVehicle) routeVehicle.value = savedVehicle;
   if (routeVehicle) {
-    routeVehicle.addEventListener('change', () => Utils.setVehicle(routeVehicle.value));
+    routeVehicle.addEventListener("change", () => Utils.setVehicle(routeVehicle.value));
   }
-  const reportVehicle = document.getElementById('report-vehicle');
+  const reportVehicle = document.getElementById("report-vehicle");
   if (reportVehicle) reportVehicle.value = savedVehicle;
-
-  // Load live fuel prices from Bangchak (non-blocking)
   Utils.loadFuelPrices();
-
-  // End mode → show customer dropdown if 'customer' selected
-  const endMode = document.getElementById('route-end-mode');
-  const endCustomer = document.getElementById('route-end-customer');
+  const endMode = document.getElementById("route-end-mode");
+  const endCustomer = document.getElementById("route-end-customer");
   if (endMode && endCustomer) {
-    // Populate customer dropdown
     const populateEndCustomers = () => {
       const customers = Storage.getActiveCustomers();
-      endCustomer.innerHTML = '<option value="">-- เลือกลูกค้า --</option>' +
-        customers.map(c => `<option value="${c.id}">${this.escapeHTML(c.name)} (${this.escapeHTML(c.cif || '-')})</option>`).join('');
+      endCustomer.innerHTML = '<option value="">-- \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 --</option>' + customers.map((c) => `<option value="${c.id}">${this.escapeHTML(c.name)} (${this.escapeHTML(c.cif || "-")})</option>`).join("");
     };
     populateEndCustomers();
-    // Refresh list when customers change
-    document.addEventListener('customersUpdated', populateEndCustomers);
-
-    endMode.addEventListener('change', () => {
-      if (endMode.value === 'customer') {
-        endCustomer.classList.remove('hidden');
+    document.addEventListener("customersUpdated", populateEndCustomers);
+    endMode.addEventListener("change", () => {
+      if (endMode.value === "customer") {
+        endCustomer.classList.remove("hidden");
       } else {
-        endCustomer.classList.add('hidden');
+        endCustomer.classList.add("hidden");
       }
     });
   }
-
-  // (ปุ่มรีเฟรชในเมนูถูกถอดออก 17 ต.ค.69 — ใช้ auto-update + F5 แทน)
-
-  // ===== Update DB button — reload customer data from central DB (เอากลับมา 22 ต.ค.69) =====
-  // ที่มา: หมุดที่ปักจากเครื่องอื่นไม่เข้าเครื่องเก่า (afterLogin เติมแค่ overlay) — กดปุ่มนี้ดึงใหม่ทั้งก้อน+เติมของเก่า
-  const updateBtn = document.getElementById('update-db-btn');
+  const updateBtn = document.getElementById("update-db-btn");
   if (updateBtn) {
-    updateBtn.addEventListener('click', async () => {
-      updateBtn.classList.add('spinning');
+    updateBtn.addEventListener("click", async () => {
+      updateBtn.classList.add("spinning");
       updateBtn.disabled = true;
-      if (typeof Utils !== 'undefined') Utils.toast('⏳ กำลังอัพข้อมูล... (ลูกค้า+พิกัด+หนี้)');
+      if (typeof Utils !== "undefined") Utils.toast("\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E31\u0E1E\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25... (\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32+\u0E1E\u0E34\u0E01\u0E31\u0E14+\u0E2B\u0E19\u0E35\u0E49)");
       try {
-        if (typeof Storage === 'undefined' || !Storage.reloadStaticDB) {
-          throw new Error('ฟังก์ชันอัพเดทยังไม่พร้อม');
+        if (typeof Storage === "undefined" || !Storage.reloadStaticDB) {
+          throw new Error("\u0E1F\u0E31\u0E07\u0E01\u0E4C\u0E0A\u0E31\u0E19\u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1E\u0E23\u0E49\u0E2D\u0E21");
         }
         const result = await Storage.reloadStaticDB();
-        if (typeof Utils !== 'undefined') {
-          Utils.toast(`✅ อัพเดทสำเร็จ: ลูกค้า ${result.total} ราย · หนี้ ${result.debt} ราย` + (result.backfilled > 0 ? ` · เติมของเก่า ${result.backfilled} ราย` : ''));
+        if (typeof Utils !== "undefined") {
+          Utils.toast(`\u2705 \u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 ${result.total} \u0E23\u0E32\u0E22 \xB7 \u0E2B\u0E19\u0E35\u0E49 ${result.debt} \u0E23\u0E32\u0E22` + (result.backfilled > 0 ? ` \xB7 \u0E40\u0E15\u0E34\u0E21\u0E02\u0E2D\u0E07\u0E40\u0E01\u0E48\u0E32 ${result.backfilled} \u0E23\u0E32\u0E22` : ""));
         }
-        // Re-render everything
-        if (typeof Customers !== 'undefined') Customers.renderAll();
-        if (typeof Visit !== 'undefined') Visit.render();
-        if (typeof App !== 'undefined') App.updateRouteUI();
+        if (typeof Customers !== "undefined") Customers.renderAll();
+        if (typeof Visit !== "undefined") Visit.render();
+        if (typeof App !== "undefined") App.updateRouteUI();
       } catch (err) {
-        if (typeof Utils !== 'undefined') {
-          Utils.toast(`❌ อัพเดทล้มเหลว: ${err.message}`, 'error');
+        if (typeof Utils !== "undefined") {
+          Utils.toast(`\u274C \u0E2D\u0E31\u0E1E\u0E40\u0E14\u0E17\u0E25\u0E49\u0E21\u0E40\u0E2B\u0E25\u0E27: ${err.message}`, "error");
         }
-        console.error('[UpdateDB]', err);
+        console.error("[UpdateDB]", err);
       } finally {
-        updateBtn.classList.remove('spinning');
+        updateBtn.classList.remove("spinning");
         updateBtn.disabled = false;
       }
     });
   }
-
-  // Keyboard shortcut: F5 or Ctrl/Cmd+R triggers hard refresh
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "F5" || (e.ctrlKey || e.metaKey) && e.key === "r") {
       e.preventDefault();
       App.hardRefresh();
     }
   });
 });
-
-// ===== Global error handler — show user-friendly message instead of silent failure =====
 (function() {
   const originalHandler = window.onerror;
   window.onerror = function(msg, source, line, col, error) {
-    // Log to console for debugging
-    console.error('[Global Error]', msg, 'at', source, line, col, error);
-    // Show user-friendly toast if Utils loaded
+    console.error("[Global Error]", msg, "at", source, line, col, error);
     try {
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        // Check if it's a known non-critical error we can auto-recover from
-        const errStr = String(msg || error?.message || '');
-        const warnOnly = errStr.includes('ResizeObserver') ||
-                         errStr.includes('Cancelled') ||
-                         errStr.includes('AbortError');
+      if (typeof Utils !== "undefined" && Utils.toast) {
+        const errStr = String(msg || (error == null ? void 0 : error.message) || "");
+        const warnOnly = errStr.includes("ResizeObserver") || errStr.includes("Cancelled") || errStr.includes("AbortError");
         if (!warnOnly) {
-          Utils.toast('⚠️ เกิดข้อผิดพลาดเล็กน้อย — ปิดแล้วเปิดเว็บใหม่ถ้าใช้งานไม่ได้', 'error');
+          Utils.toast("\u26A0\uFE0F \u0E40\u0E01\u0E34\u0E14\u0E02\u0E49\u0E2D\u0E1C\u0E34\u0E14\u0E1E\u0E25\u0E32\u0E14\u0E40\u0E25\u0E47\u0E01\u0E19\u0E49\u0E2D\u0E22 \u2014 \u0E1B\u0E34\u0E14\u0E41\u0E25\u0E49\u0E27\u0E40\u0E1B\u0E34\u0E14\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E2B\u0E21\u0E48\u0E16\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49", "error");
         }
       }
-    } catch (_) {}
-    // Call original handler if exists
-    if (typeof originalHandler === 'function') {
+    } catch (_) {
+    }
+    if (typeof originalHandler === "function") {
       return originalHandler.call(window, msg, source, line, col, error);
     }
-    return true; // Prevent default browser error display
+    return true;
   };
-
-  // Also catch unhandled promise rejections
-  window.addEventListener('unhandledrejection', function(e) {
-    console.error('[Unhandled Promise]', e.reason);
+  window.addEventListener("unhandledrejection", function(e) {
+    var _a;
+    console.error("[Unhandled Promise]", e.reason);
     try {
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        const errStr = String(e.reason?.message || e.reason || '');
-        if (!errStr.includes('AbortError') && !errStr.includes('Cancelled')) {
-          Utils.toast('⚠️ เกิดข้อผิดพลาด — ถ้าใช้ไม่ได้ลองปิดแล้วเปิดเว็บใหม่', 'error');
+      if (typeof Utils !== "undefined" && Utils.toast) {
+        const errStr = String(((_a = e.reason) == null ? void 0 : _a.message) || e.reason || "");
+        if (!errStr.includes("AbortError") && !errStr.includes("Cancelled")) {
+          Utils.toast("\u26A0\uFE0F \u0E40\u0E01\u0E34\u0E14\u0E02\u0E49\u0E2D\u0E1C\u0E34\u0E14\u0E1E\u0E25\u0E32\u0E14 \u2014 \u0E16\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E25\u0E2D\u0E07\u0E1B\u0E34\u0E14\u0E41\u0E25\u0E49\u0E27\u0E40\u0E1B\u0E34\u0E14\u0E40\u0E27\u0E47\u0E1A\u0E43\u0E2B\u0E21\u0E48", "error");
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    }
   });
 })();
-
-// ===== Collapsible debt-filter panel (8 ก.ย.69) =====
-// default พับเหลือแค่แถบค้นหา — กางเมื่อคลิก ▼, พับเมื่อคลิก ▲ หรือเมื่อแถบล่างขึ้นมา (half/full)
 const FilterPanel = {
   _panel: null,
   _toggle: null,
-
   init() {
-    this._panel = document.getElementById('map-debt-filter');
-    this._toggle = document.getElementById('mdf-toggle');
+    this._panel = document.getElementById("map-debt-filter");
+    this._toggle = document.getElementById("mdf-toggle");
     if (!this._panel || !this._toggle) return;
-    // default: พับ (HTML มี mdf-collapsed อยู่แล้ว — กันกรณี cache เก่าไม่มี class)
-    if (!this._panel.classList.contains('mdf-collapsed') && !this._hasActiveFilter()) {
-      this._panel.classList.add('mdf-collapsed');
+    if (!this._panel.classList.contains("mdf-collapsed") && !this._hasActiveFilter()) {
+      this._panel.classList.add("mdf-collapsed");
     }
     this._syncToggle();
-    this._toggle.addEventListener('click', (e) => {
+    this._toggle.addEventListener("click", (e) => {
       e.stopPropagation();
       this.toggle();
     });
-    // เปลี่ยนฟิลเตอร์ → อัพเดทสีปุ่ม (บอกว่ามีตัวกรอง active)
-    this._panel.querySelectorAll('select').forEach(sel => {
-      sel.addEventListener('change', () => this._syncToggle());
+    this._panel.querySelectorAll("select").forEach((sel) => {
+      sel.addEventListener("change", () => this._syncToggle());
     });
-    const resetBtn = document.getElementById('debt-filter-reset');
-    if (resetBtn) resetBtn.addEventListener('click', () => setTimeout(() => this._syncToggle(), 0));
+    const resetBtn = document.getElementById("debt-filter-reset");
+    if (resetBtn) resetBtn.addEventListener("click", () => setTimeout(() => this._syncToggle(), 0));
   },
-
   isCollapsed() {
-    return this._panel ? this._panel.classList.contains('mdf-collapsed') : true;
+    return this._panel ? this._panel.classList.contains("mdf-collapsed") : true;
   },
-
   expand() {
     if (!this._panel) return;
-    this._panel.classList.remove('mdf-collapsed');
+    this._panel.classList.remove("mdf-collapsed");
     this._syncToggle();
-    // แผงบนสำคัญ → หุบแถบล่างลงเหลือ peek กันทับซ้อน
-    if (typeof App !== 'undefined' && App.setSheetState) {
-      const sheet = document.getElementById('bottom-sheet');
-      if (sheet && (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) {
-        App.setSheetState('peek');
+    if (typeof App !== "undefined" && App.setSheetState) {
+      const sheet = document.getElementById("bottom-sheet");
+      if (sheet && (sheet.classList.contains("sheet-half") || sheet.classList.contains("sheet-full"))) {
+        App.setSheetState("peek");
       }
     }
   },
-
   collapse() {
     if (!this._panel) return;
     if (!this.isCollapsed()) {
-      this._panel.classList.add('mdf-collapsed');
+      this._panel.classList.add("mdf-collapsed");
       this._syncToggle();
-      // ซ่อนผลค้นหาที่ค้าง กันลอยทับแผนที่
-      const r = document.getElementById('msb-results');
-      if (r) r.classList.add('hidden');
+      const r = document.getElementById("msb-results");
+      if (r) r.classList.add("hidden");
     } else {
       this._syncToggle();
     }
   },
-
   toggle() {
     if (this.isCollapsed()) this.expand();
     else this.collapse();
   },
-
   _hasActiveFilter() {
-    const ids = ['debt-month-filter', 'debt-tier-filter', 'map-zone-filter', 'debt-omsom-filter', 'debt-15m-filter', 'debt-reserve-filter'];
-    return ids.some(id => {
+    const ids = ["debt-month-filter", "debt-tier-filter", "map-zone-filter", "debt-omsom-filter", "debt-15m-filter", "debt-reserve-filter"];
+    return ids.some((id) => {
       const el = document.getElementById(id);
-      return el && el.value !== '';
+      return el && el.value !== "";
     });
   },
-
   _syncToggle() {
     if (!this._toggle) return;
     const collapsed = this.isCollapsed();
-    this._toggle.textContent = collapsed ? '▼' : '▲';
-    this._toggle.setAttribute('aria-expanded', String(!collapsed));
-    this._toggle.classList.toggle('has-active', this._hasActiveFilter());
-  },
+    this._toggle.textContent = collapsed ? "\u25BC" : "\u25B2";
+    this._toggle.setAttribute("aria-expanded", String(!collapsed));
+    this._toggle.classList.toggle("has-active", this._hasActiveFilter());
+  }
 };
-
-// ===== Floating Map Search Bar (Google Maps-style) =====
-// ค้นหาลูกค้าบนแผนที่ด้วยชื่อ/CIF/เบอร์ — flyTo + open popup
 const MapSearch = {
   _input: null,
   _results: null,
   _clearBtn: null,
   _allCustomersCache: null,
   _refreshTimer: null,
-
   init() {
-    this._input = document.getElementById('map-search');
-    this._results = document.getElementById('msb-results');
-    this._clearBtn = document.getElementById('msb-clear');
+    this._input = document.getElementById("map-search");
+    this._results = document.getElementById("msb-results");
+    this._clearBtn = document.getElementById("msb-clear");
     if (!this._input || !this._results) return;
-
-    this._input.addEventListener('input', () => this._onInput());
-    this._input.addEventListener('focus', () => { if (this._input.value) this._onInput(); });
-    this._clearBtn.addEventListener('click', () => this._clear());
-
-    // Close results when clicking outside
-    document.addEventListener('click', (e) => {
-      const bar = document.getElementById('map-debt-filter');
+    this._input.addEventListener("input", () => this._onInput());
+    this._input.addEventListener("focus", () => {
+      if (this._input.value) this._onInput();
+    });
+    this._clearBtn.addEventListener("click", () => this._clear());
+    document.addEventListener("click", (e) => {
+      const bar = document.getElementById("map-debt-filter");
       if (bar && !bar.contains(e.target)) this._hideResults();
     });
-
-    // Refresh cache every 30s (customers may change via sync/import)
-    this._refreshTimer = setInterval(() => { this._allCustomersCache = null; }, 30000);
+    this._refreshTimer = setInterval(() => {
+      this._allCustomersCache = null;
+    }, 3e4);
   },
-
   _getCustomers() {
     if (this._allCustomersCache) return this._allCustomersCache;
-    if (typeof Storage !== 'undefined' && Storage.getActiveCustomers) {
+    if (typeof Storage !== "undefined" && Storage.getActiveCustomers) {
       this._allCustomersCache = Storage.getActiveCustomers();
     } else {
       this._allCustomersCache = [];
     }
     return this._allCustomersCache;
   },
-
   _onInput() {
     const q = this._input.value.trim();
-    this._clearBtn.classList.toggle('hidden', !q);
-    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
-
-    if (!q || q.length < 1) { this._hideResults(); return; }
-
+    this._clearBtn.classList.toggle("hidden", !q);
+    if (typeof Customers !== "undefined" && Customers.updateGpsGauge) Customers.updateGpsGauge();
+    if (!q || q.length < 1) {
+      this._hideResults();
+      return;
+    }
     const query = q.toLowerCase();
     const customers = this._getCustomers();
-
-    // Match: name, nickname, CIF, phone (exact + partial)
-    const matches = customers.filter(c => {
-      const name = (c.name || '').toLowerCase();
-      const nick = (c.nickname || '').toLowerCase();
-      const cif = String(c.cif || '');
-      const phone = String(c.phone || '');
+    const matches = customers.filter((c) => {
+      const name = (c.name || "").toLowerCase();
+      const nick = (c.nickname || "").toLowerCase();
+      const cif = String(c.cif || "");
+      const phone = String(c.phone || "");
       return name.includes(query) || nick.includes(query) || cif.includes(query) || phone.includes(query);
     });
     const top = matches.slice(0, 6);
-
     if (top.length === 0) {
-      this._results.innerHTML = '<div class="msb-no-results">ไม่พบลูกค้าที่ตรงกับ "<strong>' + this._esc(q) + '</strong>"</div>';
-      this._results.classList.remove('hidden');
+      this._results.innerHTML = '<div class="msb-no-results">\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A "<strong>' + this._esc(q) + '</strong>"</div>';
+      this._results.classList.remove("hidden");
       return;
     }
-
-    const riskColors = { 'แดง': '#d32f2f', 'เหลือง': '#e6a817', 'เขียว': '#16a34a' };
-    this._results.innerHTML = top.map(c => {
-      const color = riskColors[c.riskLevel] || '#9e9e9e';
-      const sub = [c.cif ? 'CIF:' + c.cif : '', c.phone, c.nickname].filter(Boolean).join(' · ');
+    const riskColors = { "\u0E41\u0E14\u0E07": "#d32f2f", "\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E07": "#e6a817", "\u0E40\u0E02\u0E35\u0E22\u0E27": "#16a34a" };
+    this._results.innerHTML = top.map((c) => {
+      const color = riskColors[c.riskLevel] || "#9e9e9e";
+      const sub = [c.cif ? "CIF:" + c.cif : "", c.phone, c.nickname].filter(Boolean).join(" \xB7 ");
       const id = c.id || c.cif;
-      return '<div class="msb-result-item" data-id="' + this._escAttr(id) + '" role="option">' +
-        '<span class="msb-result-dot" style="background:' + color + '"></span>' +
-        '<div class="msb-result-info">' +
-          '<div class="msb-result-name">' + this._esc(c.name || 'ไม่มีชื่อ') + '</div>' +
-          '<div class="msb-result-meta">' + this._esc(sub || '-') + '</div>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-
-    // Bind clicks
+      return '<div class="msb-result-item" data-id="' + this._escAttr(id) + '" role="option"><span class="msb-result-dot" style="background:' + color + '"></span><div class="msb-result-info"><div class="msb-result-name">' + this._esc(c.name || "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E37\u0E48\u0E2D") + '</div><div class="msb-result-meta">' + this._esc(sub || "-") + "</div></div></div>";
+    }).join("");
     const self = this;
-    this._results.querySelectorAll('.msb-result-item').forEach(el => {
-      el.addEventListener('click', () => self._select(el.dataset.id));
+    this._results.querySelectorAll(".msb-result-item").forEach((el) => {
+      el.addEventListener("click", () => self._select(el.dataset.id));
     });
-
-    this._results.classList.remove('hidden');
+    this._results.classList.remove("hidden");
   },
-
   _select(id) {
     const customers = this._getCustomers();
-    const c = customers.find(x => (x.id === id) || String(x.cif) === id);
+    const c = customers.find((x) => x.id === id || String(x.cif) === id);
     if (!c) return;
-
     if (!c.lat || !c.lng) {
-      if (typeof Utils !== 'undefined') Utils.toast('⚠️ ลูกค้านี้ไม่มีพิกัดบนแผนที่', 'warn');
+      if (typeof Utils !== "undefined") Utils.toast("\u26A0\uFE0F \u0E25\u0E39\u0E01\u0E04\u0E49\u0E32\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1E\u0E34\u0E01\u0E31\u0E14\u0E1A\u0E19\u0E41\u0E1C\u0E19\u0E17\u0E35\u0E48", "warn");
       this._clear();
       this._hideResults();
       return;
     }
-
-    // พาไปพิกัด + เด้งการ์ดลูกหนี้ที่จุดนั้น (ท่าเดียวกับปุ่ม 📍 บนการ์ดลูกค้า)
-    if (typeof Customers !== 'undefined' && Customers.locateCustomer && Customers.map) {
+    if (typeof Customers !== "undefined" && Customers.locateCustomer && Customers.map) {
       Customers.locateCustomer(c.id);
     }
-
     this._clear();
     this._hideResults();
-    this._input.blur(); // hide mobile keyboard
+    this._input.blur();
   },
-
   _clear() {
-    if (this._input) this._input.value = '';
-    if (this._clearBtn) this._clearBtn.classList.add('hidden');
-    if (typeof Customers !== 'undefined' && Customers.updateGpsGauge) Customers.updateGpsGauge();
+    if (this._input) this._input.value = "";
+    if (this._clearBtn) this._clearBtn.classList.add("hidden");
+    if (typeof Customers !== "undefined" && Customers.updateGpsGauge) Customers.updateGpsGauge();
     this._hideResults();
   },
-
   _hideResults() {
-    if (this._results) this._results.classList.add('hidden');
+    if (this._results) this._results.classList.add("hidden");
   },
-
   _esc(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    if (!s) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   },
-
   _escAttr(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  },
+    if (!s) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
 };
