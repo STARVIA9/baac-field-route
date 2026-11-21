@@ -1,0 +1,10 @@
+name = "baac-ci"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+[[kv_namespaces]]
+binding = "BAAC_CI_KV"
+id = "573158c17bdb4674b9898bc4adb382f4"
+
+# CI_SESSION_SECRET: ตั้งเป็น secret ใน Pages (ไม่เก็บในไฟล์นี้)
+# wrangler pages secret put CI_SESSION_SECRET --project-name baac-ci
