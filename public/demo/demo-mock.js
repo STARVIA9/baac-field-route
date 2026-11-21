@@ -471,10 +471,11 @@
     var d = document.createElement('div');
     d.id = 'demo-banner';
     d.innerHTML = '<span>เว็บตัวอย่าง · ข้อมูลสมมุติ · PIN <b>1234</b></span>' +
+      '<button type="button" id="demo-banner-fix" title="ลบแคชเก่า + โหลดเว็บใหม่ 1 จิ้ม">🔄 ซ่อมเว็บ</button>' +
       '<button type="button" id="demo-banner-reset" title="ล้างข้อมูลที่ลองแก้ แล้วเริ่มใหม่">เริ่มใหม่</button>' +
       '<button type="button" id="demo-banner-x" aria-label="ปิดป้าย">✕</button>';
     d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:60000;background:#7c2d12;color:#fff;' +
-      'font-size:14px;font-weight:700;text-align:center;padding:8px 44px 8px 12px;line-height:1.45;';
+      'font-size:14px;font-weight:700;text-align:center;padding:8px 96px 8px 12px;line-height:1.45;';
     // spacer กันแบนเนอร์ทับหัวเว็บ (ตัวเลือกของเว็บจริงต้องมองเห็นครบ)
     var sp = document.createElement('div');
     sp.id = 'demo-banner-spacer';
@@ -484,6 +485,37 @@
     window.addEventListener('load', fit);
     setTimeout(fit, 400);
     setTimeout(fit, 1200);
+    var fx = d.querySelector('#demo-banner-fix');
+    fx.style.cssText = 'margin-left:6px;background:#fff;color:#7c2d12;border:1px solid #fff;' +
+      'border-radius:10px;font-size:14px;padding:0 10px;min-height:40px;font-weight:700';
+    fx.onclick = function () {
+      fx.disabled = true; fx.textContent = '⏳ กำลังซ่อม...';
+      var done = function () {
+        var u = new URL(location.href);
+        u.searchParams.set('_fix', String(Date.now()));
+        location.replace(u.toString());   // โหลดใหม่แบบบังคับ ไม่ใช้แคชเก่า
+      };
+      var fail = function (e) {
+        alert('ซ่อมอัตโนมัติไม่สำเร็จ — ปิดแท็บทั้งหมดแล้วเปิดใหม่ค่ะ');
+        fx.disabled = false; fx.textContent = '🔄 ซ่อมเว็บ';
+      };
+      var clearCaches = function () {
+        if (!window.caches || typeof caches.keys !== 'function') return Promise.resolve();
+        return caches.keys().then(function (names) {
+          return Promise.all(names.map(function (n) { try { return caches.delete(n); } catch (e) { return null; } }));
+        });
+      };
+      try {
+        // โหมดตัวอย่างดัก serviceWorker ไว้ (ไม่มี getRegistrations) → ต้องเช็คก่อนเรียก
+        if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { try { return r.unregister(); } catch (e) { return null; } }));
+          }).then(clearCaches).then(done).catch(fail);
+        } else {
+          clearCaches().then(done).catch(fail);
+        }
+      } catch (e) { fail(e); }
+    };
     var rs = d.querySelector('#demo-banner-reset');
     rs.style.cssText = 'margin-left:8px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.55);' +
       'border-radius:10px;font-size:13px;padding:0 10px;min-height:32px;font-weight:600';
