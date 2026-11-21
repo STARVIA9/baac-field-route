@@ -5297,9 +5297,13 @@ body.field-big .route-action-card { font-size: 17px; }
   #promise-alert { left: 50%; right: auto; transform: translateX(-50%); width: 460px; }
 }
 #promise-alert .pa-ico { font-size: 20px; flex: none; }
-#promise-alert .pa-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-#promise-alert .pa-text b { font-size: 17px; font-weight: 700; }
-#promise-alert .pa-text span { font-size: 15px; opacity: .9; white-space: nowrap; }
+#promise-alert .pa-text { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 2px; }
+#promise-alert .pa-cap { font-size: 13px; font-weight: 800; letter-spacing: .2px; opacity: .9; }
+#promise-alert .pa-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+#promise-alert .pa-row .pa-k { opacity: .85; white-space: nowrap; }
+#promise-alert .pa-row .pa-v { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#promise-alert .pa-row .pa-v-red { color: #b3261e; }
+#promise-alert .pa-k-short { display: none; }
 #promise-alert .pa-btn {
   min-height: 44px; padding: 0 14px; border: 0; border-radius: 10px;
   background: #0A8F3C; color: #fff; font-size: 15px; font-weight: 700;
@@ -5327,10 +5331,11 @@ body.alert-open .map-debt-filter { top: calc(74px + var(--pa-space, 0px)) !impor
     border-color: rgba(255,255,255,.18); color: #FFF3EE;
   }
   #promise-alert .pa-close { background: rgba(255,255,255,.14); color: #FFF3EE; }
+  #promise-alert .pa-row .pa-v-red { color: #FFB4A8; }
 }
 @media (max-width: 380px) {
   #promise-alert { padding: 9px 10px; gap: 8px; }
-  #promise-alert .pa-text b { font-size: 15px; }
+  #promise-alert .pa-cap { font-size: 13px; }
   #promise-alert .pa-btn { padding: 0 10px; font-size: 14px; }
 }
 
@@ -5652,10 +5657,11 @@ body.card-open .leaflet-control,body.card-open .map-fab{opacity:0!important;poin
 @media (max-width: 360px) {
   .app-header.app-header-overlay { padding-top: 8px; padding-bottom: 6px; }
   #promise-alert { padding: 7px 8px; gap: 5px; }
-  #promise-alert .pa-text { flex-direction: row; align-items: center; gap: 4px; }
-  #promise-alert .pa-text b { white-space: nowrap; }
-  #promise-alert .pa-text span { display: none; }
-  #promise-alert .pa-btn { min-height: 44px; padding: 0 10px; }
+  #promise-alert .pa-cap { display: none; }
+  #promise-alert .pa-row { font-size: 13px; gap: 5px; }
+  #promise-alert .pa-k-long { display: none; }
+  #promise-alert .pa-k-short { display: inline; }
+  #promise-alert .pa-btn { min-height: 44px; padding: 0 8px; font-size: 13px; }
   #promise-alert .pa-close { width: 44px; height: 44px; }
   .map-debt-filter { padding: 6px; gap: 4px; }
   .mdf-search-row { padding: 2px 2px 0; margin-bottom: 2px; }

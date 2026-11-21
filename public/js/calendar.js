@@ -103,16 +103,21 @@ const WorkCalendar = {
       try { dismissed = sessionStorage.getItem('bfr_pa_dismiss') || ''; } catch (e) { /* ignore */ }
 
       if (total > 0 && dismissed !== sig) {
-        // ข้อความสื่อความหมาย: ขึ้น "เลยกำหนด" ก่อน และบอกยอดเงินที่ต้องตาม
-        const head = counts.overdue > 0
-          ? 'เลย' + counts.overdue + (counts.due ? '·วันนี้' + counts.due : '')
-          : 'ถึงกำหนดวันนี้ ' + counts.due;
+        // ตารางสั้น ๆ: ชื่อหมวดอยู่ซ้าย ตัวเลขมีหน่วยอยู่ขวา (อ่านเป็นข้อมูล ไม่ใช่รหัส)
         banner.innerHTML =
           '<span class="pa-ico" aria-hidden="true">🔔</span>' +
-          '<div class="pa-text"><b>' + head + '</b><span>' +
-            (amount > 0 ? this.fmtAmount(amount) : 'จากปฏิทิน') +
-          '</span></div>' +
-          '<button type="button" class="pa-btn" data-pa-open>ปฏิทิน</button>' +
+          '<div class="pa-text">' +
+            '<div class="pa-cap">แจ้งเตือนนัดชำระ</div>' +
+            '<div class="pa-row"><span class="pa-k"><span class="pa-k-long">เกินกำหนด</span><span class="pa-k-short">ค้าง</span></span>' +
+              '<span class="pa-v pa-v-red">' + counts.overdue + ' ราย</span></div>' +
+            (counts.due
+              ? '<div class="pa-row"><span class="pa-k"><span class="pa-k-long">ถึงกำหนดวันนี้</span><span class="pa-k-short">วันนี้</span></span>' +
+                '<span class="pa-v">' + counts.due + ' ราย</span></div>'
+              : '') +
+            '<div class="pa-row"><span class="pa-k"><span class="pa-k-long">ยอดเงินรวม</span><span class="pa-k-short">ยอดรวม</span></span>' +
+              '<span class="pa-v">' + (amount > 0 ? this.fmtAmount(amount) : 'จากปฏิทิน') + '</span></div>' +
+          '</div>' +
+          '<button type="button" class="pa-btn" data-pa-open>ดูปฏิทิน</button>' +
           '<button type="button" class="pa-close" data-pa-close aria-label="ปิดการแจ้งเตือน">×</button>';
         banner.setAttribute('aria-live', 'polite');
         banner.dataset.sig = sig;
