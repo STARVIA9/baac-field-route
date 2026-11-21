@@ -6,5 +6,10 @@ pages_build_output_dir = "public"
 binding = "BAAC_CI_KV"
 id = "573158c17bdb4674b9898bc4adb382f4"
 
+[[d1_databases]]
+binding = "CI_DB"
+database_name = "baac-ci-db"
+database_id = "2e176649-7bff-46d6-b954-7c1c52395842"
+
 # CI_SESSION_SECRET: ตั้งเป็น secret ใน Pages (ไม่เก็บในไฟล์นี้)
 # wrangler pages secret put CI_SESSION_SECRET --project-name baac-ci

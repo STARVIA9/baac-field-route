@@ -1,0 +1,84 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>อนุมัติเครื่องเข้าใช้ข้อมูล · baac-ci</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef3f0;color:#14342a;font-family:"Sarabun New",Sarabun,sans-serif;font-size:17px}
+.hd{background:#0f5132;color:#fff;padding:16px}.hd b{font-size:23px}.hd small{display:block;color:#cfe6da;font-size:14px;margin-top:3px}
+.wrap{max-width:560px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:11px;padding:14px;margin:12px 0;box-shadow:0 1px 4px #0001;border:1px solid #d5e0d9}
+input,select{width:100%;font-size:17px;font-family:inherit;padding:11px;border:1.5px solid #b7c8bf;border-radius:9px;background:#fff;color:#14342a}
+button{font-size:16px;font-weight:bold;font-family:inherit;padding:10px;border:0;border-radius:8px;color:#fff;cursor:pointer}
+.ok{background:#0f5132}.no{background:#5b6b64}.del{background:#9b2c2c}
+.wide{width:100%;font-size:19px;padding:13px;margin-top:14px}
+.row{display:flex;gap:7px;margin-top:10px}.row button{flex:1}
+.chip{display:inline-block;border-radius:20px;padding:3px 11px;font-size:14px;font-weight:bold}
+.pending{background:#fff3cd;color:#7a5b00}.approved{background:#e8f4ee;color:#12633e}
+.rejected,.revoked{background:#fbe9e9;color:#8b2020}
+#qr{width:190px;height:190px;margin:12px auto;background:#fff;padding:8px;border:1px solid #cbd8d1}
+.note{background:#fff8e1;border-left:4px solid #d9a400;padding:10px 12px;font-size:15px;line-height:1.5}
+.small{font-size:15px;color:#3d5148}
+</style></head><body>
+<div class="hd"><b>อนุมัติเครื่องเข้าใช้ข้อมูล</b><small>baac-ci · เฉพาะหัวหน้าสาขา (branch_admin)</small></div>
+<div class="wrap">
+  <div class="card" id="login">
+    <label>สาขา</label><select id="branch"><option value="">— กำลังโหลด —</option></select>
+    <label>PIN ประจำสาขา</label><input id="pin" type="password" inputmode="numeric" maxlength="12">
+    <button class="ok wide" id="btnLogin">เข้าสู่ระบบ</button>
+  </div>
+  <div id="main" hidden>
+    <div class="card" style="text-align:center">
+      <div id="qr"></div>
+      <div>ให้พนักงานสแกน QR นี้เพื่อขออนุมัติ</div>
+      <div class="small" id="qrFallback"></div>
+    </div>
+    <div class="note">การกดอนุมัติคือการให้กุญแจสาขา · การเพิกถอนจะล้างตารางชื่อในเครื่องทันที</div>
+    <div id="list"></div>
+    <button class="no wide" id="btnLogout">ออกจากระบบ</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+fetch('/api/branches').then(r=>r.json()).then(d=>{
+  $('branch').innerHTML=''; (d.branches||[]).forEach(b=>{const o=document.createElement('option');o.value=b.code;o.textContent=b.code+' - '+b.name;$('branch').appendChild(o);});
+}).catch(()=>{});
+
+$('btnLogin').onclick = () => {
+  const btn=$('btnLogin'); btn.disabled=true; btn.textContent='⏳ ...';
+  fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({branch:$('branch').value,pin:$('pin').value})})
+    .then(r=>r.json()).then(d=>{ if(!d.ok){alert(d.error||'เข้าสู่ระบบไม่ได้');return;} $('login').hidden=true; $('main').hidden=false; drawQr(d.branch); load(); })
+    .catch(()=>alert('เชื่อมต่อไม่ได้')).finally(()=>{btn.disabled=false;btn.textContent='เข้าสู่ระบบ';});
+};
+$('btnLogout').onclick = () => fetch('/api/logout',{method:'POST'}).then(()=>location.reload());
+
+function drawQr(branch){
+  const url = location.origin + '/enroll.html?branch=' + encodeURIComponent(branch);
+  $('qrFallback').textContent = 'ถ้าสแกนไม่ได้ ให้เปิด ' + url;
+  // ponytail: ใช้ qrcodejs จาก CDN — เปลี่ยนเป็นไฟล์ในเครื่องถ้าไอทีบล็อก CDN
+  if (typeof QRCode === 'undefined') { $('qr').textContent='QR โหลดไม่ได้ — ใช้ลิงก์ด้านล่าง'; return; }
+  $('qr').innerHTML=''; new QRCode($('qr'), {text:url, width:174, height:174, colorDark:'#123c2e', colorLight:'#ffffff'});
+}
+function load(){
+  fetch('/api/admin/enrollments',{cache:'no-store'}).then(r=>r.json()).then(d=>{
+    if(!d.ok){ if(d.error&&d.error.includes('เข้าสู่ระบบ')) location.reload(); return; }
+    const box=$('list'); box.innerHTML='';
+    (d.items||[]).forEach(it=>{
+      const c=document.createElement('div'); c.className='card';
+      const label={pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธ',revoked:'เพิกถอนแล้ว'}[it.status]||it.status;
+      c.innerHTML='<span class="chip '+it.status+'">'+label+'</span><br><b>'+it.full_name+'</b><br>'+
+        '<span class="small">'+it.employee_id+' · '+it.position+'<br>'+it.branch+' · '+it.province+' · '+new Date(it.created_at).toLocaleString('th-TH')+'</span>';
+      const row=document.createElement('div'); row.className='row';
+      const mk=(txt,cls,decision)=>{const b=document.createElement('button');b.textContent=txt;b.className=cls;
+        b.onclick=()=>decide(it.device_id,decision);return b;};
+      if(it.status!=='approved'){row.appendChild(mk('อนุมัติ','ok','approved'));row.appendChild(mk('ปฏิเสธ','no','rejected'));}
+      else row.appendChild(mk('เพิกถอนเครื่อง (ล้างข้อมูลทันที)','del','revoked'));
+      c.appendChild(row); box.appendChild(c);
+    });
+    if(!(d.items||[]).length) box.innerHTML='<div class="card">ยังไม่มีคำขอจากพนักงาน</div>';
+  }).catch(()=>{});
+}
+function decide(deviceId,decision){
+  fetch('/api/admin/enrollments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,decision})})
+    .then(r=>r.json()).then(d=>{ if(!d.ok)alert(d.error||'ทำไม่ได้'); load(); }).catch(()=>alert('เชื่อมต่อไม่ได้'));
+}
+</script></body></html>

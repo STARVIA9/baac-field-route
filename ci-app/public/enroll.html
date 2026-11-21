@@ -1,0 +1,59 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ขออนุญาตใช้ข้อมูลสาขา · baac-ci</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef3f0;color:#14342a;font-family:"Sarabun New",Sarabun,sans-serif;font-size:17px}
+.hd{background:#0f5132;color:#fff;padding:16px}.hd b{font-size:23px}.hd small{display:block;color:#cfe6da;font-size:14px;margin-top:3px}
+.wrap{max-width:520px;margin:0 auto;padding:14px}
+.note{background:#fff8e1;border-left:4px solid #d9a400;padding:10px 12px;font-size:15px;line-height:1.5;margin-bottom:14px}
+label{display:block;font-weight:bold;margin:12px 0 5px}
+input,select{width:100%;font-size:18px;font-family:inherit;padding:12px;border:1.5px solid #b7c8bf;border-radius:9px;background:#fff;color:#14342a}
+button{width:100%;font-size:19px;font-weight:bold;font-family:inherit;padding:13px;border:0;border-radius:10px;background:#0f5132;color:#fff;margin-top:16px}
+.status{margin-top:16px;border:1.5px dashed #2c7a52;background:#e8f4ee;border-radius:10px;padding:12px;text-align:center;line-height:1.5}
+.chip{display:inline-block;background:#fff3cd;color:#7a5b00;border-radius:20px;padding:3px 12px;font-weight:bold;font-size:15px}
+.small{font-size:15px;color:#3d5148}
+</style></head><body>
+<div class="hd"><b>ขออนุญาตใช้ข้อมูลสาขา</b><small>baac-ci · สแกน QR ครั้งเดียว</small></div>
+<div class="wrap">
+  <div class="note">กรอกเพื่อติดต่อขออนุมัติ <b>หัวหน้าสาขาเป็นคนกดอนุมัติ</b> ไม่ใช่จากการกรอกฟอร์ม</div>
+  <form id="f">
+    <label>1. รหัสพนักงาน</label><input id="employeeId" required maxlength="40" placeholder="เช่น 854-0123" inputmode="text">
+    <label>2. ชื่อ-สกุล</label><input id="fullName" required maxlength="120" placeholder="ชื่อจริง นามสกุล">
+    <label>3. ตำแหน่ง</label><input id="position" required maxlength="80" placeholder="เช่น เจ้าหน้าที่สินเชื่อ">
+    <label>4. สาขา</label><select id="branch" required><option value="">— กำลังโหลด —</option></select>
+    <label>5. จังหวัด</label><input id="province" required maxlength="80" placeholder="เช่น ปราจีนบุรี">
+    <button type="submit">ส่งคำขอ</button>
+  </form>
+  <div class="status" id="status" hidden></div>
+  <p class="small">เครื่องนี้จะเก็บรหัสประจำเครื่องไว้ในเบราว์เซอร์ เพื่อเช็คสถานะอัตโนมัติ</p>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let deviceId = localStorage.getItem('ci_device_id');
+if (!deviceId) { deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'd' + Date.now() + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g,''); localStorage.setItem('ci_device_id', deviceId); }
+
+fetch('/api/branches').then(r=>r.json()).then(d=>{
+  const sel=$('branch'); sel.innerHTML='';
+  (d.branches||[]).forEach(b=>{ const o=document.createElement('option'); o.value=b.code; o.textContent=b.code+' - '+b.name; sel.appendChild(o); });
+  const fromQr = new URLSearchParams(location.search).get('branch');
+  if (fromQr && [...sel.options].some(o=>o.value===fromQr)) sel.value=fromQr;
+}).catch(()=>{ $('branch').innerHTML='<option value="">โหลดรายการสาขาไม่ได้</option>'; });
+
+const LABEL={pending:'⏳ รอหัวหน้าสาขาอนุมัติ',approved:'✅ อนุมัติแล้ว',rejected:'❌ ปฏิเสธ',revoked:'⛔ เพิกถอนแล้ว',none:'ยังไม่ได้ส่งคำขอ'};
+function show(st){ if(!st)return; const el=$('status'); el.hidden=false; el.innerHTML='<span class="chip">'+LABEL[st]+'</span>'+
+  (st==='pending'?'<br><span class="small">ยังเห็นเฉพาะจุด ไม่มีชื่อลูกค้า</span>':''); }
+function poll(){ fetch('/api/enroll?device='+encodeURIComponent(deviceId)+'&t='+Date.now(),{cache:'no-store'})
+  .then(r=>r.json()).then(d=>{ if(d.ok)show(d.status); }).catch(()=>{}); }
+$('f').addEventListener('submit', e=>{
+  e.preventDefault(); const btn=e.target.querySelector('button'); const old=btn.textContent;
+  btn.disabled=true; btn.textContent='⏳ กำลังส่ง...';
+  fetch('/api/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    deviceId, employeeId:$('employeeId').value, fullName:$('fullName').value,
+    position:$('position').value, branch:$('branch').value, province:$('province').value
+  })}).then(r=>r.json()).then(d=>{
+    if(!d.ok){ alert(d.error||'ส่งไม่ได้'); return; }
+    show('pending');
+  }).catch(()=>alert('เชื่อมต่อไม่ได้')).finally(()=>{ btn.disabled=false; btn.textContent=old; });
+});
+poll(); setInterval(poll, 5000);
+</script></body></html>

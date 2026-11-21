@@ -8,7 +8,7 @@ function secret(env) {
   return String(s);
 }
 async function key(env) {
-  return crypto.subtle.importKey('raw', enc.encode(secret(env)), 'HMAC', false, ['sign', 'verify']);
+  return crypto.subtle.importKey('raw', enc.encode(secret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 function b64u(bytes) {
   let s = '';
