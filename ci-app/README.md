@@ -1,6 +1,6 @@
 # baac-ci — Phase 1 (หน้านำเข้า CI จริง)
 
-> สถานะ: **สร้างโค้ดในเครื่องแล้ว · ยังไม่ commit · ยังไม่ deploy**
+> สถานะ: **โค้ด commit แล้วในเครื่อง · ยังไม่ push / ไม่ deploy — รอพ่อนอนุมัติ + ข้อมูลจริง**
 > แผน: `../docs/plans/2026-11-21-ci-onedrive-pseudonym.md`
 > ภาพจำลองที่พ่ออนุมัติ: `C:\Users\ichillshop\Desktop\BAAC-CI-ทดลอง\mockup-ci-admin.html`
 
@@ -18,6 +18,16 @@
 3. ชื่อไฟล์ซองคงที่ `<branch>.bfrpack` (ตาม §11 — แทนชื่อมีวันที่ในภาพจำลองเก่า)
 4. รหัส 12 hex (≥10 ตาม §7.3) · CIF เดิมได้รหัสเดิมเสมอ
 5. `branches:all` ดึงจาก KV — ไม่ hardcode
+
+## วิธีเตรียมและลงเว็บ (1 คำสั่ง)
+
+1. `cp ci-app/config.example.json ci-app/config.local.json` — กรอก `oneDriveLink` + PIN 854/145 (ไฟล์นี้ถูก gitignore ห้าม commit)
+2. `bash ci-app/scripts/deploy.sh --dry-run` — ตรวจค่า + เขียน KV อย่างเดียว ยังไม่ลงเว็บ
+3. `bash ci-app/scripts/deploy.sh` — เขียน KV + ตั้ง secret + ลง `baac-ci` + ตรวจหน้าเว็บจริง
+   - **รันเมื่อพ่อนอนุมัติแล้วเท่านั้น** (กฎ: แจ้งพ่อก่อน deploy ทุกครั้ง)
+   - ต้องมี `CLOUDFLARE_API_TOKEN` ใน environment
+
+สิ่งที่ทำไปแล้วโดยไม่ต้องรอ: seed `branches:all` 7 สาขาเข้า `BAAC_CI_KV` (ตรวจ readback ตรงทุกไบต์) + สุ่ม `CI_SESSION_SECRET` เก็บใน `config.local.json`
 
 ## สิ่งที่ยังต้องพ่อ/ยังค้าง (ห้ามเดา)
 
