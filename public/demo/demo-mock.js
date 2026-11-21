@@ -389,30 +389,9 @@
     };
     return true;
   }
-  // เปิดแผงงานวันนี้ให้เห็นคิวตั้งแต่หน้าแรก (คนลองใช้จะได้เห็นปุ่มเก็บพิกัดทันที)
-  var _sheetStop = false;
-  document.addEventListener('pointerdown', function (e) {
-    var t = e.target;
-    if (t && t.closest && t.closest('#sheet-handle')) _sheetStop = true;
-  }, true);
-  var _sheetTicks = 0;
-  var _sheetTimer = setInterval(function () {
-    if (_sheetStop || ++_sheetTicks > 25) { clearInterval(_sheetTimer); return; }
-    if (!(window.Auth && Auth.isLoggedIn && Auth.isLoggedIn())) return;
-    if (typeof App === 'undefined' || !App.setSheetState) return;
-    var sh = document.getElementById('bottom-sheet');
-    if (!sh || sh.classList.contains('sheet-half') || sh.classList.contains('sheet-full')) return;
-    try {
-      if (App.switchSheetTab) App.switchSheetTab('today');
-      App.setSheetState('half');
-      setTimeout(function () {
-        var q = document.getElementById('gps-collect');
-        var sc = document.querySelector('.sheet-scroll');
-        if (q && sc) sc.scrollTop = Math.max(0, q.offsetTop - 12);
-      }, 500);
-    } catch (e) {}
-  }, 800);
-
+  // [ลบออก] เดิม demo บังคับ App.setSheetState('half') หลังล็อกอิน
+  // → แผงล่างทับแถบเมนู ทำให้กด "ลูกค้า/หนี้/ปฏิทิน" ไม่ได้ (hit-test เจอ .sheet-tab แทน)
+  // เว็บจริงไม่ทำแบบนี้ → ให้ demo ใช้สถานะเริ่มต้นเหมือนเว็บจริงทุกประการ
   var _gpsTries = 0;
   var _gpsTimer = setInterval(function () { if (patchDemoGps() || ++_gpsTries > 40) clearInterval(_gpsTimer); }, 500);
 
