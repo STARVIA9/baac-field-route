@@ -90,6 +90,12 @@ const Customers = {
     };
     this._baseLayers.roadmap.on("tileerror", _onTileErr);
     this._baseLayers.satellite.on("tileerror", _onTileErr);
+    L.imageOverlay("/basemap.png", [[13.2399455, 100.8984375], [14.2643831, 102.3046875]], {
+      pane: "tilePane",
+      zIndex: 1,
+      interactive: false,
+      opacity: 0.95
+    }).addTo(this.map);
     this._baseLayers.roadmap.addTo(this.map);
     this._currentBaseLayer = "roadmap";
     this._addLayerControl();

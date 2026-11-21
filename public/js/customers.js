@@ -79,6 +79,13 @@ const Customers = {
     this._baseLayers.roadmap.on('tileerror', _onTileErr);
     this._baseLayers.satellite.on('tileerror', _onTileErr);
 
+    // พื้นแผนที่สำรองแบบฝังในเครื่อง — รับประกันว่าเปิดแล้วเห็นแผนที่แม้ tile ออนไลน์โหลดไม่ได้
+    // (ปัญหาหลักบนมือถือกรรมการ: pin ขึ้นแต่พื้นเทา เพราะ OSM tile ถูกบล็อก/ช้า)
+    // วางใน tilePane zIndex ต่ำกว่า tile จริง → ถ้า tile โหลดได้จะทับภาพนี้เอง
+    L.imageOverlay('/basemap.png', [[13.2399455, 100.8984375], [14.2643831, 102.3046875]], {
+      pane: 'tilePane', zIndex: 1, interactive: false, opacity: 0.95
+    }).addTo(this.map);
+
     this._baseLayers.roadmap.addTo(this.map);
     this._currentBaseLayer = 'roadmap';
 
