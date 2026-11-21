@@ -11,7 +11,16 @@
   'use strict';
 
   // ---------- 0) ปิด Service Worker ในโหมดตัวอย่าง ----------
-  // กัน SW ตัวจริง (scope /) เข้ามาคุมหน้า demo
+  // กัน SW ตัวจริง (scope /) เข้ามาคุมหน้า demo — สำคัญมากกับ LINE WebView
+  // ต้องยกเลิก registration จริงก่อน แล้วค่อยแทนที่ navigator.serviceWorker ด้านล่าง
+  try {
+    if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        return Promise.all(regs.map(function (r) { try { return r.unregister(); } catch (e) { return null; } }));
+      }).catch(function () {});
+    }
+  } catch (e) {}
+
   try {
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
