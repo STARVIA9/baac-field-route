@@ -501,12 +501,22 @@
     if (sessionStorage.getItem('demo_banner_closed') === '1') return;
     var d = document.createElement('div');
     d.id = 'demo-banner';
-    d.innerHTML = '<span>เว็บตัวอย่าง · ข้อมูลสมมุติ · PIN <b>1234</b></span>' +
-      '<button type="button" id="demo-banner-fix" title="ลบแคชเก่า + โหลดเว็บใหม่ 1 จิ้ม">🔄 ซ่อมเว็บ</button>' +
-      '<button type="button" id="demo-banner-reset" title="ล้างข้อมูลที่ลองแก้ แล้วเริ่มใหม่">เริ่มใหม่</button>' +
-      '<button type="button" id="demo-banner-x" aria-label="ปิดป้าย">✕</button>';
+    d.innerHTML = '<span class="demo-banner-label">เว็บตัวอย่าง · PIN <b>1234</b></span>' +
+      '<span id="demo-banner-actions">' +
+      '<button type="button" id="demo-banner-fix" title="เริ่มใหม่ + ซ่อมเว็บ — ล้างข้อมูลแล้วโหลดใหม่" aria-label="เริ่มใหม่และซ่อมเว็บ">🔄</button>' +
+      '<button type="button" id="demo-banner-x" title="ปิดแถบ" aria-label="ปิดแถบ">✕</button>' +
+      '</span>';
     d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:60000;background:#7c2d12;color:#fff;' +
-      'font-size:14px;font-weight:700;text-align:center;padding:8px 96px 8px 12px;line-height:1.45;';
+      'font-size:16px;font-weight:700;line-height:1.3;padding:5px 100px 5px 8px;min-height:52px;' +
+      'display:flex;align-items:center;justify-content:center;';
+    var label = d.querySelector('.demo-banner-label');
+    label.style.cssText = 'width:100%;text-align:center;white-space:nowrap;';
+    var acts = d.querySelector('#demo-banner-actions');
+    acts.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;gap:5px;';
+    acts.querySelectorAll('button').forEach(function (b) {
+      b.style.cssText = 'min-width:44px;min-height:44px;border:1px solid rgba(255,255,255,.6);' +
+        'border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;font-weight:700;';
+    });
     // spacer กันแบนเนอร์ทับหัวเว็บ (ตัวเลือกของเว็บจริงต้องมองเห็นครบ)
     var sp = document.createElement('div');
     sp.id = 'demo-banner-spacer';
@@ -517,25 +527,18 @@
     setTimeout(fit, 400);
     setTimeout(fit, 1200);
     var fx = d.querySelector('#demo-banner-fix');
-    fx.style.cssText = 'margin-left:6px;background:#fff;color:#7c2d12;border:1px solid #fff;' +
-      'border-radius:10px;font-size:14px;padding:0 10px;min-height:40px;font-weight:700';
-    fx.onclick = function () { window.__demoHardRepair(fx); };
-    var rs = d.querySelector('#demo-banner-reset');
-    rs.style.cssText = 'margin-left:8px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.55);' +
-      'border-radius:10px;font-size:13px;padding:0 10px;min-height:32px;font-weight:600';
-    rs.onclick = function () {
+    fx.title = 'เริ่มใหม่ + ซ่อมเว็บ — ล้างข้อมูลแล้วโหลดใหม่';
+    fx.onclick = function () {
       try {
         Object.keys(localStorage).filter(function (k) { return k.indexOf('demo_') === 0; })
-          .forEach(function (k) { localStorage.removeItem(k); });
+          .forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
         sessionStorage.clear();
         if (window.indexedDB && indexedDB.deleteDatabase) indexedDB.deleteDatabase('bfr-demo');
-      } catch (e) { /* ignore */ }
-      // สำคัญ: ห้าม location.reload() ธรรมดา — แคชเดิมจะยังอยู่แล้วค้างที่เดิมอีก
-      window.__demoHardRepair(rs);
+      } catch (e) {}
+      window.__demoHardRepair(fx);
     };
     var x = d.querySelector('#demo-banner-x');
-    x.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;' +
-      'color:#fff;border:2px solid #fff;border-radius:10px;font-size:16px;min-width:40px;min-height:40px;';
+    x.title = 'ปิดแถบตัวอย่าง';
     x.onclick = function () {
       try { sessionStorage.setItem('demo_banner_closed', '1'); } catch (e) {}
       d.remove(); sp.remove();
