@@ -1,0 +1,10 @@
+{
+  "_comment": "-copy เป็น config.local.json แล้วเติมค่าจริง (ไฟล์นี้ถูก gitignore)",
+  "oneDriveLink": "https://.../โฟลเดอร์ซองที่พ่อสร้างวันจันทร์",
+  "admins": {
+    "854": "PIN-สาขาวังท่าช้าง-อย่าเดา",
+    "145": "PIN-สาขากบินทร์บุรี-อย่าเดา"
+  },
+  "_sessionSecret": "ถ้าเว้นว่าง ระบบจะสุ่มให้ 32 ไบต์ตอน setup (เก็บใน config.local.json เท่านั้น)",
+  "sessionSecret": ""
+}

@@ -11,5 +11,9 @@ tunnel-url.txt
 # backups มีข้อมูลลูกค้า (PII) — ห้าม commit
 backups/
 
+# ci-app ค่าจริง (PIN / secret / ลิงก์ OneDrive) — ห้าม commit
+ci-app/config.local.json
+ci-app/*.bfrpack
+
 # ไฟล์สำรองตอน build (vendor.js.bak.*) — เก็บในเครื่องพอ
 public/js/*.bak.*
