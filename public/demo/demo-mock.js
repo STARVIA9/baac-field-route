@@ -26,6 +26,14 @@
     });
   } catch (e) { /* อุปกรณ์เก่าไม่รองรับก็ข้าม */ }
 
+  // ---------- 0.5) ทุกการเปิด = เหมือนเปิดครั้งแรก (พ่อแจ้ง: เปิดครั้งแรกไม่ค้าง / เปิดใหม่ค้าง) ----------
+  // state เก่า (demo_bfr_token / route / visits) ทำให้ auto-login + restore เส้นทางเก่าแล้วติด
+  // → ล้างทุกครั้งตอนโหลด ให้ demo เริ่มจากศูนย์เหมือนเว็บจริงตอนยังไม่มีแคช
+  try {
+    Object.keys(localStorage).filter(function (k) { return k.indexOf('demo_') === 0; })
+      .forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  } catch (e) {}
+
   // ---------- 1) แยกที่เก็บข้อมูล (กันปนกับเว็บจริง) ----------
   function mapKey(k) {
     if (typeof k !== 'string') return k;
