@@ -1580,11 +1580,28 @@
           d.id = 'boot-warn';
           d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:16px;z-index:70000;background:#7c2d12;color:#fff;padding:12px 14px;border-radius:12px;font:600 15px/1.5 sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)';
           d.innerHTML = '⚠️ หน้าเว็บโหลดไม่สมบูรณ์ — ถ้าเครื่องนี้เป็นรุ่นเก่า กรุณาอัปเดตเบราว์เซอร์ หรือเปิดด้วย Chrome/Safari รุ่นใหม่' +
-            '<br><button onclick="location.reload()" style="margin-top:8px;padding:8px 14px;border:0;border-radius:8px;background:#fff;color:#7c2d12;font-weight:700">โหลดใหม่</button>';
+            '<br><button id="boot-fix-btn" style="margin-top:8px;padding:10px 16px;min-height:40px;border:0;border-radius:8px;background:#fff;color:#7c2d12;font-weight:700">🔄 ซ่อมเว็บ</button>';
+          var fix = d.querySelector('#boot-fix-btn');
+          fix.onclick = function () {
+            if (typeof window.__demoHardRepair === 'function') { window.__demoHardRepair(fix); return; }
+            var u = new URL(location.href); u.searchParams.set('_fix', String(Date.now())); location.replace(u.toString());
+          };
           document.body.appendChild(d);
         } catch (e) {}
       }
-      window.addEventListener('load', function () { setTimeout(check, 15000); });
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          check();
+          // ซ่อมเองครั้งเดียวถ้ายังค้าง — flag ใน sessionStorage กันลูปไม่จบ
+          try {
+            if (document.getElementById('boot-warn') && sessionStorage.getItem('demo_auto_fixed') !== '1') {
+              sessionStorage.setItem('demo_auto_fixed', '1');
+              if (typeof window.__demoHardRepair === 'function') window.__demoHardRepair();
+              else { var u = new URL(location.href); u.searchParams.set('_fix', String(Date.now())); location.replace(u.toString()); }
+            }
+          } catch (e) {}
+        }, 25000);
+      });
       // ถ้าโหลดสำเร็จภายหลัง ให้เอาป้ายออก
       setInterval(function () {
         try {

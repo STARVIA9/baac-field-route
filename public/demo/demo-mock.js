@@ -58,6 +58,41 @@
     }
   } catch (e) {}
 
+  // ---------- 1.5) ซ่อมเว็บ — ทางเดียวที่ใช้โหลดใหม่ (กันลูปโหลดค้าง) ----------
+  // ทุกปุ่มที่โหลดใหม่ต้องเรียกฟังก์ชันนี้ ห้ามใช้ location.reload() ธรรมดา
+  // เพราะแคช/Service Worker ตัวเดิมจะยังอยู่ → โหลดใหม่ก็ค้างที่เดิมอีก
+  window.__demoHardRepair = function (btn) {
+    if (window.__demoRepairing) return;   // กันกดซ้ำ/ auto + manual พร้อมกัน
+    window.__demoRepairing = true;
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังซ่อม...'; }
+    var go = function () {
+      var u = new URL(location.href);
+      u.searchParams.set('_fix', String(Date.now()));
+      location.replace(u.toString());
+    };
+    var fail = function () {
+      if (btn) { btn.disabled = false; btn.textContent = old; }
+      alert('ซ่อมอัตโนมัติไม่สำเร็จ — ปิดแท็บทั้งหมดแล้วเปิดใหม่ค่ะ');
+    };
+    var clearCaches = function () {
+      if (!window.caches || typeof caches.keys !== 'function') return Promise.resolve();
+      return caches.keys().then(function (names) {
+        return Promise.all(names.map(function (n) { try { return caches.delete(n); } catch (e) { return null; } }));
+      });
+    };
+    try {
+      // โหมดตัวอย่างดัก serviceWorker ไว้ (ไม่มี getRegistrations) → ต้องเช็คก่อนเรียก
+      if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { try { return r.unregister(); } catch (e) { return null; } }));
+        }).then(clearCaches).then(go).catch(fail);
+      } else {
+        clearCaches().then(go).catch(fail);
+      }
+    } catch (e) { fail(e); }
+  };
+
   // ---------- 2) ข้อมูลสมมุติ ----------
   var DEMO_T0 = '2026-10-23T00:00:00.000Z';
   function b64(s) {
@@ -488,34 +523,7 @@
     var fx = d.querySelector('#demo-banner-fix');
     fx.style.cssText = 'margin-left:6px;background:#fff;color:#7c2d12;border:1px solid #fff;' +
       'border-radius:10px;font-size:14px;padding:0 10px;min-height:40px;font-weight:700';
-    fx.onclick = function () {
-      fx.disabled = true; fx.textContent = '⏳ กำลังซ่อม...';
-      var done = function () {
-        var u = new URL(location.href);
-        u.searchParams.set('_fix', String(Date.now()));
-        location.replace(u.toString());   // โหลดใหม่แบบบังคับ ไม่ใช้แคชเก่า
-      };
-      var fail = function (e) {
-        alert('ซ่อมอัตโนมัติไม่สำเร็จ — ปิดแท็บทั้งหมดแล้วเปิดใหม่ค่ะ');
-        fx.disabled = false; fx.textContent = '🔄 ซ่อมเว็บ';
-      };
-      var clearCaches = function () {
-        if (!window.caches || typeof caches.keys !== 'function') return Promise.resolve();
-        return caches.keys().then(function (names) {
-          return Promise.all(names.map(function (n) { try { return caches.delete(n); } catch (e) { return null; } }));
-        });
-      };
-      try {
-        // โหมดตัวอย่างดัก serviceWorker ไว้ (ไม่มี getRegistrations) → ต้องเช็คก่อนเรียก
-        if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(regs.map(function (r) { try { return r.unregister(); } catch (e) { return null; } }));
-          }).then(clearCaches).then(done).catch(fail);
-        } else {
-          clearCaches().then(done).catch(fail);
-        }
-      } catch (e) { fail(e); }
-    };
+    fx.onclick = function () { window.__demoHardRepair(fx); };
     var rs = d.querySelector('#demo-banner-reset');
     rs.style.cssText = 'margin-left:8px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.55);' +
       'border-radius:10px;font-size:13px;padding:0 10px;min-height:32px;font-weight:600';
@@ -526,7 +534,8 @@
         sessionStorage.clear();
         if (window.indexedDB && indexedDB.deleteDatabase) indexedDB.deleteDatabase('bfr-demo');
       } catch (e) { /* ignore */ }
-      location.reload();
+      // สำคัญ: ห้าม location.reload() ธรรมดา — แคชเดิมจะยังอยู่แล้วค้างที่เดิมอีก
+      window.__demoHardRepair(rs);
     };
     var x = d.querySelector('#demo-banner-x');
     x.style.cssText = 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;' +
